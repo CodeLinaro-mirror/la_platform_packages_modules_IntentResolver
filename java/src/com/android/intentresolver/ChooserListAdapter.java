@@ -19,6 +19,7 @@ package com.android.intentresolver;
 import static com.android.intentresolver.ChooserActivity.TARGET_TYPE_SHORTCUTS_FROM_PREDICTION_SERVICE;
 import static com.android.intentresolver.ChooserActivity.TARGET_TYPE_SHORTCUTS_FROM_SHORTCUT_MANAGER;
 
+import android.annotation.Nullable;
 import android.app.ActivityManager;
 import android.app.prediction.AppPredictor;
 import android.content.ComponentName;
@@ -71,23 +72,18 @@ public class ChooserListAdapter extends ResolverListAdapter {
     public static final int TARGET_STANDARD_AZ = 3;
 
     private static final int MAX_SUGGESTED_APP_TARGETS = 4;
-    private static final int MAX_CHOOSER_TARGETS_PER_APP = 2;
 
     /** {@link #getBaseScore} */
     public static final float CALLER_TARGET_SCORE_BOOST = 900.f;
     /** {@link #getBaseScore} */
     public static final float SHORTCUT_TARGET_SCORE_BOOST = 90.f;
-    private static final float PINNED_SHORTCUT_TARGET_SCORE_BOOST = 1000.f;
 
-    private final int mMaxShortcutTargetsPerApp;
     private final ChooserListCommunicator mChooserListCommunicator;
     private final SelectableTargetInfo.SelectableTargetInfoCommunicator
             mSelectableTargetInfoCommunicator;
     private final ChooserActivityLogger mChooserActivityLogger;
 
-    private int mNumShortcutResults = 0;
     private final Map<TargetInfo, AsyncTask> mIconLoaders = new HashMap<>();
-    private boolean mApplySharingAppLimits;
 
     // Reserve spots for incoming direct share targets by adding placeholders
     private ChooserTargetInfo
@@ -95,8 +91,6 @@ public class ChooserListAdapter extends ResolverListAdapter {
     private final List<ChooserTargetInfo> mServiceTargets = new ArrayList<>();
     private final List<DisplayResolveInfo> mCallerTargets = new ArrayList<>();
 
-    private final ChooserActivity.BaseChooserTargetComparator mBaseTargetComparator =
-            new ChooserActivity.BaseChooserTargetComparator();
     private boolean mListViewDataChanged = false;
 
     // Sorted list of DisplayResolveInfos for the alphabetical app section.
@@ -105,6 +99,8 @@ public class ChooserListAdapter extends ResolverListAdapter {
     private AppPredictor.Callback mAppPredictorCallback;
 
     private LoadDirectShareIconTaskProvider mTestLoadDirectShareTaskProvider;
+
+    private final ShortcutSelectionLogic mShortcutSelectionLogic;
 
     // For pinned direct share labels, if the text spans multiple lines, the TextView will consume
     // the full width, even if the characters actually take up less than that. Measure the actual
@@ -137,9 +133,13 @@ public class ChooserListAdapter extends ResolverListAdapter {
                 }
             };
 
-    public ChooserListAdapter(Context context, List<Intent> payloadIntents,
-            Intent[] initialIntents, List<ResolveInfo> rList,
-            boolean filterLastUsed, ResolverListController resolverListController,
+    public ChooserListAdapter(
+            Context context,
+            List<Intent> payloadIntents,
+            Intent[] initialIntents,
+            List<ResolveInfo> rList,
+            boolean filterLastUsed,
+            ResolverListController resolverListController,
             ChooserListCommunicator chooserListCommunicator,
             SelectableTargetInfo.SelectableTargetInfoCommunicator selectableTargetInfoCommunicator,
             PackageManager packageManager,
@@ -149,12 +149,17 @@ public class ChooserListAdapter extends ResolverListAdapter {
         super(context, payloadIntents, null, rList, filterLastUsed,
                 resolverListController, chooserListCommunicator, false);
 
-        mMaxShortcutTargetsPerApp =
-                context.getResources().getInteger(R.integer.config_maxShortcutTargetsPerApp);
         mChooserListCommunicator = chooserListCommunicator;
         createPlaceHolders();
         mSelectableTargetInfoCommunicator = selectableTargetInfoCommunicator;
         mChooserActivityLogger = chooserActivityLogger;
+        mShortcutSelectionLogic = new ShortcutSelectionLogic(
+                context.getResources().getInteger(R.integer.config_maxShortcutTargetsPerApp),
+                DeviceConfig.getBoolean(
+                        DeviceConfig.NAMESPACE_SYSTEMUI,
+                        SystemUiDeviceConfigFlags.APPLY_SHARING_APP_LIMITS_IN_SYSUI,
+                        true)
+        );
 
         if (initialIntents != null) {
             for (int i = 0; i < initialIntents.length; i++) {
@@ -207,10 +212,6 @@ public class ChooserListAdapter extends ResolverListAdapter {
                 if (mCallerTargets.size() == MAX_SUGGESTED_APP_TARGETS) break;
             }
         }
-        mApplySharingAppLimits = DeviceConfig.getBoolean(
-                DeviceConfig.NAMESPACE_SYSTEMUI,
-                SystemUiDeviceConfigFlags.APPLY_SHARING_APP_LIMITS_IN_SYSUI,
-                true);
     }
 
     AppPredictor getAppPredictor() {
@@ -242,8 +243,8 @@ public class ChooserListAdapter extends ResolverListAdapter {
         mListViewDataChanged = false;
     }
 
+
     private void createPlaceHolders() {
-        mNumShortcutResults = 0;
         mServiceTargets.clear();
         for (int i = 0; i < mChooserListCommunicator.getMaxRankedTargets(); i++) {
             mServiceTargets.add(mPlaceHolderTargetInfo);
@@ -252,8 +253,7 @@ public class ChooserListAdapter extends ResolverListAdapter {
 
     @Override
     View onCreateView(ViewGroup parent) {
-        return mInflater.inflate(
-                R.layout.resolve_grid_item, parent, false);
+        return mInflater.inflate(R.layout.resolve_grid_item, parent, false);
     }
 
     @Override
@@ -266,25 +266,20 @@ public class ChooserListAdapter extends ResolverListAdapter {
             return;
         }
 
-        if (info instanceof DisplayResolveInfo) {
+        holder.bindLabel(info.getDisplayLabel(), info.getExtendedInfo(), alwaysShowSubLabel());
+        holder.bindIcon(info);
+        if (info instanceof SelectableTargetInfo) {
+            // direct share targets should append the application name for a better readout
+            DisplayResolveInfo rInfo = ((SelectableTargetInfo) info).getDisplayResolveInfo();
+            CharSequence appName = rInfo != null ? rInfo.getDisplayLabel() : "";
+            CharSequence extendedInfo = info.getExtendedInfo();
+            String contentDescription = String.join(" ", info.getDisplayLabel(),
+                    extendedInfo != null ? extendedInfo : "", appName);
+            holder.updateContentDescription(contentDescription);
+        } else if (info instanceof DisplayResolveInfo) {
             DisplayResolveInfo dri = (DisplayResolveInfo) info;
-            holder.bindLabel(dri.getDisplayLabel(), dri.getExtendedInfo(), alwaysShowSubLabel());
-            startDisplayResolveInfoIconLoading(holder, dri);
-        } else {
-            holder.bindLabel(info.getDisplayLabel(), info.getExtendedInfo(), alwaysShowSubLabel());
-
-            if (info instanceof SelectableTargetInfo) {
-                SelectableTargetInfo selectableInfo = (SelectableTargetInfo) info;
-                // direct share targets should append the application name for a better readout
-                DisplayResolveInfo rInfo = selectableInfo.getDisplayResolveInfo();
-                CharSequence appName = rInfo != null ? rInfo.getDisplayLabel() : "";
-                CharSequence extendedInfo = selectableInfo.getExtendedInfo();
-                String contentDescription = String.join(" ", selectableInfo.getDisplayLabel(),
-                        extendedInfo != null ? extendedInfo : "", appName);
-                holder.updateContentDescription(contentDescription);
-                startSelectableTargetInfoIconLoading(holder, selectableInfo);
-            } else {
-                holder.bindIcon(info);
+            if (!dri.hasDisplayIcon()) {
+                loadIcon(dri);
             }
         }
 
@@ -323,32 +318,6 @@ public class ChooserListAdapter extends ResolverListAdapter {
             holder.text.setBackground(null);
             holder.text.setPaddingRelative(0, 0, 0, 0);
         }
-    }
-
-    private void startDisplayResolveInfoIconLoading(ViewHolder holder, DisplayResolveInfo info) {
-        LoadIconTask task = (LoadIconTask) mIconLoaders.get(info);
-        if (task == null) {
-            task = new LoadIconTask(info, holder);
-            mIconLoaders.put(info, task);
-            task.execute();
-        } else {
-            // The holder was potentially changed as the underlying items were
-            // reshuffled, so reset the target holder
-            task.setViewHolder(holder);
-        }
-    }
-
-    private void startSelectableTargetInfoIconLoading(
-            ViewHolder holder, SelectableTargetInfo info) {
-        LoadDirectShareIconTask task = (LoadDirectShareIconTask) mIconLoaders.get(info);
-        if (task == null) {
-            task = mTestLoadDirectShareTaskProvider == null
-                    ? new LoadDirectShareIconTask(info)
-                    : mTestLoadDirectShareTaskProvider.get();
-            mIconLoaders.put(info, task);
-            task.loadIcon();
-        }
-        task.setViewHolder(holder);
     }
 
     void updateAlphabeticalList() {
@@ -555,80 +524,31 @@ public class ChooserListAdapter extends ResolverListAdapter {
      * Evaluate targets for inclusion in the direct share area. May not be included
      * if score is too low.
      */
-    public void addServiceResults(DisplayResolveInfo origTarget, List<ChooserTarget> targets,
+    public void addServiceResults(
+            @Nullable DisplayResolveInfo origTarget,
+            List<ChooserTarget> targets,
             @ChooserActivity.ShareTargetType int targetType,
             Map<ChooserTarget, ShortcutInfo> directShareToShortcutInfos) {
-        if (DEBUG) {
-            Log.d(TAG, "addServiceResults " + origTarget.getResolvedComponentName() + ", "
-                    + targets.size()
-                    + " targets");
-        }
-        if (targets.size() == 0) {
+        // Avoid inserting any potentially late results.
+        if ((mServiceTargets.size() == 1)
+                && (mServiceTargets.get(0) instanceof ChooserActivity.EmptyTargetInfo)) {
             return;
         }
-        final float baseScore = getBaseScore(origTarget, targetType);
-        Collections.sort(targets, mBaseTargetComparator);
-        final boolean isShortcutResult =
-                (targetType == TARGET_TYPE_SHORTCUTS_FROM_SHORTCUT_MANAGER
-                        || targetType == TARGET_TYPE_SHORTCUTS_FROM_PREDICTION_SERVICE);
-        final int maxTargets = isShortcutResult ? mMaxShortcutTargetsPerApp
-                : MAX_CHOOSER_TARGETS_PER_APP;
-        final int targetsLimit = mApplySharingAppLimits ? Math.min(targets.size(), maxTargets)
-                : targets.size();
-        float lastScore = 0;
-        boolean shouldNotify = false;
-        for (int i = 0, count = targetsLimit; i < count; i++) {
-            final ChooserTarget target = targets.get(i);
-            float targetScore = target.getScore();
-            if (mApplySharingAppLimits) {
-                targetScore *= baseScore;
-                if (i > 0 && targetScore >= lastScore) {
-                    // Apply a decay so that the top app can't crowd out everything else.
-                    // This incents ChooserTargetServices to define what's truly better.
-                    targetScore = lastScore * 0.95f;
-                }
-            }
-            ShortcutInfo shortcutInfo = isShortcutResult ? directShareToShortcutInfos.get(target)
-                    : null;
-            if ((shortcutInfo != null) && shortcutInfo.isPinned()) {
-                targetScore += PINNED_SHORTCUT_TARGET_SCORE_BOOST;
-            }
-            UserHandle userHandle = getUserHandle();
-            Context contextAsUser = mContext.createContextAsUser(userHandle, 0 /* flags */);
-            boolean isInserted = insertServiceTarget(new SelectableTargetInfo(contextAsUser,
-                    origTarget, target, targetScore, mSelectableTargetInfoCommunicator,
-                    shortcutInfo));
-
-            if (isInserted && isShortcutResult) {
-                mNumShortcutResults++;
-            }
-
-            shouldNotify |= isInserted;
-
-            if (DEBUG) {
-                Log.d(TAG, " => " + target.toString() + " score=" + targetScore
-                        + " base=" + target.getScore()
-                        + " lastScore=" + lastScore
-                        + " baseScore=" + baseScore
-                        + " applyAppLimit=" + mApplySharingAppLimits);
-            }
-
-            lastScore = targetScore;
-        }
-
-        if (shouldNotify) {
+        boolean isShortcutResult = targetType == TARGET_TYPE_SHORTCUTS_FROM_SHORTCUT_MANAGER
+                || targetType == TARGET_TYPE_SHORTCUTS_FROM_PREDICTION_SERVICE;
+        boolean isUpdated = mShortcutSelectionLogic.addServiceResults(
+                origTarget,
+                getBaseScore(origTarget, targetType),
+                targets,
+                isShortcutResult,
+                directShareToShortcutInfos,
+                mContext.createContextAsUser(getUserHandle(), 0),
+                mSelectableTargetInfoCommunicator,
+                mChooserListCommunicator.getMaxRankedTargets(),
+                mServiceTargets);
+        if (isUpdated) {
             notifyDataSetChanged();
         }
-    }
-
-    /**
-     * The return number have to exceed a minimum limit to make direct share area expandable. When
-     * append direct share targets is enabled, return count of all available targets parking in the
-     * memory; otherwise, it is shortcuts count which will help reduce the amount of visible
-     * shuffling due to older-style direct share targets.
-     */
-    int getNumServiceTargetsForExpand() {
-        return mNumShortcutResults;
     }
 
     /**
@@ -665,42 +585,6 @@ public class ChooserListAdapter extends ResolverListAdapter {
             mChooserActivityLogger.logSharesheetEmptyDirectShareRow();
         }
         notifyDataSetChanged();
-    }
-
-    private boolean insertServiceTarget(ChooserTargetInfo chooserTargetInfo) {
-        // Avoid inserting any potentially late results
-        if (mServiceTargets.size() == 1
-                && mServiceTargets.get(0) instanceof ChooserActivity.EmptyTargetInfo) {
-            return false;
-        }
-
-        // Check for duplicates and abort if found
-        for (ChooserTargetInfo otherTargetInfo : mServiceTargets) {
-            if (chooserTargetInfo.isSimilar(otherTargetInfo)) {
-                return false;
-            }
-        }
-
-        int currentSize = mServiceTargets.size();
-        final float newScore = chooserTargetInfo.getModifiedScore();
-        for (int i = 0; i < Math.min(currentSize, mChooserListCommunicator.getMaxRankedTargets());
-                i++) {
-            final ChooserTargetInfo serviceTarget = mServiceTargets.get(i);
-            if (serviceTarget == null) {
-                mServiceTargets.set(i, chooserTargetInfo);
-                return true;
-            } else if (newScore > serviceTarget.getModifiedScore()) {
-                mServiceTargets.add(i, chooserTargetInfo);
-                return true;
-            }
-        }
-
-        if (currentSize < mChooserListCommunicator.getMaxRankedTargets()) {
-            mServiceTargets.add(chooserTargetInfo);
-            return true;
-        }
-
-        return false;
     }
 
     public ChooserTarget getChooserTargetForValue(int value) {
@@ -761,24 +645,10 @@ public class ChooserListAdapter extends ResolverListAdapter {
     }
 
     /**
-     * An alias for onBindView to use with unit tests.
-     */
-    @VisibleForTesting
-    public void testViewBind(View view, TargetInfo info, int position) {
-        onBindView(view, info, position);
-    }
-
-    @VisibleForTesting
-    public void setTestLoadDirectShareTaskProvider(LoadDirectShareIconTaskProvider provider) {
-        mTestLoadDirectShareTaskProvider = provider;
-    }
-
-    /**
      * Necessary methods to communicate between {@link ChooserListAdapter}
      * and {@link ChooserActivity}.
      */
-    @VisibleForTesting
-    public interface ChooserListCommunicator extends ResolverListCommunicator {
+    interface ChooserListCommunicator extends ResolverListCommunicator {
 
         int getMaxRankedTargets();
 

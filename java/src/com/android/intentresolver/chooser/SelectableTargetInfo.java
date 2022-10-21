@@ -41,7 +41,6 @@ import com.android.intentresolver.ChooserActivity;
 import com.android.intentresolver.ResolverActivity;
 import com.android.intentresolver.ResolverListAdapter.ActivityInfoPresentationGetter;
 import com.android.intentresolver.SimpleIconFactory;
-
 import com.android.internal.annotations.GuardedBy;
 
 import java.util.ArrayList;
@@ -55,6 +54,7 @@ public final class SelectableTargetInfo implements ChooserTargetInfo {
     private static final String TAG = "SelectableTargetInfo";
 
     private final Context mContext;
+    @Nullable
     private final DisplayResolveInfo mSourceInfo;
     private final ResolveInfo mBackupResolveInfo;
     private final ChooserTarget mChooserTarget;
@@ -73,7 +73,7 @@ public final class SelectableTargetInfo implements ChooserTargetInfo {
     private final float mModifiedScore;
     private boolean mIsSuspended = false;
 
-    public SelectableTargetInfo(Context context, DisplayResolveInfo sourceInfo,
+    public SelectableTargetInfo(Context context, @Nullable DisplayResolveInfo sourceInfo,
             ChooserTarget chooserTarget,
             float modifiedScore, SelectableTargetInfoCommunicator selectableTargetInfoComunicator,
             @Nullable ShortcutInfo shortcutInfo) {
@@ -144,6 +144,7 @@ public final class SelectableTargetInfo implements ChooserTargetInfo {
         return mIsSuspended;
     }
 
+    @Nullable
     public DisplayResolveInfo getDisplayResolveInfo() {
         return mSourceInfo;
     }
@@ -258,6 +259,7 @@ public final class SelectableTargetInfo implements ChooserTargetInfo {
         }
         intent.setComponent(mChooserTarget.getComponentName());
         intent.putExtras(mChooserTarget.getIntentExtras());
+        TargetInfo.prepareIntentForCrossProfileLaunch(intent, userId);
 
         // Important: we will ignore the target security checks in ActivityManager
         // if and only if the ChooserTarget's target package is the same package
