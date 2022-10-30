@@ -23,16 +23,15 @@ import android.text.TextUtils;
  * A TargetInfo for Direct Share. Includes a {@link ChooserTarget} representing the
  * Direct Share deep link into an application.
  */
-public interface ChooserTargetInfo extends TargetInfo {
-    float getModifiedScore();
+public abstract class ChooserTargetInfo implements TargetInfo {
 
-    ChooserTarget getChooserTarget();
+    @Override
+    public final boolean isChooserTargetInfo() {
+        return true;
+    }
 
-    /**
-     * Do not label as 'equals', since this doesn't quite work
-     * as intended with java 8.
-     */
-    default boolean isSimilar(ChooserTargetInfo other) {
+    @Override
+    public boolean isSimilar(TargetInfo other) {
         if (other == null) return false;
 
         ChooserTarget ct1 = getChooserTarget();

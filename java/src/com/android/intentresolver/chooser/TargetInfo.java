@@ -17,6 +17,7 @@
 package com.android.intentresolver.chooser;
 
 
+import android.annotation.Nullable;
 import android.app.Activity;
 import android.content.ComponentName;
 import android.content.Context;
@@ -25,10 +26,12 @@ import android.content.pm.ResolveInfo;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.os.UserHandle;
+import android.service.chooser.ChooserTarget;
 
 import com.android.intentresolver.ResolverActivity;
 
 import java.util.List;
+import java.util.Objects;
 
 /**
  * A single target as represented in the chooser.
@@ -112,6 +115,10 @@ public interface TargetInfo {
     Drawable getDisplayIcon(Context context);
 
     /**
+     * @return true if display icon is available.
+     */
+    boolean hasDisplayIcon();
+    /**
      * Clone this target with the given fill-in information.
      */
     TargetInfo cloneFilledIn(Intent fillInIntent, int flags);
@@ -130,6 +137,177 @@ public interface TargetInfo {
      * @return true if this target should be pinned to the front by the request of the user
      */
     boolean isPinned();
+
+    /**
+     * Determine whether two targets represent "similar" content that could be de-duped.
+     * Note an earlier version of this code cautioned maintainers,
+     * "do not label as 'equals', since this doesn't quite work as intended with java 8."
+     * This seems to refer to the rule that interfaces can't provide defaults that conflict with the
+     * definitions of "real" methods in {@code java.lang.Object}, and (if desired) it could be
+     * presumably resolved by converting {@code TargetInfo} from an interface to an abstract class.
+     */
+    default boolean isSimilar(TargetInfo other) {
+        return Objects.equals(this, other);
+    }
+
+    /**
+     * @return the target score, including any Chooser-specific modifications that may have been
+     * applied (either overriding by special-case for "non-selectable" targets, or by twiddling the
+     * scores of "selectable" targets in {@link ChooserListAdapter}). Higher scores are "better."
+     * Targets that aren't intended for ranking/scoring should return a negative value.
+     */
+    default float getModifiedScore() {
+        return -0.1f;
+    }
+
+    /**
+     * @return the {@link ChooserTarget} record that contains additional data about this target, if
+     * any. This is only non-null for selectable targets (and probably only Direct Share targets?).
+     *
+     * @deprecated {@link ChooserTarget} (and any other related {@code ChooserTargetService} APIs)
+     * got deprecated as part of sunsetting that old system design, but for historical reasons
+     * Chooser continues to shoehorn data from other sources into this representation to maintain
+     * compatibility with legacy internal APIs. New clients should avoid taking any further
+     * dependencies on the {@link ChooserTarget} type; any data they want to query from those
+     * records should instead be pulled up to new query methods directly on this class (or on the
+     * root {@link TargetInfo}).
+     */
+    @Deprecated
+    @Nullable
+    default ChooserTarget getChooserTarget() {
+        return null;
+    }
+
+    /**
+     * Attempt to load the display icon, if we have the info for one but it hasn't been loaded yet.
+     * @return true if an icon may have been loaded as the result of this operation, potentially
+     * prompting a UI refresh. If this returns false, clients can safely assume there was no change.
+     */
+    default boolean loadIcon() {
+        return false;
+    }
+
+    /**
+     * Get more info about this target in the form of a {@link DisplayResolveInfo}, if available.
+     * TODO: this seems to return non-null only for ChooserTargetInfo subclasses. Determine the
+     * meaning of a TargetInfo (ChooserTargetInfo) embedding another kind of TargetInfo
+     * (DisplayResolveInfo) in this way, and - at least - improve this documentation; OTOH this
+     * probably indicates an opportunity to simplify or better separate these APIs. (For example,
+     * targets that <em>don't</em> descend from ChooserTargetInfo instead descend directly from
+     * DisplayResolveInfo; should they return `this`? Do we always use DisplayResolveInfo to
+     * represent visual properties, and then either assume some implicit metadata properties *or*
+     * embed that visual representation within a ChooserTargetInfo to carry additional metadata? If
+     * that's the case, maybe we could decouple by saying that all TargetInfos compose-in their
+     * visual representation [as a DisplayResolveInfo, now the root of its own class hierarchy] and
+     * then add a new TargetInfo type that explicitly represents the "implicit metadata" that we
+     * previously assumed for "naked DisplayResolveInfo targets" that weren't wrapped as
+     * ChooserTargetInfos. Or does all this complexity disappear once we stop relying on the
+     * deprecated ChooserTarget type?)
+     */
+    @Nullable
+    default DisplayResolveInfo getDisplayResolveInfo() {
+        return null;
+    }
+
+    /**
+     * @return true if this target represents a legacy {@code ChooserTargetInfo}. These objects were
+     * historically documented as representing "[a] TargetInfo for Direct Share." However, not all
+     * of these targets are actually *valid* for direct share; e.g. some represent "empty" items
+     * (although perhaps only for display in the Direct Share UI?). {@link #getChooserTarget()} will
+     * return null for any of these "invalid" items. In even earlier versions, these targets may
+     * also have been results from (now-deprecated/unsupported) {@code ChooserTargetService} peers;
+     * even though we no longer use these services, we're still shoehorning other target data into
+     * the deprecated {@link ChooserTarget} structure for compatibility with some internal APIs.
+     * TODO: refactor to clarify the semantics of any target for which this method returns true
+     * (e.g., are they characterized by their application in the Direct Share UI?), and to remove
+     * the scaffolding that adapts to and from the {@link ChooserTarget} structure. Eventually, we
+     * expect to remove this method (and others that strictly indicate legacy subclass roles) in
+     * favor of a more semantic design that expresses the purpose and distinctions in those roles.
+     */
+    default boolean isChooserTargetInfo() {
+        return false;
+    }
+
+    /**
+     * @return true if this target represents a legacy {@code DisplayResolveInfo}. These objects
+     * were historically documented as an augmented "TargetInfo plus additional information needed
+     * to render it (such as icon and label) and resolve it to an activity." That description in no
+     * way distinguishes from the base {@code TargetInfo} API. At the time of writing, these objects
+     * are most-clearly defined by their opposite; this returns true for exactly those instances of
+     * {@code TargetInfo} where {@link #isChooserTargetInfo()} returns false (these conditions are
+     * complementary because they correspond to the immediate {@code TargetInfo} child types that
+     * historically partitioned all concrete {@code TargetInfo} implementations). These may(?)
+     * represent any target displayed somewhere other than the Direct Share UI.
+     */
+    default boolean isDisplayResolveInfo() {
+        return false;
+    }
+
+    /**
+     * @return true if this target represents a legacy {@code MultiDisplayResolveInfo}. These
+     * objects were historically documented as representing "a 'stack' of chooser targets for
+     * various activities within the same component." For historical reasons this currently can
+     * return true only if {@link #isDisplayResolveInfo()} returns true (because the legacy classes
+     * shared an inheritance relationship), but new code should avoid relying on that relationship
+     * since these APIs are "in transition."
+     */
+    default boolean isMultiDisplayResolveInfo() {
+        return false;
+    }
+
+    /**
+     * @return true if this target represents a legacy {@code SelectableTargetInfo}. Note that this
+     * is defined for legacy compatibility and may not conform to other notions of a "selectable"
+     * target. For historical reasons, this method and {@link #isNotSelectableTargetInfo()} only
+     * partition the {@code TargetInfo} instances for which {@link #isChooserTargetInfo()} returns
+     * true; otherwise <em>both</em> methods return false.
+     * TODO: define selectability for targets not historically from {@code ChooserTargetInfo},
+     * then attempt to replace this with a new method like {@code TargetInfo#isSelectable()} that
+     * actually partitions <em>all</em> target types (after updating client usage as needed).
+     */
+    default boolean isSelectableTargetInfo() {
+        return false;
+    }
+
+    /**
+     * @return true if this target represents a legacy {@code NotSelectableTargetInfo} (i.e., a
+     * target where {@link #isChooserTargetInfo()} is true but {@link #isSelectableTargetInfo()} is
+     * false). For more information on how this divides the space of targets, see the Javadoc for
+     * {@link #isSelectableTargetInfo()}.
+     */
+    default boolean isNotSelectableTargetInfo() {
+        return false;
+    }
+
+    /**
+     * @return true if this target represents a legacy {@code ChooserActivity#EmptyTargetInfo}. Note
+     * that this is defined for legacy compatibility and may not conform to other notions of an
+     * "empty" target.
+     */
+    default boolean isEmptyTargetInfo() {
+        return false;
+    }
+
+    /**
+     * @return true if this target represents a legacy {@code ChooserActivity#PlaceHolderTargetInfo}
+     * (defined only for compatibility with historic use in {@link ChooserListAdapter}). For
+     * historic reasons (owing to a legacy subclass relationship) this can return true only if
+     * {@link #isNotSelectableTargetInfo()} also returns true.
+     */
+    default boolean isPlaceHolderTargetInfo() {
+        return false;
+    }
+
+    /**
+     * @return true if this target should be logged with the "direct_share" metrics category in
+     * {@link ResolverActivity#maybeLogCrossProfileTargetLaunch()}. This is defined for legacy
+     * compatibility and is <em>not</em> likely to be a good indicator of whether this is actually a
+     * "direct share" target (e.g. because it historically also applies to "empty" and "placeholder"
+     * targets).
+     */
+    default boolean isInDirectShareMetricsCategory() {
+        return isChooserTargetInfo();
+    }
 
     /**
      * Fix the URIs in {@code intent} if cross-profile sharing is required. This should be called

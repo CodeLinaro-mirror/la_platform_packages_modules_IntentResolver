@@ -644,7 +644,7 @@ public class ResolverListAdapter extends BaseAdapter {
             return;
         }
 
-        if (info instanceof DisplayResolveInfo) {
+        if (info.isDisplayResolveInfo()) {
             DisplayResolveInfo dri = (DisplayResolveInfo) info;
             boolean hasLabel = dri.hasDisplayLabel();
             holder.bindLabel(
@@ -870,7 +870,8 @@ public class ResolverListAdapter extends BaseAdapter {
     }
 
     /**
-     * A view holder.
+     * A view holder keeps a reference to a list view and provides functionality for managing its
+     * state.
      */
     @VisibleForTesting
     public static class ViewHolder {

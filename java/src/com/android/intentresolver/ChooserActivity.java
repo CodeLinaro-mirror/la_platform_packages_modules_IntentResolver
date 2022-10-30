@@ -65,7 +65,6 @@ import android.graphics.Color;
 import android.graphics.Insets;
 import android.graphics.Paint;
 import android.graphics.Path;
-import android.graphics.drawable.AnimatedVectorDrawable;
 import android.graphics.drawable.Drawable;
 import android.metrics.LogMaker;
 import android.net.Uri;
@@ -117,11 +116,8 @@ import androidx.viewpager.widget.ViewPager;
 
 import com.android.intentresolver.ResolverListAdapter.ActivityInfoPresentationGetter;
 import com.android.intentresolver.ResolverListAdapter.ViewHolder;
-import com.android.intentresolver.chooser.ChooserTargetInfo;
 import com.android.intentresolver.chooser.DisplayResolveInfo;
 import com.android.intentresolver.chooser.MultiDisplayResolveInfo;
-import com.android.intentresolver.chooser.NotSelectableTargetInfo;
-import com.android.intentresolver.chooser.SelectableTargetInfo;
 import com.android.intentresolver.chooser.SelectableTargetInfo.SelectableTargetInfoCommunicator;
 import com.android.intentresolver.chooser.TargetInfo;
 import com.android.intentresolver.widget.ResolverDrawerLayout;
@@ -554,32 +550,23 @@ public class ChooserActivity extends ResolverActivity implements
             super.onCreate(null);
             return;
         }
-        Intent target = (Intent) targetParcelable;
-        if (target != null) {
-            modifyTargetIntent(target);
-        }
+        final Intent target = (Intent) targetParcelable;
+        modifyTargetIntent(target);
         Parcelable[] targetsParcelable
                 = intent.getParcelableArrayExtra(Intent.EXTRA_ALTERNATE_INTENTS);
         if (targetsParcelable != null) {
-            final boolean offset = target == null;
-            Intent[] additionalTargets =
-                    new Intent[offset ? targetsParcelable.length - 1 : targetsParcelable.length];
+            Intent[] additionalTargets = new Intent[targetsParcelable.length];
             for (int i = 0; i < targetsParcelable.length; i++) {
                 if (!(targetsParcelable[i] instanceof Intent)) {
-                    Log.w(TAG, "EXTRA_ALTERNATE_INTENTS array entry #" + i + " is not an Intent: "
-                            + targetsParcelable[i]);
+                    Log.w(TAG, "EXTRA_ALTERNATE_INTENTS array entry #" + i
+                            + " is not an Intent: " + targetsParcelable[i]);
                     finish();
                     super.onCreate(null);
                     return;
                 }
                 final Intent additionalTarget = (Intent) targetsParcelable[i];
-                if (i == 0 && target == null) {
-                    target = additionalTarget;
-                    modifyTargetIntent(target);
-                } else {
-                    additionalTargets[offset ? i - 1 : i] = additionalTarget;
-                    modifyTargetIntent(additionalTarget);
-                }
+                additionalTargets[i] = additionalTarget;
+                modifyTargetIntent(additionalTarget);
             }
             setAdditionalTargets(additionalTargets);
         }
@@ -588,14 +575,12 @@ public class ChooserActivity extends ResolverActivity implements
 
         // Do not allow the title to be changed when sharing content
         CharSequence title = null;
-        if (target != null) {
-            if (!isSendAction(target)) {
-                title = intent.getCharSequenceExtra(Intent.EXTRA_TITLE);
-            } else {
-                Log.w(TAG, "Ignoring intent's EXTRA_TITLE, deprecated in P. You may wish to set a"
-                        + " preview title by using EXTRA_TITLE property of the wrapped"
-                        + " EXTRA_INTENT.");
-            }
+        if (!isSendAction(target)) {
+            title = intent.getCharSequenceExtra(Intent.EXTRA_TITLE);
+        } else {
+            Log.w(TAG, "Ignoring intent's EXTRA_TITLE, deprecated in P. You may wish to set a"
+                    + " preview title by using EXTRA_TITLE property of the wrapped"
+                    + " EXTRA_INTENT.");
         }
 
         int defaultTitleRes = 0;
@@ -1724,27 +1709,26 @@ public class ChooserActivity extends ResolverActivity implements
         ChooserTargetActionsDialogFragment fragment = new ChooserTargetActionsDialogFragment();
         Bundle bundle = new Bundle();
 
-        if (targetInfo instanceof SelectableTargetInfo) {
-            SelectableTargetInfo selectableTargetInfo = (SelectableTargetInfo) targetInfo;
-            if (selectableTargetInfo.getDisplayResolveInfo() == null
-                    || selectableTargetInfo.getChooserTarget() == null) {
+        if (targetInfo.isSelectableTargetInfo()) {
+            if (targetInfo.getDisplayResolveInfo() == null
+                    || targetInfo.getChooserTarget() == null) {
                 Log.e(TAG, "displayResolveInfo or chooserTarget in selectableTargetInfo are null");
                 return;
             }
             targetList = new ArrayList<>();
-            targetList.add(selectableTargetInfo.getDisplayResolveInfo());
+            targetList.add(targetInfo.getDisplayResolveInfo());
             bundle.putString(ChooserTargetActionsDialogFragment.SHORTCUT_ID_KEY,
-                    selectableTargetInfo.getChooserTarget().getIntentExtras().getString(
+                    targetInfo.getChooserTarget().getIntentExtras().getString(
                             Intent.EXTRA_SHORTCUT_ID));
             bundle.putBoolean(ChooserTargetActionsDialogFragment.IS_SHORTCUT_PINNED_KEY,
-                    selectableTargetInfo.isPinned());
+                    targetInfo.isPinned());
             bundle.putParcelable(ChooserTargetActionsDialogFragment.INTENT_FILTER_KEY,
                     getTargetIntentFilter());
-            if (selectableTargetInfo.getDisplayLabel() != null) {
+            if (targetInfo.getDisplayLabel() != null) {
                 bundle.putString(ChooserTargetActionsDialogFragment.SHORTCUT_TITLE_KEY,
-                        selectableTargetInfo.getDisplayLabel().toString());
+                        targetInfo.getDisplayLabel().toString());
             }
-        } else if (targetInfo instanceof MultiDisplayResolveInfo) {
+        } else if (targetInfo.isMultiDisplayResolveInfo()) {
             // For multiple targets, include info on all targets
             MultiDisplayResolveInfo mti = (MultiDisplayResolveInfo) targetInfo;
             targetList = mti.getTargets();
@@ -1806,13 +1790,13 @@ public class ChooserActivity extends ResolverActivity implements
                 mChooserMultiProfilePagerAdapter.getActiveListAdapter();
         TargetInfo targetInfo = currentListAdapter
                 .targetInfoForPosition(which, filtered);
-        if (targetInfo != null && targetInfo instanceof NotSelectableTargetInfo) {
+        if (targetInfo != null && targetInfo.isNotSelectableTargetInfo()) {
             return;
         }
 
         final long selectionCost = System.currentTimeMillis() - mChooserShownTime;
 
-        if (targetInfo instanceof MultiDisplayResolveInfo) {
+        if (targetInfo.isMultiDisplayResolveInfo()) {
             MultiDisplayResolveInfo mti = (MultiDisplayResolveInfo) targetInfo;
             if (!mti.hasSelected()) {
                 ChooserStackedAppDialogFragment f = new ChooserStackedAppDialogFragment();
@@ -1844,15 +1828,14 @@ public class ChooserActivity extends ResolverActivity implements
                     cat = MetricsEvent.ACTION_ACTIVITY_CHOOSER_PICKED_SERVICE_TARGET;
                     // Log the package name + target name to answer the question if most users
                     // share to mostly the same person or to a bunch of different people.
-                    ChooserTarget target = currentListAdapter.getChooserTargetForValue(value);
+                    ChooserTarget target = targetInfo.getChooserTarget();
                     directTargetHashed = HashedStringCache.getInstance().hashString(
                             this,
                             TAG,
                             target.getComponentName().getPackageName()
                                     + target.getTitle().toString(),
                             mMaxHashSaltDays);
-                    SelectableTargetInfo selectableTargetInfo = (SelectableTargetInfo) targetInfo;
-                    directTargetAlsoRanked = getRankedPosition(selectableTargetInfo);
+                    directTargetAlsoRanked = getRankedPosition(targetInfo);
 
                     if (mCallerChooserTargets != null) {
                         numCallerProvided = mCallerChooserTargets.length;
@@ -1861,7 +1844,7 @@ public class ChooserActivity extends ResolverActivity implements
                             SELECTION_TYPE_SERVICE,
                             targetInfo.getResolveInfo().activityInfo.processName,
                             value,
-                            selectableTargetInfo.isPinned()
+                            targetInfo.isPinned()
                     );
                     break;
                 case ChooserListAdapter.TARGET_CALLER:
@@ -1919,7 +1902,7 @@ public class ChooserActivity extends ResolverActivity implements
         }
     }
 
-    private int getRankedPosition(SelectableTargetInfo targetInfo) {
+    private int getRankedPosition(TargetInfo targetInfo) {
         String targetPackageName =
                 targetInfo.getChooserTarget().getComponentName().getPackageName();
         ChooserListAdapter currentListAdapter =
@@ -2135,7 +2118,7 @@ public class ChooserActivity extends ResolverActivity implements
     }
 
     void updateModelAndChooserCounts(TargetInfo info) {
-        if (info != null && info instanceof MultiDisplayResolveInfo) {
+        if (info != null && info.isMultiDisplayResolveInfo()) {
             info = ((MultiDisplayResolveInfo) info).getSelectedTarget();
         }
         if (info != null) {
@@ -2169,12 +2152,12 @@ public class ChooserActivity extends ResolverActivity implements
             return;
         }
         // Send DS target impression info to AppPredictor, only when user chooses app share.
-        if (targetInfo instanceof ChooserTargetInfo) {
+        if (targetInfo.isChooserTargetInfo()) {
             return;
         }
-        List<ChooserTargetInfo> surfacedTargetInfo = adapter.getSurfacedTargetInfo();
+        List<TargetInfo> surfacedTargetInfo = adapter.getSurfacedTargetInfo();
         List<AppTargetId> targetIds = new ArrayList<>();
-        for (ChooserTargetInfo chooserTargetInfo : surfacedTargetInfo) {
+        for (TargetInfo chooserTargetInfo : surfacedTargetInfo) {
             ChooserTarget chooserTarget = chooserTargetInfo.getChooserTarget();
             ComponentName componentName = chooserTarget.getComponentName();
             if (mDirectShareShortcutInfoCache.containsKey(chooserTarget)) {
@@ -2193,10 +2176,10 @@ public class ChooserActivity extends ResolverActivity implements
         if (directShareAppPredictor == null) {
             return;
         }
-        if (!(targetInfo instanceof ChooserTargetInfo)) {
+        if (!targetInfo.isChooserTargetInfo()) {
             return;
         }
-        ChooserTarget chooserTarget = ((ChooserTargetInfo) targetInfo).getChooserTarget();
+        ChooserTarget chooserTarget = targetInfo.getChooserTarget();
         AppTarget appTarget = null;
         if (mDirectShareAppTargetCache != null) {
             appTarget = mDirectShareAppTargetCache.get(chooserTarget);
@@ -2443,23 +2426,6 @@ public class ChooserActivity extends ResolverActivity implements
             logContentPreviewWarning(uri);
         }
         return null;
-    }
-
-    static final class PlaceHolderTargetInfo extends NotSelectableTargetInfo {
-        public Drawable getDisplayIcon(Context context) {
-            AnimatedVectorDrawable avd = (AnimatedVectorDrawable)
-                    context.getDrawable(R.drawable.chooser_direct_share_icon_placeholder);
-            avd.start(); // Start animation after generation
-            return avd;
-        }
-    }
-
-    protected static final class EmptyTargetInfo extends NotSelectableTargetInfo {
-        public EmptyTargetInfo() {}
-
-        public Drawable getDisplayIcon(Context context) {
-            return null;
-        }
     }
 
     private void handleScroll(View view, int x, int y, int oldx, int oldy) {
@@ -2954,7 +2920,7 @@ public class ChooserActivity extends ResolverActivity implements
                             .targetInfoForPosition(mListPosition, /* filtered */ true);
 
                     // This should always be the case for ItemViewHolder, check for validity
-                    if (ti instanceof DisplayResolveInfo && shouldShowTargetDetails(ti)) {
+                    if (ti.isDisplayResolveInfo() && shouldShowTargetDetails(ti)) {
                         showTargetDetails((DisplayResolveInfo) ti);
                     }
                     return true;
@@ -2968,8 +2934,8 @@ public class ChooserActivity extends ResolverActivity implements
         //  Suppress target details for nearby share to hide pin/unpin action
         boolean isNearbyShare = nearbyShare != null && nearbyShare.equals(
                 ti.getResolvedComponentName()) && shouldNearbyShareBeFirstInRankedRow();
-        return ti instanceof SelectableTargetInfo
-                || (ti instanceof DisplayResolveInfo && !isNearbyShare);
+        return ti.isSelectableTargetInfo()
+                || (ti.isDisplayResolveInfo() && !isNearbyShare);
     }
 
     /**
@@ -3452,7 +3418,7 @@ public class ChooserActivity extends ResolverActivity implements
                 end--;
             }
 
-            if (end == start && mChooserListAdapter.getItem(start) instanceof EmptyTargetInfo) {
+            if (end == start && mChooserListAdapter.getItem(start).isEmptyTargetInfo()) {
                 final TextView textView = viewGroup.findViewById(com.android.internal.R.id.chooser_row_text_option);
 
                 if (textView.getVisibility() != View.VISIBLE) {
