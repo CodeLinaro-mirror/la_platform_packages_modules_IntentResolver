@@ -50,7 +50,7 @@ import java.util.List;
  * Live target, currently selectable by the user.
  * @see NotSelectableTargetInfo
  */
-public final class SelectableTargetInfo implements ChooserTargetInfo {
+public final class SelectableTargetInfo extends ChooserTargetInfo {
     private static final String TAG = "SelectableTargetInfo";
 
     private final Context mContext;
@@ -134,16 +134,23 @@ public final class SelectableTargetInfo implements ChooserTargetInfo {
         mDisplayLabel = sanitizeDisplayLabel(mChooserTarget.getTitle());
     }
 
+    @Override
+    public boolean isSelectableTargetInfo() {
+        return true;
+    }
+
     private String sanitizeDisplayLabel(CharSequence label) {
         SpannableStringBuilder sb = new SpannableStringBuilder(label);
         sb.clearSpans();
         return sb.toString();
     }
 
+    @Override
     public boolean isSuspended() {
         return mIsSuspended;
     }
 
+    @Override
     @Nullable
     public DisplayResolveInfo getDisplayResolveInfo() {
         return mSourceInfo;
@@ -152,20 +159,26 @@ public final class SelectableTargetInfo implements ChooserTargetInfo {
     /**
      * Load display icon, if needed.
      */
-    public void loadIcon() {
+    @Override
+    public boolean loadIcon() {
         ShortcutInfo shortcutInfo;
         Drawable icon;
         synchronized (this) {
             shortcutInfo = mShortcutInfo;
             icon = mDisplayIcon;
         }
-        if (icon == null && shortcutInfo != null) {
+        boolean shouldLoadIcon = (icon == null) && (shortcutInfo != null);
+        if (shouldLoadIcon) {
             icon = getChooserTargetIconDrawable(mChooserTarget, shortcutInfo);
+            if (icon == null) {
+                return false;
+            }
             synchronized (this) {
                 mDisplayIcon = icon;
                 mShortcutInfo = null;
             }
         }
+        return shouldLoadIcon;
     }
 
     private Drawable getChooserTargetIconDrawable(ChooserTarget target,
@@ -205,6 +218,7 @@ public final class SelectableTargetInfo implements ChooserTargetInfo {
         return new BitmapDrawable(mContext.getResources(), directShareBadgedIcon);
     }
 
+    @Override
     public float getModifiedScore() {
         return mModifiedScore;
     }
@@ -302,6 +316,15 @@ public final class SelectableTargetInfo implements ChooserTargetInfo {
         return mDisplayIcon;
     }
 
+    /**
+     * @return true if display icon is available
+     */
+    @Override
+    public synchronized boolean hasDisplayIcon() {
+        return mDisplayIcon != null;
+    }
+
+    @Override
     public ChooserTarget getChooserTarget() {
         return mChooserTarget;
     }

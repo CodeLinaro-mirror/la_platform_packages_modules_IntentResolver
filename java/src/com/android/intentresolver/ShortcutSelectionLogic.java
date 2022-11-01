@@ -17,16 +17,15 @@
 package com.android.intentresolver;
 
 import android.annotation.Nullable;
-import android.content.ComponentName;
 import android.content.Context;
 import android.content.pm.ShortcutInfo;
 import android.service.chooser.ChooserTarget;
 import android.util.Log;
 
-import com.android.intentresolver.chooser.ChooserTargetInfo;
 import com.android.intentresolver.chooser.DisplayResolveInfo;
 import com.android.intentresolver.chooser.SelectableTargetInfo;
 import com.android.intentresolver.chooser.SelectableTargetInfo.SelectableTargetInfoCommunicator;
+import com.android.intentresolver.chooser.TargetInfo;
 
 import java.util.Collections;
 import java.util.Comparator;
@@ -66,7 +65,7 @@ class ShortcutSelectionLogic {
             Context userContext,
             SelectableTargetInfoCommunicator mSelectableTargetInfoCommunicator,
             int maxRankedTargets,
-            List<ChooserTargetInfo> serviceTargets) {
+            List<TargetInfo> serviceTargets) {
         if (DEBUG) {
             Log.d(TAG, "addServiceResults "
                     + (origTarget == null ? null : origTarget.getResolvedComponentName()) + ", "
@@ -127,12 +126,12 @@ class ShortcutSelectionLogic {
     }
 
     private boolean insertServiceTarget(
-            SelectableTargetInfo chooserTargetInfo,
+            TargetInfo chooserTargetInfo,
             int maxRankedTargets,
-            List<ChooserTargetInfo> serviceTargets) {
+            List<TargetInfo> serviceTargets) {
 
         // Check for duplicates and abort if found
-        for (ChooserTargetInfo otherTargetInfo : serviceTargets) {
+        for (TargetInfo otherTargetInfo : serviceTargets) {
             if (chooserTargetInfo.isSimilar(otherTargetInfo)) {
                 return false;
             }
@@ -142,7 +141,7 @@ class ShortcutSelectionLogic {
         final float newScore = chooserTargetInfo.getModifiedScore();
         for (int i = 0; i < Math.min(currentSize, maxRankedTargets);
                 i++) {
-            final ChooserTargetInfo serviceTarget = serviceTargets.get(i);
+            final TargetInfo serviceTarget = serviceTargets.get(i);
             if (serviceTarget == null) {
                 serviceTargets.set(i, chooserTargetInfo);
                 return true;
@@ -158,9 +157,5 @@ class ShortcutSelectionLogic {
         }
 
         return false;
-    }
-
-    public interface ScoreProvider {
-        float getScore(ComponentName componentName);
     }
 }
