@@ -21,7 +21,7 @@ import static com.android.intentresolver.ChooserActivity.TARGET_TYPE_SHORTCUTS_F
 
 import android.annotation.Nullable;
 import android.app.ActivityManager;
-import android.app.prediction.AppPredictor;
+import android.app.prediction.AppTarget;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -53,10 +53,10 @@ import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.config.sysui.SystemUiDeviceConfigFlags;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 public class ChooserListAdapter extends ResolverListAdapter {
     private static final String TAG = "ChooserListAdapter";
@@ -94,8 +94,6 @@ public class ChooserListAdapter extends ResolverListAdapter {
 
     // Sorted list of DisplayResolveInfos for the alphabetical app section.
     private List<DisplayResolveInfo> mSortedList = new ArrayList<>();
-    private AppPredictor mAppPredictor;
-    private AppPredictor.Callback mAppPredictorCallback;
 
     private final ShortcutSelectionLogic mShortcutSelectionLogic;
 
@@ -209,14 +207,12 @@ public class ChooserListAdapter extends ResolverListAdapter {
                     ri.noResourceId = true;
                     ri.icon = 0;
                 }
-                mCallerTargets.add(new DisplayResolveInfo(ii, ri, ii, makePresentationGetter(ri)));
+                DisplayResolveInfo displayResolveInfo = DisplayResolveInfo.newDisplayResolveInfo(
+                        ii, ri, ii, makePresentationGetter(ri));
+                mCallerTargets.add(displayResolveInfo);
                 if (mCallerTargets.size() == MAX_SUGGESTED_APP_TARGETS) break;
             }
         }
-    }
-
-    AppPredictor getAppPredictor() {
-        return mAppPredictor;
     }
 
     @Override
@@ -339,6 +335,8 @@ public class ChooserListAdapter extends ResolverListAdapter {
     }
 
     void updateAlphabeticalList() {
+        // TODO: this procedure seems like it should be relatively lightweight. Why does it need to
+        // run in an `AsyncTask`?
         new AsyncTask<Void, Void, List<DisplayResolveInfo>>() {
             @Override
             protected List<DisplayResolveInfo> doInBackground(Void... voids) {
@@ -348,28 +346,22 @@ public class ChooserListAdapter extends ResolverListAdapter {
                 if (!mEnableStackedApps) {
                     return allTargets;
                 }
+
                 // Consolidate multiple targets from same app.
-                Map<String, DisplayResolveInfo> consolidated = new HashMap<>();
-                for (DisplayResolveInfo info : allTargets) {
-                    String resolvedTarget = info.getResolvedComponentName().getPackageName()
-                            + '#' + info.getDisplayLabel();
-                    DisplayResolveInfo multiDri = consolidated.get(resolvedTarget);
-                    if (multiDri == null) {
-                        consolidated.put(resolvedTarget, info);
-                    } else if (multiDri.isMultiDisplayResolveInfo()) {
-                        ((MultiDisplayResolveInfo) multiDri).addTarget(info);
-                    } else {
-                        // create consolidated target from the single DisplayResolveInfo
-                        MultiDisplayResolveInfo multiDisplayResolveInfo =
-                                new MultiDisplayResolveInfo(resolvedTarget, multiDri);
-                        multiDisplayResolveInfo.addTarget(info);
-                        consolidated.put(resolvedTarget, multiDisplayResolveInfo);
-                    }
-                }
-                List<DisplayResolveInfo> groupedTargets = new ArrayList<>();
-                groupedTargets.addAll(consolidated.values());
-                Collections.sort(groupedTargets, new ChooserActivity.AzInfoComparator(mContext));
-                return groupedTargets;
+                return allTargets
+                        .stream()
+                        .collect(Collectors.groupingBy(target ->
+                                target.getResolvedComponentName().getPackageName()
+                                + "#" + target.getDisplayLabel()
+                        ))
+                        .values()
+                        .stream()
+                        .map(appTargets ->
+                                (appTargets.size() == 1)
+                                ? appTargets.get(0)
+                                : MultiDisplayResolveInfo.newMultiDisplayResolveInfo(appTargets))
+                        .sorted(new ChooserActivity.AzInfoComparator(mContext))
+                        .collect(Collectors.toList());
             }
             @Override
             protected void onPostExecute(List<DisplayResolveInfo> newList) {
@@ -436,6 +428,16 @@ public class ChooserListAdapter extends ResolverListAdapter {
         return Math.min(spacesAvailable, super.getCount());
     }
 
+    /** Get all the {@link DisplayResolveInfo} data for our targets. */
+    public DisplayResolveInfo[] getDisplayResolveInfos() {
+        int size = getDisplayResolveInfoCount();
+        DisplayResolveInfo[] resolvedTargets = new DisplayResolveInfo[size];
+        for (int i = 0; i < size; i++) {
+            resolvedTargets[i] = getDisplayResolveInfo(i);
+        }
+        return resolvedTargets;
+    }
+
     public int getPositionTargetType(int position) {
         int offset = 0;
 
@@ -469,7 +471,6 @@ public class ChooserListAdapter extends ResolverListAdapter {
     public TargetInfo getItem(int position) {
         return targetInfoForPosition(position, true);
     }
-
 
     /**
      * Find target info for a given position.
@@ -546,7 +547,8 @@ public class ChooserListAdapter extends ResolverListAdapter {
             @Nullable DisplayResolveInfo origTarget,
             List<ChooserTarget> targets,
             @ChooserActivity.ShareTargetType int targetType,
-            Map<ChooserTarget, ShortcutInfo> directShareToShortcutInfos) {
+            Map<ChooserTarget, ShortcutInfo> directShareToShortcutInfos,
+            Map<ChooserTarget, AppTarget> directShareToAppTargets) {
         // Avoid inserting any potentially late results.
         if ((mServiceTargets.size() == 1) && mServiceTargets.get(0).isEmptyTargetInfo()) {
             return;
@@ -559,6 +561,7 @@ public class ChooserListAdapter extends ResolverListAdapter {
                 targets,
                 isShortcutResult,
                 directShareToShortcutInfos,
+                directShareToAppTargets,
                 mContext.createContextAsUser(getUserHandle(), 0),
                 mSelectableTargetInfoCommunicator,
                 mChooserListCommunicator.getMaxRankedTargets(),
@@ -639,22 +642,6 @@ public class ChooserListAdapter extends ResolverListAdapter {
                 }
             }
         };
-    }
-
-    public void setAppPredictor(AppPredictor appPredictor) {
-        mAppPredictor = appPredictor;
-    }
-
-    public void setAppPredictorCallback(AppPredictor.Callback appPredictorCallback) {
-        mAppPredictorCallback = appPredictorCallback;
-    }
-
-    public void destroyAppPredictor() {
-        if (getAppPredictor() != null) {
-            getAppPredictor().unregisterPredictionUpdates(mAppPredictorCallback);
-            getAppPredictor().destroy();
-            setAppPredictor(null);
-        }
     }
 
     /**
