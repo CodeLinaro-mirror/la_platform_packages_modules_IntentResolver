@@ -20,15 +20,12 @@ import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.app.Activity;
 import android.content.ComponentName;
-import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.ResolveInfo;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
-import android.os.Parcel;
-import android.os.Parcelable;
 import android.os.UserHandle;
 
 import com.android.intentresolver.ResolverActivity;
@@ -42,14 +39,14 @@ import java.util.List;
  * A TargetInfo plus additional information needed to render it (such as icon and label) and
  * resolve it to an activity.
  */
-public class DisplayResolveInfo implements TargetInfo, Parcelable {
+public class DisplayResolveInfo implements TargetInfo {
     private final ResolveInfo mResolveInfo;
     private CharSequence mDisplayLabel;
     private Drawable mDisplayIcon;
     private CharSequence mExtendedInfo;
     private final Intent mResolvedIntent;
     private final List<Intent> mSourceIntents = new ArrayList<>();
-    private boolean mIsSuspended;
+    private final boolean mIsSuspended;
     private ResolveInfoPresentationGetter mResolveInfoPresentationGetter;
     private boolean mPinned = false;
 
@@ -109,10 +106,14 @@ public class DisplayResolveInfo implements TargetInfo, Parcelable {
 
     }
 
-    private DisplayResolveInfo(DisplayResolveInfo other, Intent fillInIntent, int flags,
+    private DisplayResolveInfo(
+            DisplayResolveInfo other,
+            Intent fillInIntent,
+            int flags,
             ResolveInfoPresentationGetter resolveInfoPresentationGetter) {
         mSourceIntents.addAll(other.getAllSourceIntents());
         mResolveInfo = other.mResolveInfo;
+        mIsSuspended = other.mIsSuspended;
         mDisplayLabel = other.mDisplayLabel;
         mDisplayIcon = other.mDisplayIcon;
         mExtendedInfo = other.mExtendedInfo;
@@ -124,6 +125,7 @@ public class DisplayResolveInfo implements TargetInfo, Parcelable {
     protected DisplayResolveInfo(DisplayResolveInfo other) {
         mSourceIntents.addAll(other.getAllSourceIntents());
         mResolveInfo = other.mResolveInfo;
+        mIsSuspended = other.mIsSuspended;
         mDisplayLabel = other.mDisplayLabel;
         mDisplayIcon = other.mDisplayIcon;
         mExtendedInfo = other.mExtendedInfo;
@@ -160,7 +162,8 @@ public class DisplayResolveInfo implements TargetInfo, Parcelable {
         mExtendedInfo = extendedInfo;
     }
 
-    public Drawable getDisplayIcon(Context context) {
+    @Override
+    public Drawable getDisplayIcon() {
         return mDisplayIcon;
     }
 
@@ -185,10 +188,6 @@ public class DisplayResolveInfo implements TargetInfo, Parcelable {
 
     public void setDisplayIcon(Drawable icon) {
         mDisplayIcon = icon;
-    }
-
-    public boolean hasDisplayIcon() {
-        return mDisplayIcon != null;
     }
 
     public CharSequence getExtendedInfo() {
@@ -236,42 +235,5 @@ public class DisplayResolveInfo implements TargetInfo, Parcelable {
 
     public void setPinned(boolean pinned) {
         mPinned = pinned;
-    }
-
-    @Override
-    public int describeContents() {
-        return 0;
-    }
-
-    @Override
-    public void writeToParcel(Parcel dest, int flags) {
-        dest.writeCharSequence(mDisplayLabel);
-        dest.writeCharSequence(mExtendedInfo);
-        dest.writeParcelable(mResolvedIntent, 0);
-        dest.writeTypedList(mSourceIntents);
-        dest.writeBoolean(mIsSuspended);
-        dest.writeBoolean(mPinned);
-        dest.writeParcelable(mResolveInfo, 0);
-    }
-
-    public static final Parcelable.Creator<DisplayResolveInfo> CREATOR =
-            new Parcelable.Creator<DisplayResolveInfo>() {
-        public DisplayResolveInfo createFromParcel(Parcel in) {
-            return new DisplayResolveInfo(in);
-        }
-
-        public DisplayResolveInfo[] newArray(int size) {
-            return new DisplayResolveInfo[size];
-        }
-    };
-
-    private DisplayResolveInfo(Parcel in) {
-        mDisplayLabel = in.readCharSequence();
-        mExtendedInfo = in.readCharSequence();
-        mResolvedIntent = in.readParcelable(null /* ClassLoader */, android.content.Intent.class);
-        in.readTypedList(mSourceIntents, Intent.CREATOR);
-        mIsSuspended = in.readBoolean();
-        mPinned = in.readBoolean();
-        mResolveInfo = in.readParcelable(null /* ClassLoader */, android.content.pm.ResolveInfo.class);
     }
 }
