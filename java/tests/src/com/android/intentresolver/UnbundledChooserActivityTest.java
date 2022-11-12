@@ -39,7 +39,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.function.Function;
 
-@Ignore("can't run until unbundled chooser is back in builds")
+@Ignore("investigate b/241944046 and re-enabled")
 @RunWith(Parameterized.class)
 public class UnbundledChooserActivityTest extends ChooserActivityTest {
     private static final Function<PackageManager, PackageManager> DEFAULT_PM = pm -> pm;
