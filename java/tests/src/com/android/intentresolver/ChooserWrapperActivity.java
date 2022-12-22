@@ -31,20 +31,23 @@ import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.UserHandle;
+import android.util.Pair;
 import android.util.Size;
 
-import com.android.internal.app.AbstractMultiProfilePagerAdapter;
-import com.android.internal.app.ChooserActivityLogger;
-import com.android.internal.app.ChooserActivityOverrideData;
-import com.android.internal.app.ChooserListAdapter;
-import com.android.internal.app.IChooserWrapper;
-import com.android.internal.app.ResolverListAdapter.ResolveInfoPresentationGetter;
-import com.android.internal.app.ResolverListController;
-import com.android.internal.app.chooser.DisplayResolveInfo;
-import com.android.internal.app.chooser.TargetInfo;
+import com.android.intentresolver.AbstractMultiProfilePagerAdapter;
+import com.android.intentresolver.ChooserActivityLogger;
+import com.android.intentresolver.ChooserActivityOverrideData;
+import com.android.intentresolver.ChooserListAdapter;
+import com.android.intentresolver.IChooserWrapper;
+import com.android.intentresolver.ResolverListAdapter.ResolveInfoPresentationGetter;
+import com.android.intentresolver.ResolverListController;
+import com.android.intentresolver.chooser.DisplayResolveInfo;
+import com.android.intentresolver.chooser.NotSelectableTargetInfo;
+import com.android.intentresolver.chooser.TargetInfo;
 import com.android.internal.logging.MetricsLogger;
 import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
 
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -79,9 +82,15 @@ public class ChooserWrapperActivity
         PackageManager packageManager =
                 sOverrides.packageManager == null ? context.getPackageManager()
                         : sOverrides.packageManager;
-        return new ChooserListAdapter(context, payloadIntents, initialIntents, rList,
-                filterLastUsed, resolverListController,
-                this, this, packageManager,
+        return new ChooserListAdapter(
+                context,
+                payloadIntents,
+                initialIntents,
+                rList,
+                filterLastUsed,
+                resolverListController,
+                this,
+                packageManager,
                 getChooserActivityLogger());
     }
 
@@ -119,7 +128,7 @@ public class ChooserWrapperActivity
 
     @Override
     protected TargetInfo getNearbySharingTarget(Intent originalIntent) {
-        return new ChooserWrapperActivity.EmptyTargetInfo();
+        return NotSelectableTargetInfo.newEmptyTargetInfo();
     }
 
     @Override
@@ -139,7 +148,7 @@ public class ChooserWrapperActivity
     }
 
     @Override
-    public void safelyStartActivity(com.android.internal.app.chooser.TargetInfo cti) {
+    public void safelyStartActivity(com.android.intentresolver.chooser.TargetInfo cti) {
         if (sOverrides.onSafelyStartCallback != null
                 && sOverrides.onSafelyStartCallback.apply(cti)) {
             return;
@@ -221,7 +230,12 @@ public class ChooserWrapperActivity
     public DisplayResolveInfo createTestDisplayResolveInfo(Intent originalIntent, ResolveInfo pri,
             CharSequence pLabel, CharSequence pInfo, Intent replacementIntent,
             @Nullable ResolveInfoPresentationGetter resolveInfoPresentationGetter) {
-        return new DisplayResolveInfo(originalIntent, pri, pLabel, pInfo, replacementIntent,
+        return DisplayResolveInfo.newDisplayResolveInfo(
+                originalIntent,
+                pri,
+                pLabel,
+                pInfo,
+                replacementIntent,
                 resolveInfoPresentationGetter);
     }
 
@@ -242,8 +256,17 @@ public class ChooserWrapperActivity
     }
 
     @Override
-    protected void queryDirectShareTargets(ChooserListAdapter adapter,
-            boolean skipAppPredictionService) {
+    protected void queryDirectShareTargets(
+            ChooserListAdapter adapter, boolean skipAppPredictionService) {
+        if (sOverrides.directShareTargets != null) {
+            Pair<Integer, ServiceResultInfo[]> result =
+                    sOverrides.directShareTargets.apply(this, adapter);
+            // Imitate asynchronous shortcut loading
+            getMainExecutor().execute(
+                    () -> onShortcutsLoaded(
+                            adapter, result.first, Arrays.asList(result.second)));
+            return;
+        }
         if (sOverrides.onQueryDirectShareTargets != null) {
             sOverrides.onQueryDirectShareTargets.apply(adapter);
         }

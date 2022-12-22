@@ -36,6 +36,7 @@ android_library {
     min_sdk_version: "current",
     srcs: [
         "java/src/**/*.java",
+        "java/src/**/*.kt",
     ],
     resource_dirs: [
         "java/res",
@@ -45,6 +46,10 @@ android_library {
 
     static_libs: [
         "androidx.annotation_annotation",
+        "androidx.recyclerview_recyclerview",
+        "androidx.viewpager_viewpager",
+        "androidx.lifecycle_lifecycle-common-java8",
+        "androidx.lifecycle_lifecycle-extensions",
     ],
 
     plugins: ["java_api_finder"],
@@ -66,6 +71,9 @@ android_app {
     static_libs: [
         "IntentResolver-core",
     ],
+    optimize: {
+        enabled: true,
+    },
     apex_available: [
         "//apex_available:platform",
         "com.android.intentresolver",
