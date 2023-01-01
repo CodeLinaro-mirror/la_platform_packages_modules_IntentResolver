@@ -2,16 +2,25 @@ package com.android.intentresolver.v2
 
 import android.content.Intent
 import androidx.activity.ComponentActivity
+import androidx.annotation.OpenForTesting
 import com.android.intentresolver.R
 import com.android.intentresolver.icons.DefaultTargetDataLoader
 import com.android.intentresolver.icons.TargetDataLoader
 import com.android.intentresolver.v2.util.mutableLazy
 
 /** Activity logic for [ResolverActivity]. */
-class ResolverActivityLogic(
+@OpenForTesting
+open class ResolverActivityLogic(
     tag: String,
     activityProvider: () -> ComponentActivity,
-) : ActivityLogic, CommonActivityLogic by CommonActivityLogicImpl(tag, activityProvider) {
+    onWorkProfileStatusUpdated: () -> Unit,
+) :
+    ActivityLogic,
+    CommonActivityLogic by CommonActivityLogicImpl(
+        tag,
+        activityProvider,
+        onWorkProfileStatusUpdated,
+    ) {
 
     override val targetIntent: Intent by lazy {
         val intent = Intent(activity.intent)
@@ -32,12 +41,9 @@ class ResolverActivityLogic(
     }
 
     override val resolvingHome: Boolean by lazy {
-        Intent.ACTION_MAIN == targetIntent.action &&
-            targetIntent.categories?.size == 1 &&
-            targetIntent.categories.contains(Intent.CATEGORY_HOME)
+        targetIntent.action == Intent.ACTION_MAIN &&
+            targetIntent.categories.singleOrNull() == Intent.CATEGORY_HOME
     }
-
-    override val additionalTargets: List<Intent>? = null
 
     override val title: CharSequence? = null
 
@@ -49,7 +55,7 @@ class ResolverActivityLogic(
 
     override val targetDataLoader: TargetDataLoader by lazy {
         DefaultTargetDataLoader(
-            activity.context,
+            activity,
             activity.lifecycle,
             activity.intent.getBooleanExtra(
                 ResolverActivity.EXTRA_IS_AUDIO_CAPTURE_DEVICE,
@@ -62,6 +68,8 @@ class ResolverActivityLogic(
 
     private val _profileSwitchMessage = mutableLazy { forwardMessageFor(targetIntent) }
     override val profileSwitchMessage: String? by _profileSwitchMessage
+
+    override val payloadIntents: List<Intent> by lazy { listOf(targetIntent) }
 
     override fun preInitialization() {
         // Do nothing
