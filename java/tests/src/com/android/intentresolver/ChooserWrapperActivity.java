@@ -19,11 +19,13 @@ package com.android.intentresolver;
 import static org.mockito.Mockito.when;
 
 import android.annotation.Nullable;
+import android.app.prediction.AppPredictor;
 import android.app.usage.UsageStatsManager;
 import android.content.ComponentName;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.content.res.Resources;
@@ -31,24 +33,21 @@ import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.UserHandle;
-import android.util.Pair;
 import android.util.Size;
 
-import com.android.intentresolver.AbstractMultiProfilePagerAdapter;
-import com.android.intentresolver.ChooserActivityLogger;
-import com.android.intentresolver.ChooserActivityOverrideData;
-import com.android.intentresolver.ChooserListAdapter;
-import com.android.intentresolver.IChooserWrapper;
+import com.android.intentresolver.AbstractMultiProfilePagerAdapter.CrossProfileIntentsChecker;
+import com.android.intentresolver.AbstractMultiProfilePagerAdapter.MyUserIdProvider;
+import com.android.intentresolver.AbstractMultiProfilePagerAdapter.QuietModeManager;
 import com.android.intentresolver.ResolverListAdapter.ResolveInfoPresentationGetter;
-import com.android.intentresolver.ResolverListController;
 import com.android.intentresolver.chooser.DisplayResolveInfo;
 import com.android.intentresolver.chooser.NotSelectableTargetInfo;
 import com.android.intentresolver.chooser.TargetInfo;
+import com.android.intentresolver.shortcuts.ShortcutLoader;
 import com.android.internal.logging.MetricsLogger;
 import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
 
-import java.util.Arrays;
 import java.util.List;
+import java.util.function.Consumer;
 
 /**
  * Simple wrapper around chooser activity to be able to initiate it under test. For more
@@ -67,18 +66,15 @@ public class ChooserWrapperActivity
     }
 
     @Override
-    protected AbstractMultiProfilePagerAdapter createMultiProfilePagerAdapter(
-            Intent[] initialIntents, List<ResolveInfo> rList, boolean filterLastUsed) {
-        AbstractMultiProfilePagerAdapter multiProfilePagerAdapter =
-                super.createMultiProfilePagerAdapter(initialIntents, rList, filterLastUsed);
-        multiProfilePagerAdapter.setInjector(sOverrides.multiPagerAdapterInjector);
-        return multiProfilePagerAdapter;
-    }
-
-    @Override
-    public ChooserListAdapter createChooserListAdapter(Context context, List<Intent> payloadIntents,
-            Intent[] initialIntents, List<ResolveInfo> rList, boolean filterLastUsed,
-            ResolverListController resolverListController) {
+    public ChooserListAdapter createChooserListAdapter(
+            Context context,
+            List<Intent> payloadIntents,
+            Intent[] initialIntents,
+            List<ResolveInfo> rList,
+            boolean filterLastUsed,
+            ResolverListController resolverListController,
+            ChooserRequestParameters chooserRequest,
+            int maxTargetsPerRow) {
         PackageManager packageManager =
                 sOverrides.packageManager == null ? context.getPackageManager()
                         : sOverrides.packageManager;
@@ -91,7 +87,9 @@ public class ChooserWrapperActivity
                 resolverListController,
                 this,
                 packageManager,
-                getChooserActivityLogger());
+                getChooserActivityLogger(),
+                chooserRequest,
+                maxTargetsPerRow);
     }
 
     @Override
@@ -145,6 +143,30 @@ public class ChooserWrapperActivity
             return sOverrides.isVoiceInteraction;
         }
         return super.isVoiceInteraction();
+    }
+
+    @Override
+    protected MyUserIdProvider createMyUserIdProvider() {
+        if (sOverrides.mMyUserIdProvider != null) {
+            return sOverrides.mMyUserIdProvider;
+        }
+        return super.createMyUserIdProvider();
+    }
+
+    @Override
+    protected CrossProfileIntentsChecker createCrossProfileIntentsChecker() {
+        if (sOverrides.mCrossProfileIntentsChecker != null) {
+            return sOverrides.mCrossProfileIntentsChecker;
+        }
+        return super.createCrossProfileIntentsChecker();
+    }
+
+    @Override
+    protected QuietModeManager createQuietModeManager() {
+        if (sOverrides.mQuietModeManager != null) {
+            return sOverrides.mQuietModeManager;
+        }
+        return super.createQuietModeManager();
     }
 
     @Override
@@ -256,41 +278,18 @@ public class ChooserWrapperActivity
     }
 
     @Override
-    protected void queryDirectShareTargets(
-            ChooserListAdapter adapter, boolean skipAppPredictionService) {
-        if (sOverrides.directShareTargets != null) {
-            Pair<Integer, ServiceResultInfo[]> result =
-                    sOverrides.directShareTargets.apply(this, adapter);
-            // Imitate asynchronous shortcut loading
-            getMainExecutor().execute(
-                    () -> onShortcutsLoaded(
-                            adapter, result.first, Arrays.asList(result.second)));
-            return;
+    protected ShortcutLoader createShortcutLoader(
+            Context context,
+            AppPredictor appPredictor,
+            UserHandle userHandle,
+            IntentFilter targetIntentFilter,
+            Consumer<ShortcutLoader.Result> callback) {
+        ShortcutLoader shortcutLoader =
+                sOverrides.shortcutLoaderFactory.invoke(userHandle, callback);
+        if (shortcutLoader != null) {
+            return shortcutLoader;
         }
-        if (sOverrides.onQueryDirectShareTargets != null) {
-            sOverrides.onQueryDirectShareTargets.apply(adapter);
-        }
-        super.queryDirectShareTargets(adapter, skipAppPredictionService);
-    }
-
-    @Override
-    protected boolean isQuietModeEnabled(UserHandle userHandle) {
-        return sOverrides.isQuietModeEnabled;
-    }
-
-    @Override
-    protected boolean isUserRunning(UserHandle userHandle) {
-        if (userHandle.equals(UserHandle.SYSTEM)) {
-            return super.isUserRunning(userHandle);
-        }
-        return sOverrides.isWorkProfileUserRunning;
-    }
-
-    @Override
-    protected boolean isUserUnlocked(UserHandle userHandle) {
-        if (userHandle.equals(UserHandle.SYSTEM)) {
-            return super.isUserUnlocked(userHandle);
-        }
-        return sOverrides.isWorkProfileUserUnlocked;
+        return super.createShortcutLoader(
+                context, appPredictor, userHandle, targetIntentFilter, callback);
     }
 }
