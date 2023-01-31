@@ -26,9 +26,6 @@ import static android.stats.devicepolicy.nano.DevicePolicyEnums.RESOLVER_EMPTY_S
 
 import static com.android.internal.util.LatencyTracker.ACTION_LOAD_SHARE_SHEET;
 
-import android.animation.AnimatorSet;
-import android.animation.ObjectAnimator;
-import android.animation.ValueAnimator;
 import android.annotation.IntDef;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
@@ -58,11 +55,9 @@ import android.content.pm.ShortcutInfo;
 import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.database.Cursor;
-import android.database.DataSetObserver;
 import android.graphics.Bitmap;
 import android.graphics.Insets;
 import android.graphics.drawable.Drawable;
-import android.metrics.LogMaker;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
@@ -78,25 +73,18 @@ import android.provider.DeviceConfig;
 import android.provider.Settings;
 import android.service.chooser.ChooserTarget;
 import android.text.TextUtils;
-import android.util.HashedStringCache;
 import android.util.Log;
 import android.util.Size;
 import android.util.Slog;
 import android.util.SparseArray;
-import android.view.LayoutInflater;
 import android.view.View;
-import android.view.View.MeasureSpec;
-import android.view.View.OnClickListener;
 import android.view.ViewGroup;
 import android.view.ViewGroup.LayoutParams;
 import android.view.ViewTreeObserver;
 import android.view.WindowInsets;
 import android.view.animation.AlphaAnimation;
 import android.view.animation.Animation;
-import android.view.animation.DecelerateInterpolator;
 import android.view.animation.LinearInterpolator;
-import android.widget.Button;
-import android.widget.Space;
 import android.widget.TextView;
 
 import androidx.annotation.MainThread;
@@ -107,30 +95,23 @@ import androidx.viewpager.widget.ViewPager;
 import com.android.intentresolver.AbstractMultiProfilePagerAdapter.EmptyState;
 import com.android.intentresolver.AbstractMultiProfilePagerAdapter.EmptyStateProvider;
 import com.android.intentresolver.NoCrossProfileEmptyStateProvider.DevicePolicyBlockerEmptyState;
-import com.android.intentresolver.ResolverListAdapter.ViewHolder;
 import com.android.intentresolver.chooser.DisplayResolveInfo;
 import com.android.intentresolver.chooser.MultiDisplayResolveInfo;
 import com.android.intentresolver.chooser.TargetInfo;
+import com.android.intentresolver.grid.ChooserGridAdapter;
 import com.android.intentresolver.grid.DirectShareViewHolder;
-import com.android.intentresolver.grid.FooterViewHolder;
-import com.android.intentresolver.grid.ItemGroupViewHolder;
-import com.android.intentresolver.grid.ItemViewHolder;
-import com.android.intentresolver.grid.SingleRowViewHolder;
-import com.android.intentresolver.grid.ViewHolderBase;
 import com.android.intentresolver.model.AbstractResolverComparator;
 import com.android.intentresolver.model.AppPredictionServiceResolverComparator;
 import com.android.intentresolver.model.ResolverRankerServiceResolverComparator;
 import com.android.intentresolver.shortcuts.AppPredictorFactory;
 import com.android.intentresolver.shortcuts.ShortcutLoader;
+import com.android.intentresolver.widget.ActionRow;
 import com.android.intentresolver.widget.ResolverDrawerLayout;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.config.sysui.SystemUiDeviceConfigFlags;
 import com.android.internal.content.PackageMonitor;
-import com.android.internal.logging.MetricsLogger;
 import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
 import com.android.internal.util.FrameworkStatsLog;
-
-import com.google.android.collect.Lists;
 
 import java.io.File;
 import java.io.IOException;
@@ -200,13 +181,6 @@ public class ChooserActivity extends ResolverActivity implements
     public static final int TARGET_TYPE_SHORTCUTS_FROM_SHORTCUT_MANAGER = 2;
     public static final int TARGET_TYPE_SHORTCUTS_FROM_PREDICTION_SERVICE = 3;
 
-    public static final int SELECTION_TYPE_SERVICE = 1;
-    public static final int SELECTION_TYPE_APP = 2;
-    public static final int SELECTION_TYPE_STANDARD = 3;
-    public static final int SELECTION_TYPE_COPY = 4;
-    public static final int SELECTION_TYPE_NEARBY = 5;
-    public static final int SELECTION_TYPE_EDIT = 6;
-
     private static final int SCROLL_STATUS_IDLE = 0;
     private static final int SCROLL_STATUS_SCROLLING_VERTICAL = 1;
     private static final int SCROLL_STATUS_SCROLLING_HORIZONTAL = 2;
@@ -219,12 +193,6 @@ public class ChooserActivity extends ResolverActivity implements
     })
     @Retention(RetentionPolicy.SOURCE)
     public @interface ShareTargetType {}
-
-    /**
-     * The transition time between placeholders for direct share to a message
-     * indicating that non are available.
-     */
-    public static final int NO_DIRECT_SHARE_ANIM_IN_MILLIS = 200;
 
     public static final float DIRECT_SHARE_EXPANSION_RATE = 0.78f;
 
@@ -270,8 +238,6 @@ public class ChooserActivity extends ResolverActivity implements
 
     private SharedPreferences mPinnedSharedPrefs;
     private static final String PINNED_SHARED_PREFS_NAME = "chooser_pin_settings";
-
-    protected MetricsLogger mMetricsLogger;
 
     private final ExecutorService mBackgroundThreadPoolExecutor = Executors.newFixedThreadPool(5);
 
@@ -366,13 +332,8 @@ public class ChooserActivity extends ResolverActivity implements
 
         mChooserShownTime = System.currentTimeMillis();
         final long systemCost = mChooserShownTime - intentReceivedTime;
-
-        getMetricsLogger().write(new LogMaker(MetricsEvent.ACTION_ACTIVITY_CHOOSER_SHOWN)
-                .setSubtype(isWorkProfile() ? MetricsEvent.MANAGED_PROFILE :
-                        MetricsEvent.PARENT_PROFILE)
-                .addTaggedData(
-                        MetricsEvent.FIELD_SHARESHEET_MIMETYPE, mChooserRequest.getTargetType())
-                .addTaggedData(MetricsEvent.FIELD_TIME_TO_APP_TARGETS, systemCost));
+        getChooserActivityLogger().logChooserActivityShown(
+                isWorkProfile(), mChooserRequest.getTargetType(), systemCost);
 
         if (mResolverDrawerLayout != null) {
             mResolverDrawerLayout.addOnLayoutChangeListener(this::handleLayoutChange);
@@ -613,7 +574,9 @@ public class ChooserActivity extends ResolverActivity implements
         if (shouldShowStickyContentPreview()
                 || mChooserMultiProfilePagerAdapter
                         .getCurrentRootAdapter().getSystemRowCount() != 0) {
-            logActionShareWithPreview();
+            getChooserActivityLogger().logActionShareWithPreview(
+                    ChooserContentPreviewUi.findPreferredContentPreview(
+                            getTargetIntent(), getContentResolver(), this::isImageType));
         }
         return postRebuildListInternal(rebuildCompleted);
     }
@@ -664,7 +627,7 @@ public class ChooserActivity extends ResolverActivity implements
         updateProfileViewButton();
     }
 
-    private void onCopyButtonClicked(View v) {
+    private void onCopyButtonClicked() {
         Intent targetIntent = getTargetIntent();
         if (targetIntent == null) {
             finish();
@@ -702,15 +665,7 @@ public class ChooserActivity extends ResolverActivity implements
                     Context.CLIPBOARD_SERVICE);
             clipboardManager.setPrimaryClipAsPackage(clipData, getReferrerPackageName());
 
-            // Log share completion via copy
-            LogMaker targetLogMaker = new LogMaker(
-                    MetricsEvent.ACTION_ACTIVITY_CHOOSER_PICKED_SYSTEM_TARGET).setSubtype(1);
-            getMetricsLogger().write(targetLogMaker);
-            getChooserActivityLogger().logShareTargetSelected(
-                    SELECTION_TYPE_COPY,
-                    "",
-                    -1,
-                    false);
+            getChooserActivityLogger().logActionSelected(ChooserActivityLogger.SELECTION_TYPE_COPY);
 
             setResult(RESULT_OK);
             finish();
@@ -795,21 +750,23 @@ public class ChooserActivity extends ResolverActivity implements
         int previewType = ChooserContentPreviewUi.findPreferredContentPreview(
                 targetIntent, getContentResolver(), this::isImageType);
 
-        ChooserContentPreviewUi.ActionButtonFactory buttonFactory =
-                new ChooserContentPreviewUi.ActionButtonFactory() {
+        ChooserContentPreviewUi.ActionFactory actionFactory =
+                new ChooserContentPreviewUi.ActionFactory() {
                     @Override
-                    public Button createCopyButton() {
-                        return ChooserActivity.this.createCopyButton();
+                    public ActionRow.Action createCopyButton() {
+                        return ChooserActivity.this.createCopyAction();
                     }
 
+                    @Nullable
                     @Override
-                    public Button createEditButton() {
-                        return ChooserActivity.this.createEditButton(targetIntent);
+                    public ActionRow.Action createEditButton() {
+                        return ChooserActivity.this.createEditAction(targetIntent);
                     }
 
+                    @Nullable
                     @Override
-                    public Button createNearbyButton() {
-                        return ChooserActivity.this.createNearbyButton(targetIntent);
+                    public ActionRow.Action createNearbyButton() {
+                        return ChooserActivity.this.createNearbyAction(targetIntent);
                     }
                 };
 
@@ -818,7 +775,7 @@ public class ChooserActivity extends ResolverActivity implements
                 targetIntent,
                 getResources(),
                 getLayoutInflater(),
-                buttonFactory,
+                actionFactory,
                 parent,
                 previewCoordinator,
                 getContentResolver(),
@@ -945,64 +902,49 @@ public class ChooserActivity extends ResolverActivity implements
         return dri;
     }
 
-    private Button createActionButton(Drawable icon, CharSequence title, View.OnClickListener r) {
-        Button b = (Button) LayoutInflater.from(this).inflate(R.layout.chooser_action_button, null);
-        if (icon != null) {
-            final int size = getResources()
-                    .getDimensionPixelSize(R.dimen.chooser_action_button_icon_size);
-            icon.setBounds(0, 0, size, size);
-            b.setCompoundDrawablesRelative(icon, null, null, null);
-        }
-        b.setText(title);
-        b.setOnClickListener(r);
-        return b;
-    }
-
-    private Button createCopyButton() {
-        final Button b = createActionButton(
+    private ActionRow.Action createCopyAction() {
+        return new ActionRow.Action(
+                com.android.internal.R.id.chooser_copy_button,
+                getString(com.android.internal.R.string.copy),
                 getDrawable(com.android.internal.R.drawable.ic_menu_copy_material),
-                getString(com.android.internal.R.string.copy), this::onCopyButtonClicked);
-        b.setId(com.android.internal.R.id.chooser_copy_button);
-        return b;
+                this::onCopyButtonClicked);
     }
 
-    private @Nullable Button createNearbyButton(Intent originalIntent) {
+    @Nullable
+    private ActionRow.Action createNearbyAction(Intent originalIntent) {
         final TargetInfo ti = getNearbySharingTarget(originalIntent);
-        if (ti == null) return null;
+        if (ti == null) {
+            return null;
+        }
 
-        final Button b = createActionButton(
-                ti.getDisplayIconHolder().getDisplayIcon(),
+        return new ActionRow.Action(
+                com.android.internal.R.id.chooser_nearby_button,
                 ti.getDisplayLabel(),
-                (View unused) -> {
-                    // Log share completion via nearby
-                    getChooserActivityLogger().logShareTargetSelected(
-                            SELECTION_TYPE_NEARBY,
-                            "",
-                            -1,
-                            false);
+                ti.getDisplayIconHolder().getDisplayIcon(),
+                () -> {
+                    getChooserActivityLogger().logActionSelected(
+                            ChooserActivityLogger.SELECTION_TYPE_NEARBY);
                     // Action bar is user-independent, always start as primary
                     safelyStartActivityAsUser(ti, getPersonalProfileUserHandle());
                     finish();
-                }
-        );
-        b.setId(com.android.internal.R.id.chooser_nearby_button);
-        return b;
+                });
     }
 
-    private @Nullable Button createEditButton(Intent originalIntent) {
+    @Nullable
+    private ActionRow.Action createEditAction(Intent originalIntent) {
         final TargetInfo ti = getEditSharingTarget(originalIntent);
-        if (ti == null) return null;
+        if (ti == null) {
+            return null;
+        }
 
-        final Button b = createActionButton(
-                ti.getDisplayIconHolder().getDisplayIcon(),
+        return new ActionRow.Action(
+                com.android.internal.R.id.chooser_edit_button,
                 ti.getDisplayLabel(),
-                (View unused) -> {
+                ti.getDisplayIconHolder().getDisplayIcon(),
+                () -> {
                     // Log share completion via edit
-                    getChooserActivityLogger().logShareTargetSelected(
-                            SELECTION_TYPE_EDIT,
-                            "",
-                            -1,
-                            false);
+                    getChooserActivityLogger().logActionSelected(
+                            ChooserActivityLogger.SELECTION_TYPE_EDIT);
                     View firstImgView = getFirstVisibleImgPreviewView();
                     // Action bar is user-independent, always start as primary
                     if (firstImgView == null) {
@@ -1017,25 +959,12 @@ public class ChooserActivity extends ResolverActivity implements
                     }
                 }
         );
-        b.setId(com.android.internal.R.id.chooser_edit_button);
-        return b;
     }
 
     @Nullable
     private View getFirstVisibleImgPreviewView() {
         View firstImage = findViewById(com.android.internal.R.id.content_preview_image_1_large);
         return firstImage != null && firstImage.isVisibleToUser() ? firstImage : null;
-    }
-
-    private void addActionButton(ViewGroup parent, Button b) {
-        if (b == null) return;
-        final ViewGroup.MarginLayoutParams lp = new ViewGroup.MarginLayoutParams(
-                        LayoutParams.WRAP_CONTENT,
-                        LayoutParams.WRAP_CONTENT
-                );
-        final int gap = getResources().getDimensionPixelSize(R.dimen.resolver_icon_margin) / 2;
-        lp.setMarginsRelative(gap, 0, gap, 0);
-        parent.addView(b, lp);
     }
 
     /**
@@ -1050,14 +979,6 @@ public class ChooserActivity extends ResolverActivity implements
     @VisibleForTesting
     protected boolean isImageType(String mimeType) {
         return mimeType != null && mimeType.startsWith("image/");
-    }
-
-    private void logContentPreviewWarning(Uri uri) {
-        // The ContentResolver already logs the exception. Log something more informative.
-        Log.w(TAG, "Could not load (" + uri.toString() + ") thumbnail/name for preview. If "
-                + "desired, consider using Intent#createChooser to launch the ChooserActivity, "
-                + "and set your Intent's clipData and flags in accordance with that method's "
-                + "documentation");
     }
 
     private int getNumSheetExpansions() {
@@ -1269,78 +1190,51 @@ public class ChooserActivity extends ResolverActivity implements
         super.startSelected(which, always, filtered);
 
         if (currentListAdapter.getCount() > 0) {
-            // Log the index of which type of target the user picked.
-            // Lower values mean the ranking was better.
-            int cat = 0;
-            int value = which;
-            int directTargetAlsoRanked = -1;
-            int numCallerProvided = 0;
-            HashedStringCache.HashResult directTargetHashed = null;
             switch (currentListAdapter.getPositionTargetType(which)) {
                 case ChooserListAdapter.TARGET_SERVICE:
-                    cat = MetricsEvent.ACTION_ACTIVITY_CHOOSER_PICKED_SERVICE_TARGET;
-                    directTargetHashed = targetInfo.getHashedTargetIdForMetrics(this);
-                    directTargetAlsoRanked = getRankedPosition(targetInfo);
-
-                    numCallerProvided = mChooserRequest.getCallerChooserTargets().size();
                     getChooserActivityLogger().logShareTargetSelected(
-                            SELECTION_TYPE_SERVICE,
+                            ChooserActivityLogger.SELECTION_TYPE_SERVICE,
                             targetInfo.getResolveInfo().activityInfo.processName,
-                            value,
-                            targetInfo.isPinned()
+                            which,
+                            /* directTargetAlsoRanked= */ getRankedPosition(targetInfo),
+                            mChooserRequest.getCallerChooserTargets().size(),
+                            targetInfo.getHashedTargetIdForMetrics(this),
+                            targetInfo.isPinned(),
+                            mIsSuccessfullySelected,
+                            selectionCost
                     );
-                    break;
+                    return;
                 case ChooserListAdapter.TARGET_CALLER:
                 case ChooserListAdapter.TARGET_STANDARD:
-                    cat = MetricsEvent.ACTION_ACTIVITY_CHOOSER_PICKED_APP_TARGET;
-                    value -= currentListAdapter.getSurfacedTargetInfo().size();
-                    numCallerProvided = currentListAdapter.getCallerTargetCount();
                     getChooserActivityLogger().logShareTargetSelected(
-                            SELECTION_TYPE_APP,
+                            ChooserActivityLogger.SELECTION_TYPE_APP,
                             targetInfo.getResolveInfo().activityInfo.processName,
-                            value,
-                            targetInfo.isPinned()
+                            (which - currentListAdapter.getSurfacedTargetInfo().size()),
+                            /* directTargetAlsoRanked= */ -1,
+                            currentListAdapter.getCallerTargetCount(),
+                            /* directTargetHashed= */ null,
+                            targetInfo.isPinned(),
+                            mIsSuccessfullySelected,
+                            selectionCost
                     );
-                    break;
+                    return;
                 case ChooserListAdapter.TARGET_STANDARD_AZ:
-                    // A-Z targets are unranked standard targets; we use -1 to mark that they
-                    // are from the alphabetical pool.
-                    value = -1;
-                    cat = MetricsEvent.ACTION_ACTIVITY_CHOOSER_PICKED_STANDARD_TARGET;
+                    // A-Z targets are unranked standard targets; we use a value of -1 to mark that
+                    // they are from the alphabetical pool.
+                    // TODO: why do we log a different selection type if the -1 value already
+                    // designates the same condition?
                     getChooserActivityLogger().logShareTargetSelected(
-                            SELECTION_TYPE_STANDARD,
+                            ChooserActivityLogger.SELECTION_TYPE_STANDARD,
                             targetInfo.getResolveInfo().activityInfo.processName,
-                            value,
-                            false
+                            /* value= */ -1,
+                            /* directTargetAlsoRanked= */ -1,
+                            /* numCallerProvided= */ 0,
+                            /* directTargetHashed= */ null,
+                            /* isPinned= */ false,
+                            mIsSuccessfullySelected,
+                            selectionCost
                     );
-                    break;
-            }
-
-            if (cat != 0) {
-                LogMaker targetLogMaker = new LogMaker(cat).setSubtype(value);
-                if (directTargetHashed != null) {
-                    targetLogMaker.addTaggedData(
-                            MetricsEvent.FIELD_HASHED_TARGET_NAME, directTargetHashed.hashedString);
-                    targetLogMaker.addTaggedData(
-                                    MetricsEvent.FIELD_HASHED_TARGET_SALT_GEN,
-                                    directTargetHashed.saltGeneration);
-                    targetLogMaker.addTaggedData(MetricsEvent.FIELD_RANKED_POSITION,
-                                    directTargetAlsoRanked);
-                }
-                targetLogMaker.addTaggedData(MetricsEvent.FIELD_IS_CATEGORY_USED,
-                        numCallerProvided);
-                getMetricsLogger().write(targetLogMaker);
-            }
-
-            if (mIsSuccessfullySelected) {
-                if (DEBUG) {
-                    Log.d(TAG, "User Selection Time Cost is " + selectionCost);
-                    Log.d(TAG, "position of selected app/service/caller is " +
-                            Integer.toString(value));
-                }
-                MetricsLogger.histogram(null, "user_selection_cost_for_smart_sharing",
-                        (int) selectionCost);
-                MetricsLogger.histogram(null, "app_position_for_smart_sharing", value);
+                    return;
             }
         }
     }
@@ -1416,15 +1310,14 @@ public class ChooserActivity extends ResolverActivity implements
         }
     }
 
-    private void logDirectShareTargetReceived(int logCategory, UserHandle forUser) {
+    private void logDirectShareTargetReceived(UserHandle forUser) {
         ProfileRecord profileRecord = getProfileRecord(forUser);
         if (profileRecord == null) {
             return;
         }
-
-        final int apiLatency =
-                (int) (SystemClock.elapsedRealtime() - profileRecord.loadingStartTime);
-        getMetricsLogger().write(new LogMaker(logCategory).setSubtype(apiLatency));
+        getChooserActivityLogger().logDirectShareTargetReceived(
+                MetricsEvent.ACTION_DIRECT_SHARE_TARGETS_LOADED_SHORTCUT_MANAGER,
+                (int) (SystemClock.elapsedRealtime() - profileRecord.loadingStartTime));
     }
 
     void updateModelAndChooserCounts(TargetInfo info) {
@@ -1564,13 +1457,6 @@ public class ChooserActivity extends ResolverActivity implements
                 DisplayResolveInfo lhsp, DisplayResolveInfo rhsp) {
             return mCollator.compare(lhsp.getDisplayLabel(), rhsp.getDisplayLabel());
         }
-    }
-
-    protected MetricsLogger getMetricsLogger() {
-        if (mMetricsLogger == null) {
-            mMetricsLogger = new MetricsLogger();
-        }
-        return mMetricsLogger;
     }
 
     protected ChooserActivityLogger getChooserActivityLogger() {
@@ -1756,7 +1642,7 @@ public class ChooserActivity extends ResolverActivity implements
         try {
             return getContentResolver().loadThumbnail(uri, size, null);
         } catch (IOException | NullPointerException | SecurityException ex) {
-            logContentPreviewWarning(uri);
+            getChooserActivityLogger().logContentPreviewWarning(uri);
         }
         return null;
     }
@@ -1943,7 +1829,7 @@ public class ChooserActivity extends ResolverActivity implements
 
     private ViewGroup getActiveEmptyStateView() {
         int currentPage = mChooserMultiProfilePagerAdapter.getCurrentPage();
-        return mChooserMultiProfilePagerAdapter.getItem(currentPage).getEmptyStateView();
+        return mChooserMultiProfilePagerAdapter.getEmptyStateView(currentPage);
     }
 
     @Override // ResolverListCommunicator
@@ -2016,10 +1902,7 @@ public class ChooserActivity extends ResolverActivity implements
             adapter.completeServiceTargetLoading();
         }
 
-        logDirectShareTargetReceived(
-                MetricsEvent.ACTION_DIRECT_SHARE_TARGETS_LOADED_SHORTCUT_MANAGER,
-                userHandle);
-
+        logDirectShareTargetReceived(userHandle);
         sendVoiceChoicesIfNeeded();
         getChooserActivityLogger().logSharesheetDirectLoadComplete();
     }
@@ -2150,14 +2033,6 @@ public class ChooserActivity extends ResolverActivity implements
         contentPreviewContainer.setVisibility(View.GONE);
     }
 
-    private void logActionShareWithPreview() {
-        Intent targetIntent = getTargetIntent();
-        int previewType = ChooserContentPreviewUi.findPreferredContentPreview(
-                targetIntent, getContentResolver(), this::isImageType);
-        getMetricsLogger().write(new LogMaker(MetricsEvent.ACTION_SHARE_WITH_PREVIEW)
-                .setSubtype(previewType));
-    }
-
     private void startFinishAnimation() {
         View rootView = findRootView();
         if (rootView != null) {
@@ -2257,565 +2132,6 @@ public class ChooserActivity extends ResolverActivity implements
                 mScrollStatus = SCROLL_STATUS_IDLE;
                 setVerticalScrollEnabled(true);
             }
-        }
-    }
-
-    /**
-     * Adapter for all types of items and targets in ShareSheet.
-     * Note that ranked sections like Direct Share - while appearing grid-like - are handled on the
-     * row level by this adapter but not on the item level. Individual targets within the row are
-     * handled by {@link ChooserListAdapter}
-     */
-    @VisibleForTesting
-    public static final class ChooserGridAdapter extends
-            RecyclerView.Adapter<RecyclerView.ViewHolder> {
-
-        /**
-         * Injectable interface for any considerations that should be delegated to other components
-         * in the {@link ChooserActivity}.
-         * TODO: determine whether any of these methods return parameters that can safely be
-         * precomputed; whether any should be converted to `ChooserGridAdapter` setters to be
-         * invoked by external callbacks; and whether any reflect requirements that should be moved
-         * out of `ChooserGridAdapter` altogether.
-         */
-        interface ChooserActivityDelegate {
-            /** @return whether we're showing a tabbed (multi-profile) UI. */
-            boolean shouldShowTabs();
-
-            /**
-             * @return a content preview {@link View} that's appropriate for the caller's share
-             * content, constructed for display in the provided {@code parent} group.
-             */
-            View buildContentPreview(ViewGroup parent);
-
-            /** Notify the client that the item with the selected {@code itemIndex} was selected. */
-            void onTargetSelected(int itemIndex);
-
-            /**
-             * Notify the client that the item with the selected {@code itemIndex} was
-             * long-pressed.
-             */
-            void onTargetLongPressed(int itemIndex);
-
-            /**
-             * Notify the client that the provided {@code View} should be configured as the new
-             * "profile view" button. Callers should attach their own click listeners to implement
-             * behaviors on this view.
-             */
-            void updateProfileViewButton(View newButtonFromProfileRow);
-
-            /**
-             * @return the number of "valid" targets in the active list adapter.
-             * TODO: define "valid."
-             */
-            int getValidTargetCount();
-
-            /**
-             * Request that the client update our {@code directShareGroup} to match their desired
-             * state for the "expansion" UI.
-             */
-            void updateDirectShareExpansion(DirectShareViewHolder directShareGroup);
-
-            /**
-             * Request that the client handle a scroll event that should be taken as expanding the
-             * provided {@code directShareGroup}. Note that this currently never happens due to a
-             * hard-coded condition in {@link #canExpandDirectShare()}.
-             */
-            void handleScrollToExpandDirectShare(
-                    DirectShareViewHolder directShareGroup, int y, int oldy);
-        }
-
-        private static final int VIEW_TYPE_DIRECT_SHARE = 0;
-        private static final int VIEW_TYPE_NORMAL = 1;
-        private static final int VIEW_TYPE_CONTENT_PREVIEW = 2;
-        private static final int VIEW_TYPE_PROFILE = 3;
-        private static final int VIEW_TYPE_AZ_LABEL = 4;
-        private static final int VIEW_TYPE_CALLER_AND_RANK = 5;
-        private static final int VIEW_TYPE_FOOTER = 6;
-
-        private static final int NUM_EXPANSIONS_TO_HIDE_AZ_LABEL = 20;
-
-        private final ChooserActivityDelegate mChooserActivityDelegate;
-        private final ChooserListAdapter mChooserListAdapter;
-        private final LayoutInflater mLayoutInflater;
-
-        private final int mMaxTargetsPerRow;
-        private final boolean mShouldShowContentPreview;
-        private final int mChooserWidthPixels;
-        private final int mChooserRowTextOptionTranslatePixelSize;
-        private final boolean mShowAzLabelIfPoss;
-
-        private DirectShareViewHolder mDirectShareViewHolder;
-        private int mChooserTargetWidth = 0;
-
-        private int mFooterHeight = 0;
-
-        ChooserGridAdapter(
-                Context context,
-                ChooserActivityDelegate chooserActivityDelegate,
-                ChooserListAdapter wrappedAdapter,
-                boolean shouldShowContentPreview,
-                int maxTargetsPerRow,
-                int numSheetExpansions) {
-            super();
-
-            mChooserActivityDelegate = chooserActivityDelegate;
-
-            mChooserListAdapter = wrappedAdapter;
-            mLayoutInflater = LayoutInflater.from(context);
-
-            mShouldShowContentPreview = shouldShowContentPreview;
-            mMaxTargetsPerRow = maxTargetsPerRow;
-
-            mChooserWidthPixels = context.getResources().getDimensionPixelSize(
-                    R.dimen.chooser_width);
-            mChooserRowTextOptionTranslatePixelSize = context.getResources().getDimensionPixelSize(
-                    R.dimen.chooser_row_text_option_translate);
-
-            mShowAzLabelIfPoss = numSheetExpansions < NUM_EXPANSIONS_TO_HIDE_AZ_LABEL;
-
-            wrappedAdapter.registerDataSetObserver(new DataSetObserver() {
-                @Override
-                public void onChanged() {
-                    super.onChanged();
-                    notifyDataSetChanged();
-                }
-
-                @Override
-                public void onInvalidated() {
-                    super.onInvalidated();
-                    notifyDataSetChanged();
-                }
-            });
-        }
-
-        public void setFooterHeight(int height) {
-            mFooterHeight = height;
-        }
-
-        /**
-         * Calculate the chooser target width to maximize space per item
-         *
-         * @param width The new row width to use for recalculation
-         * @return true if the view width has changed
-         */
-        public boolean calculateChooserTargetWidth(int width) {
-            if (width == 0) {
-                return false;
-            }
-
-            // Limit width to the maximum width of the chooser activity
-            int maxWidth = mChooserWidthPixels;
-            width = Math.min(maxWidth, width);
-
-            int newWidth = width / mMaxTargetsPerRow;
-            if (newWidth != mChooserTargetWidth) {
-                mChooserTargetWidth = newWidth;
-                return true;
-            }
-
-            return false;
-        }
-
-        public int getRowCount() {
-            return (int) (
-                    getSystemRowCount()
-                            + getProfileRowCount()
-                            + getServiceTargetRowCount()
-                            + getCallerAndRankedTargetRowCount()
-                            + getAzLabelRowCount()
-                            + Math.ceil(
-                            (float) mChooserListAdapter.getAlphaTargetCount()
-                                    / mMaxTargetsPerRow)
-            );
-        }
-
-        /**
-         * Whether the "system" row of targets is displayed.
-         * This area includes the content preview (if present) and action row.
-         */
-        public int getSystemRowCount() {
-            // For the tabbed case we show the sticky content preview above the tabs,
-            // please refer to shouldShowStickyContentPreview
-            if (mChooserActivityDelegate.shouldShowTabs()) {
-                return 0;
-            }
-
-            if (!mShouldShowContentPreview) {
-                return 0;
-            }
-
-            if (mChooserListAdapter == null || mChooserListAdapter.getCount() == 0) {
-                return 0;
-            }
-
-            return 1;
-        }
-
-        public int getProfileRowCount() {
-            if (mChooserActivityDelegate.shouldShowTabs()) {
-                return 0;
-            }
-            return mChooserListAdapter.getOtherProfile() == null ? 0 : 1;
-        }
-
-        public int getFooterRowCount() {
-            return 1;
-        }
-
-        public int getCallerAndRankedTargetRowCount() {
-            return (int) Math.ceil(
-                    ((float) mChooserListAdapter.getCallerTargetCount()
-                            + mChooserListAdapter.getRankedTargetCount()) / mMaxTargetsPerRow);
-        }
-
-        // There can be at most one row in the listview, that is internally
-        // a ViewGroup with 2 rows
-        public int getServiceTargetRowCount() {
-            if (mShouldShowContentPreview && !ActivityManager.isLowRamDeviceStatic()) {
-                return 1;
-            }
-            return 0;
-        }
-
-        public int getAzLabelRowCount() {
-            // Only show a label if the a-z list is showing
-            return (mShowAzLabelIfPoss && mChooserListAdapter.getAlphaTargetCount() > 0) ? 1 : 0;
-        }
-
-        @Override
-        public int getItemCount() {
-            return (int) (
-                    getSystemRowCount()
-                            + getProfileRowCount()
-                            + getServiceTargetRowCount()
-                            + getCallerAndRankedTargetRowCount()
-                            + getAzLabelRowCount()
-                            + mChooserListAdapter.getAlphaTargetCount()
-                            + getFooterRowCount()
-            );
-        }
-
-        @Override
-        public RecyclerView.ViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
-            switch (viewType) {
-                case VIEW_TYPE_CONTENT_PREVIEW:
-                    return new ItemViewHolder(
-                            mChooserActivityDelegate.buildContentPreview(parent),
-                            viewType,
-                            null,
-                            null);
-                case VIEW_TYPE_PROFILE:
-                    return new ItemViewHolder(
-                            createProfileView(parent),
-                            viewType,
-                            null,
-                            null);
-                case VIEW_TYPE_AZ_LABEL:
-                    return new ItemViewHolder(
-                            createAzLabelView(parent),
-                            viewType,
-                            null,
-                            null);
-                case VIEW_TYPE_NORMAL:
-                    return new ItemViewHolder(
-                            mChooserListAdapter.createView(parent),
-                            viewType,
-                            mChooserActivityDelegate::onTargetSelected,
-                            mChooserActivityDelegate::onTargetLongPressed);
-                case VIEW_TYPE_DIRECT_SHARE:
-                case VIEW_TYPE_CALLER_AND_RANK:
-                    return createItemGroupViewHolder(viewType, parent);
-                case VIEW_TYPE_FOOTER:
-                    Space sp = new Space(parent.getContext());
-                    sp.setLayoutParams(new RecyclerView.LayoutParams(
-                            LayoutParams.MATCH_PARENT, mFooterHeight));
-                    return new FooterViewHolder(sp, viewType);
-                default:
-                    // Since we catch all possible viewTypes above, no chance this is being called.
-                    return null;
-            }
-        }
-
-        @Override
-        public void onBindViewHolder(RecyclerView.ViewHolder holder, int position) {
-            int viewType = ((ViewHolderBase) holder).getViewType();
-            switch (viewType) {
-                case VIEW_TYPE_DIRECT_SHARE:
-                case VIEW_TYPE_CALLER_AND_RANK:
-                    bindItemGroupViewHolder(position, (ItemGroupViewHolder) holder);
-                    break;
-                case VIEW_TYPE_NORMAL:
-                    bindItemViewHolder(position, (ItemViewHolder) holder);
-                    break;
-                default:
-            }
-        }
-
-        @Override
-        public int getItemViewType(int position) {
-            int count;
-
-            int countSum = (count = getSystemRowCount());
-            if (count > 0 && position < countSum) return VIEW_TYPE_CONTENT_PREVIEW;
-
-            countSum += (count = getProfileRowCount());
-            if (count > 0 && position < countSum) return VIEW_TYPE_PROFILE;
-
-            countSum += (count = getServiceTargetRowCount());
-            if (count > 0 && position < countSum) return VIEW_TYPE_DIRECT_SHARE;
-
-            countSum += (count = getCallerAndRankedTargetRowCount());
-            if (count > 0 && position < countSum) return VIEW_TYPE_CALLER_AND_RANK;
-
-            countSum += (count = getAzLabelRowCount());
-            if (count > 0 && position < countSum) return VIEW_TYPE_AZ_LABEL;
-
-            if (position == getItemCount() - 1) return VIEW_TYPE_FOOTER;
-
-            return VIEW_TYPE_NORMAL;
-        }
-
-        public int getTargetType(int position) {
-            return mChooserListAdapter.getPositionTargetType(getListPosition(position));
-        }
-
-        private View createProfileView(ViewGroup parent) {
-            View profileRow = mLayoutInflater.inflate(R.layout.chooser_profile_row, parent, false);
-            mChooserActivityDelegate.updateProfileViewButton(profileRow);
-            return profileRow;
-        }
-
-        private View createAzLabelView(ViewGroup parent) {
-            return mLayoutInflater.inflate(R.layout.chooser_az_label_row, parent, false);
-        }
-
-        private ItemGroupViewHolder loadViewsIntoGroup(ItemGroupViewHolder holder) {
-            final int spec = MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED);
-            final int exactSpec = MeasureSpec.makeMeasureSpec(mChooserTargetWidth,
-                    MeasureSpec.EXACTLY);
-            int columnCount = holder.getColumnCount();
-
-            final boolean isDirectShare = holder instanceof DirectShareViewHolder;
-
-            for (int i = 0; i < columnCount; i++) {
-                final View v = mChooserListAdapter.createView(holder.getRowByIndex(i));
-                final int column = i;
-                v.setOnClickListener(new OnClickListener() {
-                    @Override
-                    public void onClick(View v) {
-                        mChooserActivityDelegate.onTargetSelected(holder.getItemIndex(column));
-                    }
-                });
-
-                // Show menu for both direct share and app share targets after long click.
-                v.setOnLongClickListener(v1 -> {
-                    mChooserActivityDelegate.onTargetLongPressed(holder.getItemIndex(column));
-                    return true;
-                });
-
-                holder.addView(i, v);
-
-                // Force Direct Share to be 2 lines and auto-wrap to second line via hoz scroll =
-                // false. TextView#setHorizontallyScrolling must be reset after #setLines. Must be
-                // done before measuring.
-                if (isDirectShare) {
-                    final ViewHolder vh = (ViewHolder) v.getTag();
-                    vh.text.setLines(2);
-                    vh.text.setHorizontallyScrolling(false);
-                    vh.text2.setVisibility(View.GONE);
-                }
-
-                // Force height to be a given so we don't have visual disruption during scaling.
-                v.measure(exactSpec, spec);
-                setViewBounds(v, v.getMeasuredWidth(), v.getMeasuredHeight());
-            }
-
-            final ViewGroup viewGroup = holder.getViewGroup();
-
-            // Pre-measure and fix height so we can scale later.
-            holder.measure();
-            setViewBounds(viewGroup, LayoutParams.MATCH_PARENT, holder.getMeasuredRowHeight());
-
-            if (isDirectShare) {
-                DirectShareViewHolder dsvh = (DirectShareViewHolder) holder;
-                setViewBounds(dsvh.getRow(0), LayoutParams.MATCH_PARENT, dsvh.getMinRowHeight());
-                setViewBounds(dsvh.getRow(1), LayoutParams.MATCH_PARENT, dsvh.getMinRowHeight());
-            }
-
-            viewGroup.setTag(holder);
-            return holder;
-        }
-
-        private void setViewBounds(View view, int widthPx, int heightPx) {
-            LayoutParams lp = view.getLayoutParams();
-            if (lp == null) {
-                lp = new LayoutParams(widthPx, heightPx);
-                view.setLayoutParams(lp);
-            } else {
-                lp.height = heightPx;
-                lp.width = widthPx;
-            }
-        }
-
-        ItemGroupViewHolder createItemGroupViewHolder(int viewType, ViewGroup parent) {
-            if (viewType == VIEW_TYPE_DIRECT_SHARE) {
-                ViewGroup parentGroup = (ViewGroup) mLayoutInflater.inflate(
-                        R.layout.chooser_row_direct_share, parent, false);
-                ViewGroup row1 = (ViewGroup) mLayoutInflater.inflate(R.layout.chooser_row,
-                        parentGroup, false);
-                ViewGroup row2 = (ViewGroup) mLayoutInflater.inflate(R.layout.chooser_row,
-                        parentGroup, false);
-                parentGroup.addView(row1);
-                parentGroup.addView(row2);
-
-                mDirectShareViewHolder = new DirectShareViewHolder(parentGroup,
-                        Lists.newArrayList(row1, row2), mMaxTargetsPerRow, viewType,
-                        mChooserActivityDelegate::getValidTargetCount);
-                loadViewsIntoGroup(mDirectShareViewHolder);
-
-                return mDirectShareViewHolder;
-            } else {
-                ViewGroup row = (ViewGroup) mLayoutInflater.inflate(R.layout.chooser_row, parent,
-                        false);
-                ItemGroupViewHolder holder =
-                        new SingleRowViewHolder(row, mMaxTargetsPerRow, viewType);
-                loadViewsIntoGroup(holder);
-
-                return holder;
-            }
-        }
-
-        /**
-         * Need to merge CALLER + ranked STANDARD into a single row and prevent a separator from
-         * showing on top of the AZ list if the AZ label is visible. All other types are placed into
-         * their own row as determined by their target type, and dividers are added in the list to
-         * separate each type.
-         */
-        int getRowType(int rowPosition) {
-            // Merge caller and ranked standard into a single row
-            int positionType = mChooserListAdapter.getPositionTargetType(rowPosition);
-            if (positionType == ChooserListAdapter.TARGET_CALLER) {
-                return ChooserListAdapter.TARGET_STANDARD;
-            }
-
-            // If an the A-Z label is shown, prevent a separator from appearing by making the A-Z
-            // row type the same as the suggestion row type
-            if (getAzLabelRowCount() > 0 && positionType == ChooserListAdapter.TARGET_STANDARD_AZ) {
-                return ChooserListAdapter.TARGET_STANDARD;
-            }
-
-            return positionType;
-        }
-
-        void bindItemViewHolder(int position, ItemViewHolder holder) {
-            View v = holder.itemView;
-            int listPosition = getListPosition(position);
-            holder.setListPosition(listPosition);
-            mChooserListAdapter.bindView(listPosition, v);
-        }
-
-        void bindItemGroupViewHolder(int position, ItemGroupViewHolder holder) {
-            final ViewGroup viewGroup = (ViewGroup) holder.itemView;
-            int start = getListPosition(position);
-            int startType = getRowType(start);
-
-            int columnCount = holder.getColumnCount();
-            int end = start + columnCount - 1;
-            while (getRowType(end) != startType && end >= start) {
-                end--;
-            }
-
-            if (end == start && mChooserListAdapter.getItem(start).isEmptyTargetInfo()) {
-                final TextView textView = viewGroup.findViewById(com.android.internal.R.id.chooser_row_text_option);
-
-                if (textView.getVisibility() != View.VISIBLE) {
-                    textView.setAlpha(0.0f);
-                    textView.setVisibility(View.VISIBLE);
-                    textView.setText(R.string.chooser_no_direct_share_targets);
-
-                    ValueAnimator fadeAnim = ObjectAnimator.ofFloat(textView, "alpha", 0.0f, 1.0f);
-                    fadeAnim.setInterpolator(new DecelerateInterpolator(1.0f));
-
-                    textView.setTranslationY(mChooserRowTextOptionTranslatePixelSize);
-                    ValueAnimator translateAnim = ObjectAnimator.ofFloat(textView, "translationY",
-                            0.0f);
-                    translateAnim.setInterpolator(new DecelerateInterpolator(1.0f));
-
-                    AnimatorSet animSet = new AnimatorSet();
-                    animSet.setDuration(NO_DIRECT_SHARE_ANIM_IN_MILLIS);
-                    animSet.setStartDelay(NO_DIRECT_SHARE_ANIM_IN_MILLIS);
-                    animSet.playTogether(fadeAnim, translateAnim);
-                    animSet.start();
-                }
-            }
-
-            for (int i = 0; i < columnCount; i++) {
-                final View v = holder.getView(i);
-
-                if (start + i <= end) {
-                    holder.setViewVisibility(i, View.VISIBLE);
-                    holder.setItemIndex(i, start + i);
-                    mChooserListAdapter.bindView(holder.getItemIndex(i), v);
-                } else {
-                    holder.setViewVisibility(i, View.INVISIBLE);
-                }
-            }
-        }
-
-        int getListPosition(int position) {
-            position -= getSystemRowCount() + getProfileRowCount();
-
-            final int serviceCount = mChooserListAdapter.getServiceTargetCount();
-            final int serviceRows = (int) Math.ceil((float) serviceCount / mMaxTargetsPerRow);
-            if (position < serviceRows) {
-                return position * mMaxTargetsPerRow;
-            }
-
-            position -= serviceRows;
-
-            final int callerAndRankedCount = mChooserListAdapter.getCallerTargetCount()
-                                                 + mChooserListAdapter.getRankedTargetCount();
-            final int callerAndRankedRows = getCallerAndRankedTargetRowCount();
-            if (position < callerAndRankedRows) {
-                return serviceCount + position * mMaxTargetsPerRow;
-            }
-
-            position -= getAzLabelRowCount() + callerAndRankedRows;
-
-            return callerAndRankedCount + serviceCount + position;
-        }
-
-        public void handleScroll(View v, int y, int oldy) {
-            boolean canExpandDirectShare = canExpandDirectShare();
-            if (mDirectShareViewHolder != null && canExpandDirectShare) {
-                mChooserActivityDelegate.handleScrollToExpandDirectShare(
-                        mDirectShareViewHolder, y, oldy);
-            }
-        }
-
-        /**
-         * Only expand direct share area if there is a minimum number of targets.
-         */
-        private boolean canExpandDirectShare() {
-            // Do not enable until we have confirmed more apps are using sharing shortcuts
-            // Check git history for enablement logic
-            return false;
-        }
-
-        public ChooserListAdapter getListAdapter() {
-            return mChooserListAdapter;
-        }
-
-        boolean shouldCellSpan(int position) {
-            return getItemViewType(position) == VIEW_TYPE_NORMAL;
-        }
-
-        void updateDirectShareExpansion() {
-            if (mDirectShareViewHolder == null || !canExpandDirectShare()) {
-                return;
-            }
-            mChooserActivityDelegate.updateDirectShareExpansion(mDirectShareViewHolder);
         }
     }
 
