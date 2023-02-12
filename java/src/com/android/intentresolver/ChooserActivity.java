@@ -32,7 +32,7 @@ import android.annotation.Nullable;
 import android.app.Activity;
 import android.app.ActivityManager;
 import android.app.ActivityOptions;
-import android.app.SharedElementCallback;
+import android.app.PendingIntent;
 import android.app.prediction.AppPredictor;
 import android.app.prediction.AppTarget;
 import android.app.prediction.AppTargetEvent;
@@ -55,7 +55,6 @@ import android.content.pm.ShortcutInfo;
 import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.database.Cursor;
-import android.graphics.Bitmap;
 import android.graphics.Insets;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
@@ -71,10 +70,10 @@ import android.os.UserManager;
 import android.os.storage.StorageManager;
 import android.provider.DeviceConfig;
 import android.provider.Settings;
+import android.service.chooser.ChooserAction;
 import android.service.chooser.ChooserTarget;
 import android.text.TextUtils;
 import android.util.Log;
-import android.util.Size;
 import android.util.Slog;
 import android.util.SparseArray;
 import android.view.View;
@@ -113,8 +112,9 @@ import com.android.internal.content.PackageMonitor;
 import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
 import com.android.internal.util.FrameworkStatsLog;
 
+import com.google.common.collect.ImmutableList;
+
 import java.io.File;
-import java.io.IOException;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.text.Collator;
@@ -159,6 +159,7 @@ public class ChooserActivity extends ResolverActivity implements
     private static final String CHIP_ICON_METADATA_KEY = "android.service.chooser.chip_icon";
 
     private static final boolean DEBUG = true;
+    static final boolean ENABLE_CUSTOM_ACTIONS = false;
 
     public static final String LAUNCH_LOCATION_DIRECT_SHARE = "direct_share";
     private static final String SHORTCUT_TARGET = "shortcut_target";
@@ -242,43 +243,20 @@ public class ChooserActivity extends ResolverActivity implements
     private final ExecutorService mBackgroundThreadPoolExecutor = Executors.newFixedThreadPool(5);
 
     @Nullable
-    private ChooserContentPreviewCoordinator mPreviewCoordinator;
+    private ImageLoader mPreviewImageLoader;
 
     private int mScrollStatus = SCROLL_STATUS_IDLE;
 
     @VisibleForTesting
     protected ChooserMultiProfilePagerAdapter mChooserMultiProfilePagerAdapter;
     private final EnterTransitionAnimationDelegate mEnterTransitionAnimationDelegate =
-            new EnterTransitionAnimationDelegate();
-
-    private boolean mRemoveSharedElements = false;
+            new EnterTransitionAnimationDelegate(this, () -> mResolverDrawerLayout);
 
     private View mContentView = null;
 
     private final SparseArray<ProfileRecord> mProfileRecords = new SparseArray<>();
 
     public ChooserActivity() {}
-
-    private void setupPreDrawForSharedElementTransition(View v) {
-        v.getViewTreeObserver().addOnPreDrawListener(new ViewTreeObserver.OnPreDrawListener() {
-            @Override
-            public boolean onPreDraw() {
-                v.getViewTreeObserver().removeOnPreDrawListener(this);
-
-                if (!mRemoveSharedElements && isActivityTransitionRunning()) {
-                    // Disable the window animations as it interferes with the transition animation.
-                    getWindow().setWindowAnimations(0);
-                }
-                mEnterTransitionAnimationDelegate.markImagePreviewReady();
-                return true;
-            }
-        });
-    }
-
-    private void hideContentPreview() {
-        mRemoveSharedElements = true;
-        mEnterTransitionAnimationDelegate.markImagePreviewReady();
-    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -289,7 +267,7 @@ public class ChooserActivity extends ResolverActivity implements
 
         try {
             mChooserRequest = new ChooserRequestParameters(
-                    getIntent(), getReferrer(), getNearbySharingComponent());
+                    getIntent(), getReferrer(), getNearbySharingComponent(), ENABLE_CUSTOM_ACTIONS);
         } catch (IllegalArgumentException e) {
             Log.e(TAG, "Caller provided invalid Chooser request parameters", e);
             finish();
@@ -315,11 +293,7 @@ public class ChooserActivity extends ResolverActivity implements
                         mChooserRequest.getTargetIntentFilter()),
                 mChooserRequest.getTargetIntentFilter());
 
-        mPreviewCoordinator = new ChooserContentPreviewCoordinator(
-                mBackgroundThreadPoolExecutor,
-                this,
-                this::hideContentPreview,
-                this::setupPreDrawForSharedElementTransition);
+        mPreviewImageLoader = createPreviewImageLoader();
 
         super.onCreate(
                 savedInstanceState,
@@ -378,17 +352,6 @@ public class ChooserActivity extends ResolverActivity implements
                 mChooserRequest.getTargetAction()
         );
 
-        setEnterSharedElementCallback(new SharedElementCallback() {
-            @Override
-            public void onMapSharedElements(List<String> names, Map<String, View> sharedElements) {
-                if (mRemoveSharedElements) {
-                    names.remove(FIRST_IMAGE_PREVIEW_TRANSITION_NAME);
-                    sharedElements.remove(FIRST_IMAGE_PREVIEW_TRANSITION_NAME);
-                }
-                super.onMapSharedElements(names, sharedElements);
-                mRemoveSharedElements = false;
-            }
-        });
         mEnterTransitionAnimationDelegate.postponeTransition();
     }
 
@@ -743,9 +706,7 @@ public class ChooserActivity extends ResolverActivity implements
      * @param parent reference to the parent container where the view should be attached to
      * @return content preview view
      */
-    protected ViewGroup createContentPreviewView(
-            ViewGroup parent,
-            ChooserContentPreviewUi.ContentPreviewCoordinator previewCoordinator) {
+    protected ViewGroup createContentPreviewView(ViewGroup parent, ImageLoader imageLoader) {
         Intent targetIntent = getTargetIntent();
         int previewType = ChooserContentPreviewUi.findPreferredContentPreview(
                 targetIntent, getContentResolver(), this::isImageType);
@@ -768,6 +729,20 @@ public class ChooserActivity extends ResolverActivity implements
                     public ActionRow.Action createNearbyButton() {
                         return ChooserActivity.this.createNearbyAction(targetIntent);
                     }
+
+                    @Override
+                    public List<ActionRow.Action> createCustomActions() {
+                        ImmutableList<ChooserAction> customActions =
+                                mChooserRequest.getChooserActions();
+                        List<ActionRow.Action> actions = new ArrayList<>(customActions.size());
+                        for (ChooserAction customAction : customActions) {
+                            ActionRow.Action action = createCustomAction(customAction);
+                            if (action != null) {
+                                actions.add(action);
+                            }
+                        }
+                        return actions;
+                    }
                 };
 
         ViewGroup layout = ChooserContentPreviewUi.displayContentPreview(
@@ -776,8 +751,12 @@ public class ChooserActivity extends ResolverActivity implements
                 getResources(),
                 getLayoutInflater(),
                 actionFactory,
+                ENABLE_CUSTOM_ACTIONS
+                        ? R.layout.scrollable_chooser_action_row
+                        : R.layout.chooser_action_row,
                 parent,
-                previewCoordinator,
+                imageLoader,
+                mEnterTransitionAnimationDelegate::markImagePreviewReady,
                 getContentResolver(),
                 this::isImageType);
 
@@ -785,7 +764,7 @@ public class ChooserActivity extends ResolverActivity implements
             adjustPreviewWidth(getResources().getConfiguration().orientation, layout);
         }
         if (previewType != ChooserContentPreviewUi.CONTENT_PREVIEW_IMAGE) {
-            mEnterTransitionAnimationDelegate.markImagePreviewReady();
+            mEnterTransitionAnimationDelegate.markImagePreviewReady(false);
         }
 
         return layout;
@@ -957,6 +936,28 @@ public class ChooserActivity extends ResolverActivity implements
                                 ti, getPersonalProfileUserHandle(), options.toBundle());
                         startFinishAnimation();
                     }
+                }
+        );
+    }
+
+    @Nullable
+    private ActionRow.Action createCustomAction(ChooserAction action) {
+        Drawable icon = action.getIcon().loadDrawable(this);
+        if (icon == null && TextUtils.isEmpty(action.getLabel())) {
+            return null;
+        }
+        return new ActionRow.Action(
+                action.getLabel(),
+                icon,
+                () -> {
+                    try {
+                        action.getAction().send();
+                    } catch (PendingIntent.CanceledException e) {
+                        Log.d(TAG, "Custom action, " + action.getLabel() + ", has been cancelled");
+                    }
+                    // TODO: add reporting
+                    setResult(RESULT_OK);
+                    finish();
                 }
         );
     }
@@ -1519,7 +1520,7 @@ public class ChooserActivity extends ResolverActivity implements
 
                     @Override
                     public View buildContentPreview(ViewGroup parent) {
-                        return createContentPreviewView(parent, mPreviewCoordinator);
+                        return createContentPreviewView(parent, mPreviewImageLoader);
                     }
 
                     @Override
@@ -1634,17 +1635,8 @@ public class ChooserActivity extends ResolverActivity implements
     }
 
     @VisibleForTesting
-    protected Bitmap loadThumbnail(Uri uri, Size size) {
-        if (uri == null || size == null) {
-            return null;
-        }
-
-        try {
-            return getContentResolver().loadThumbnail(uri, size, null);
-        } catch (IOException | NullPointerException | SecurityException ex) {
-            getChooserActivityLogger().logContentPreviewWarning(uri);
-        }
-        return null;
+    protected ImageLoader createPreviewImageLoader() {
+        return new ImagePreviewImageLoader(this, getLifecycle());
     }
 
     private void handleScroll(View view, int x, int y, int oldx, int oldy) {
@@ -1980,9 +1972,21 @@ public class ChooserActivity extends ResolverActivity implements
 
     private boolean shouldShowStickyContentPreviewNoOrientationCheck() {
         return shouldShowTabs()
-                && mMultiProfilePagerAdapter.getListAdapterForUserHandle(
+                && (mMultiProfilePagerAdapter.getListAdapterForUserHandle(
                 UserHandle.of(UserHandle.myUserId())).getCount() > 0
+                || shouldShowContentPreviewWhenEmpty())
                 && shouldShowContentPreview();
+    }
+
+    /**
+     * This method could be used to override the default behavior when we hide the preview area
+     * when the current tab doesn't have any items.
+     *
+     * @return true if we want to show the content preview area even if the tab for the current
+     *         user is empty
+     */
+    protected boolean shouldShowContentPreviewWhenEmpty() {
+        return false;
     }
 
     /**
@@ -2001,7 +2005,7 @@ public class ChooserActivity extends ResolverActivity implements
             ViewGroup contentPreviewContainer = findViewById(com.android.internal.R.id.content_preview_container);
             if (contentPreviewContainer.getChildCount() == 0) {
                 ViewGroup contentPreviewView =
-                        createContentPreviewView(contentPreviewContainer, mPreviewCoordinator);
+                        createContentPreviewView(contentPreviewContainer, mPreviewImageLoader);
                 contentPreviewContainer.addView(contentPreviewView);
             }
         }
@@ -2192,51 +2196,6 @@ public class ChooserActivity extends ResolverActivity implements
         public void destroy() {
             mChooserActivity = null;
             mSelectedTarget = null;
-        }
-    }
-
-    /**
-     * A helper class to track app's readiness for the scene transition animation.
-     * The app is ready when both the image is laid out and the drawer offset is calculated.
-     */
-    private class EnterTransitionAnimationDelegate implements View.OnLayoutChangeListener {
-        private boolean mPreviewReady = false;
-        private boolean mOffsetCalculated = false;
-
-        void postponeTransition() {
-            postponeEnterTransition();
-        }
-
-        void markImagePreviewReady() {
-            if (!mPreviewReady) {
-                mPreviewReady = true;
-                maybeStartListenForLayout();
-            }
-        }
-
-        void markOffsetCalculated() {
-            if (!mOffsetCalculated) {
-                mOffsetCalculated = true;
-                maybeStartListenForLayout();
-            }
-        }
-
-        private void maybeStartListenForLayout() {
-            if (mPreviewReady && mOffsetCalculated && mResolverDrawerLayout != null) {
-                if (mResolverDrawerLayout.isInLayout()) {
-                    startPostponedEnterTransition();
-                } else {
-                    mResolverDrawerLayout.addOnLayoutChangeListener(this);
-                    mResolverDrawerLayout.requestLayout();
-                }
-            }
-        }
-
-        @Override
-        public void onLayoutChange(View v, int left, int top, int right, int bottom, int oldLeft,
-                int oldTop, int oldRight, int oldBottom) {
-            v.removeOnLayoutChangeListener(this);
-            startPostponedEnterTransition();
         }
     }
 
