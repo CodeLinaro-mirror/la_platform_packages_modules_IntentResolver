@@ -32,6 +32,8 @@ import android.provider.DocumentsContract;
 import android.provider.Downloads;
 import android.provider.OpenableColumns;
 import android.text.TextUtils;
+import android.text.util.Linkify;
+import android.transition.TransitionManager;
 import android.util.Log;
 import android.util.PluralsMessageFormatter;
 import android.view.LayoutInflater;
@@ -39,14 +41,18 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewStub;
 import android.view.animation.DecelerateInterpolator;
+import android.widget.CheckBox;
 import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.annotation.LayoutRes;
 import androidx.annotation.Nullable;
 
+import com.android.intentresolver.flags.FeatureFlagRepository;
+import com.android.intentresolver.flags.Flags;
 import com.android.intentresolver.widget.ActionRow;
 import com.android.intentresolver.widget.ImagePreviewView;
+import com.android.intentresolver.widget.ImagePreviewView.TransitionElementStatusCallback;
 import com.android.intentresolver.widget.RoundedRectImageView;
 import com.android.internal.annotations.VisibleForTesting;
 
@@ -56,6 +62,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 /**
  * Collection of helpers for building the content preview UI displayed in {@link ChooserActivity}.
@@ -70,21 +77,6 @@ import java.util.function.Consumer;
  */
 public final class ChooserContentPreviewUi {
     private static final int IMAGE_FADE_IN_MILLIS = 150;
-
-    /**
-     * Delegate to handle background resource loads that are dependencies of content previews.
-     */
-    public interface ContentPreviewCoordinator {
-        /**
-         * Request that an image be loaded in the background and set into a view.
-         *
-         * @param imageUri The {@link Uri} of the image to load.
-         *
-         * TODO: it looks like clients are probably capable of passing the view directly, but the
-         * deferred computation here is a closer match to the legacy model for now.
-         */
-        void loadImage(Uri imageUri, Consumer<Bitmap> callback);
-    }
 
     /**
      * Delegate to build the default system action buttons to display in the preview layout, if/when
@@ -102,6 +94,26 @@ public final class ChooserContentPreviewUi {
         /** Create an "Share to Nearby" action. */
         @Nullable
         ActionRow.Action createNearbyButton();
+
+        /** Create custom actions */
+        List<ActionRow.Action> createCustomActions();
+
+        /**
+         * Provides a share modification action, if any.
+         */
+        @Nullable
+        Runnable getModifyShareAction();
+
+        /**
+         * <p>
+         * Creates an exclude-text action that can be called when the user changes shared text
+         * status in the Media + Text preview.
+         * </p>
+         * <p>
+         * <code>true</code> argument value indicates that the text should be excluded.
+         * </p>
+         */
+        Consumer<Boolean> getExcludeSharedTextAction();
     }
 
     /**
@@ -133,6 +145,8 @@ public final class ChooserContentPreviewUi {
 
     private static final String PLURALS_COUNT  = "count";
     private static final String PLURALS_FILE_NAME = "file_name";
+
+    private final FeatureFlagRepository mFeatureFlagRepository;
 
     /** Determine the most appropriate type of preview to show for the provided {@link Intent}. */
     @ContentPreviewType
@@ -169,62 +183,100 @@ public final class ChooserContentPreviewUi {
         return CONTENT_PREVIEW_TEXT;
     }
 
+    public ChooserContentPreviewUi(
+            FeatureFlagRepository featureFlagRepository) {
+        mFeatureFlagRepository = featureFlagRepository;
+    }
+
     /**
      * Display a content preview of the specified {@code previewType} to preview the content of the
      * specified {@code intent}.
      */
-    public static ViewGroup displayContentPreview(
+    public ViewGroup displayContentPreview(
             @ContentPreviewType int previewType,
             Intent targetIntent,
             Resources resources,
             LayoutInflater layoutInflater,
             ActionFactory actionFactory,
-            @LayoutRes int actionRowLayout,
             ViewGroup parent,
-            ContentPreviewCoordinator previewCoord,
-            Consumer<Boolean> onTransitionTargetReady,
+            ImageLoader previewImageLoader,
+            TransitionElementStatusCallback transitionElementStatusCallback,
             ContentResolver contentResolver,
             ImageMimeTypeClassifier imageClassifier) {
         ViewGroup layout = null;
 
+        if (previewType != CONTENT_PREVIEW_IMAGE) {
+            transitionElementStatusCallback.onAllTransitionElementsReady();
+        }
+        int actionRowLayout = mFeatureFlagRepository.isEnabled(Flags.SHARESHEET_CUSTOM_ACTIONS)
+                ? R.layout.scrollable_chooser_action_row
+                : R.layout.chooser_action_row;
+        List<ActionRow.Action> customActions = actionFactory.createCustomActions();
         switch (previewType) {
             case CONTENT_PREVIEW_TEXT:
                 layout = displayTextContentPreview(
                         targetIntent,
                         layoutInflater,
-                        createTextPreviewActions(actionFactory),
+                        createActions(
+                                createTextPreviewActions(actionFactory),
+                                customActions),
                         parent,
-                        previewCoord,
+                        previewImageLoader,
                         actionRowLayout);
                 break;
             case CONTENT_PREVIEW_IMAGE:
                 layout = displayImageContentPreview(
                         targetIntent,
                         layoutInflater,
-                        createImagePreviewActions(actionFactory),
+                        createActions(
+                                createImagePreviewActions(actionFactory),
+                                customActions),
                         parent,
-                        previewCoord,
-                        onTransitionTargetReady,
+                        previewImageLoader,
+                        transitionElementStatusCallback,
                         contentResolver,
                         imageClassifier,
-                        actionRowLayout);
+                        actionRowLayout,
+                        actionFactory);
                 break;
             case CONTENT_PREVIEW_FILE:
                 layout = displayFileContentPreview(
                         targetIntent,
                         resources,
                         layoutInflater,
-                        createFilePreviewActions(actionFactory),
+                        createActions(
+                                createFilePreviewActions(actionFactory),
+                                customActions),
                         parent,
-                        previewCoord,
+                        previewImageLoader,
                         contentResolver,
                         actionRowLayout);
                 break;
             default:
                 Log.e(TAG, "Unexpected content preview type: " + previewType);
         }
+        Runnable modifyShareAction = actionFactory.getModifyShareAction();
+        if (modifyShareAction != null && layout != null
+                && mFeatureFlagRepository.isEnabled(Flags.SHARESHEET_RESELECTION_ACTION)) {
+            View modifyShareView = layout.findViewById(R.id.reselection_action);
+            if (modifyShareView != null) {
+                modifyShareView.setVisibility(View.VISIBLE);
+                modifyShareView.setOnClickListener(view -> modifyShareAction.run());
+            }
+        }
 
         return layout;
+    }
+
+    private List<ActionRow.Action> createActions(
+            List<ActionRow.Action> systemActions, List<ActionRow.Action> customActions) {
+        ArrayList<ActionRow.Action> actions =
+                new ArrayList<>(systemActions.size() + customActions.size());
+        actions.addAll(systemActions);
+        if (mFeatureFlagRepository.isEnabled(Flags.SHARESHEET_CUSTOM_ACTIONS)) {
+            actions.addAll(customActions);
+        }
+        return actions;
     }
 
     private static Cursor queryResolver(ContentResolver resolver, Uri uri) {
@@ -247,7 +299,7 @@ public final class ChooserContentPreviewUi {
             LayoutInflater layoutInflater,
             List<ActionRow.Action> actions,
             ViewGroup parent,
-            ContentPreviewCoordinator previewCoord,
+            ImageLoader previewImageLoader,
             @LayoutRes int actionRowLayout) {
         ViewGroup contentPreviewLayout = (ViewGroup) layoutInflater.inflate(
                 R.layout.chooser_grid_preview_text, parent, false);
@@ -292,7 +344,7 @@ public final class ChooserContentPreviewUi {
             if (previewThumbnail == null) {
                 previewThumbnailView.setVisibility(View.GONE);
             } else {
-                previewCoord.loadImage(
+                previewImageLoader.loadImage(
                         previewThumbnail,
                         (bitmap) -> updateViewWithImage(
                                 contentPreviewLayout.findViewById(
@@ -314,56 +366,87 @@ public final class ChooserContentPreviewUi {
         return actions;
     }
 
-    private static ViewGroup displayImageContentPreview(
+    private ViewGroup displayImageContentPreview(
             Intent targetIntent,
             LayoutInflater layoutInflater,
             List<ActionRow.Action> actions,
             ViewGroup parent,
-            ContentPreviewCoordinator previewCoord,
-            Consumer<Boolean> onTransitionTargetReady,
+            ImageLoader imageLoader,
+            TransitionElementStatusCallback transitionElementStatusCallback,
             ContentResolver contentResolver,
             ImageMimeTypeClassifier imageClassifier,
-            @LayoutRes int actionRowLayout) {
+            @LayoutRes int actionRowLayout,
+            ActionFactory actionFactory) {
         ViewGroup contentPreviewLayout = (ViewGroup) layoutInflater.inflate(
                 R.layout.chooser_grid_preview_image, parent, false);
-        ImagePreviewView imagePreview = contentPreviewLayout.findViewById(
-                com.android.internal.R.id.content_preview_image_area);
+        ImagePreviewView imagePreview = inflateImagePreviewView(contentPreviewLayout);
 
         final ActionRow actionRow = inflateActionRow(contentPreviewLayout, actionRowLayout);
         if (actionRow != null) {
             actionRow.setActions(actions);
         }
 
-        final ImagePreviewImageLoader imageLoader = new ImagePreviewImageLoader(previewCoord);
-        final ArrayList<Uri> imageUris = new ArrayList<>();
         String action = targetIntent.getAction();
-        if (Intent.ACTION_SEND.equals(action)) {
-            // TODO: why don't we use image classifier in this case as well?
-            Uri uri = targetIntent.getParcelableExtra(Intent.EXTRA_STREAM);
-            imageUris.add(uri);
-        } else {
-            List<Uri> uris = targetIntent.getParcelableArrayListExtra(Intent.EXTRA_STREAM);
-            for (Uri uri : uris) {
-                if (imageClassifier.isImageType(contentResolver.getType(uri))) {
-                    imageUris.add(uri);
-                }
-            }
-        }
+        // TODO: why don't we use image classifier for single-element ACTION_SEND?
+        final List<Uri> imageUris = Intent.ACTION_SEND.equals(action)
+                ? extractContentUris(targetIntent)
+                : extractContentUris(targetIntent)
+                        .stream()
+                        .filter(uri ->
+                                imageClassifier.isImageType(contentResolver.getType(uri))
+                        )
+                        .collect(Collectors.toList());
 
         if (imageUris.size() == 0) {
             Log.i(TAG, "Attempted to display image preview area with zero"
                     + " available images detected in EXTRA_STREAM list");
-            imagePreview.setVisibility(View.GONE);
-            onTransitionTargetReady.accept(false);
+            ((View) imagePreview).setVisibility(View.GONE);
+            transitionElementStatusCallback.onAllTransitionElementsReady();
             return contentPreviewLayout;
         }
 
-        imagePreview.setSharedElementTransitionTarget(
-                ChooserActivity.FIRST_IMAGE_PREVIEW_TRANSITION_NAME,
-                onTransitionTargetReady);
+        setTextInImagePreviewVisibility(
+                contentPreviewLayout,
+                targetIntent.getCharSequenceExtra(Intent.EXTRA_TEXT),
+                actionFactory);
+        imagePreview.setTransitionElementStatusCallback(transitionElementStatusCallback);
         imagePreview.setImages(imageUris, imageLoader);
 
         return contentPreviewLayout;
+    }
+
+    private void setTextInImagePreviewVisibility(
+            ViewGroup contentPreview, CharSequence text, ActionFactory actionFactory) {
+        int visibility = mFeatureFlagRepository.isEnabled(Flags.SHARESHEET_IMAGE_AND_TEXT_PREVIEW)
+                && !TextUtils.isEmpty(text)
+                        ? View.VISIBLE
+                        : View.GONE;
+
+        final TextView textView = contentPreview
+                .requireViewById(com.android.internal.R.id.content_preview_text);
+        CheckBox actionView = contentPreview
+                .requireViewById(R.id.include_text_action);
+        textView.setVisibility(visibility);
+        boolean isLink = visibility == View.VISIBLE && HttpUriMatcher.isHttpUri(text.toString());
+        textView.setAutoLinkMask(isLink ? Linkify.WEB_URLS : 0);
+        textView.setText(text);
+
+        if (visibility == View.VISIBLE) {
+            final int[] actionLabels = isLink
+                    ? new int[] { R.string.include_link, R.string.exclude_link }
+                    : new int[] { R.string.include_text, R.string.exclude_text };
+            final Consumer<Boolean> shareTextAction = actionFactory.getExcludeSharedTextAction();
+            actionView.setChecked(true);
+            actionView.setText(actionLabels[1]);
+            shareTextAction.accept(false);
+            actionView.setOnCheckedChangeListener((view, isChecked) -> {
+                view.setText(actionLabels[isChecked ? 1 : 0]);
+                TransitionManager.beginDelayedTransition((ViewGroup) textView.getParent());
+                textView.setVisibility(isChecked ? View.VISIBLE : View.GONE);
+                shareTextAction.accept(!isChecked);
+            });
+        }
+        actionView.setVisibility(visibility);
     }
 
     private static List<ActionRow.Action> createImagePreviewActions(
@@ -381,65 +464,94 @@ public final class ChooserContentPreviewUi {
         return actions;
     }
 
+    private ImagePreviewView inflateImagePreviewView(ViewGroup previewLayout) {
+        ViewStub stub = previewLayout.findViewById(R.id.image_preview_stub);
+        if (stub != null) {
+            int layoutId =
+                    mFeatureFlagRepository.isEnabled(Flags.SHARESHEET_SCROLLABLE_IMAGE_PREVIEW)
+                            ? R.layout.scrollable_image_preview_view
+                            : R.layout.chooser_image_preview_view;
+            stub.setLayoutResource(layoutId);
+            stub.inflate();
+        }
+        return previewLayout.findViewById(
+                com.android.internal.R.id.content_preview_image_area);
+    }
+
     private static ViewGroup displayFileContentPreview(
             Intent targetIntent,
             Resources resources,
             LayoutInflater layoutInflater,
             List<ActionRow.Action> actions,
             ViewGroup parent,
-            ContentPreviewCoordinator previewCoord,
+            ImageLoader imageLoader,
             ContentResolver contentResolver,
             @LayoutRes int actionRowLayout) {
         ViewGroup contentPreviewLayout = (ViewGroup) layoutInflater.inflate(
                 R.layout.chooser_grid_preview_file, parent, false);
+
+        List<Uri> uris = extractContentUris(targetIntent);
+        final int uriCount = uris.size();
+
+        if (uriCount == 0) {
+            contentPreviewLayout.setVisibility(View.GONE);
+            Log.i(TAG,
+                    "Appears to be no uris available in EXTRA_STREAM, removing "
+                            + "preview area");
+            return contentPreviewLayout;
+        }
+
+        if (uriCount == 1) {
+            loadFileUriIntoView(uris.get(0), contentPreviewLayout, imageLoader, contentResolver);
+        } else {
+            FileInfo fileInfo = extractFileInfo(uris.get(0), contentResolver);
+            int remUriCount = uriCount - 1;
+            Map<String, Object> arguments = new HashMap<>();
+            arguments.put(PLURALS_COUNT, remUriCount);
+            arguments.put(PLURALS_FILE_NAME, fileInfo.name);
+            String fileName =
+                    PluralsMessageFormatter.format(resources, arguments, R.string.file_count);
+
+            TextView fileNameView = contentPreviewLayout.findViewById(
+                    com.android.internal.R.id.content_preview_filename);
+            fileNameView.setText(fileName);
+
+            View thumbnailView = contentPreviewLayout.findViewById(
+                    com.android.internal.R.id.content_preview_file_thumbnail);
+            thumbnailView.setVisibility(View.GONE);
+
+            ImageView fileIconView = contentPreviewLayout.findViewById(
+                    com.android.internal.R.id.content_preview_file_icon);
+            fileIconView.setVisibility(View.VISIBLE);
+            fileIconView.setImageResource(R.drawable.ic_file_copy);
+        }
 
         final ActionRow actionRow = inflateActionRow(contentPreviewLayout, actionRowLayout);
         if (actionRow != null) {
             actionRow.setActions(actions);
         }
 
-        String action = targetIntent.getAction();
-        if (Intent.ACTION_SEND.equals(action)) {
+        return contentPreviewLayout;
+    }
+
+    private static List<Uri> extractContentUris(Intent targetIntent) {
+        List<Uri> uris = new ArrayList<>();
+        if (Intent.ACTION_SEND.equals(targetIntent.getAction())) {
             Uri uri = targetIntent.getParcelableExtra(Intent.EXTRA_STREAM);
-            loadFileUriIntoView(uri, contentPreviewLayout, previewCoord, contentResolver);
+            if (uri != null) {
+                uris.add(uri);
+            }
         } else {
-            List<Uri> uris = targetIntent.getParcelableArrayListExtra(Intent.EXTRA_STREAM);
-            int uriCount = uris.size();
-
-            if (uriCount == 0) {
-                contentPreviewLayout.setVisibility(View.GONE);
-                Log.i(TAG,
-                        "Appears to be no uris available in EXTRA_STREAM, removing "
-                                + "preview area");
-                return contentPreviewLayout;
-            } else if (uriCount == 1) {
-                loadFileUriIntoView(
-                        uris.get(0), contentPreviewLayout, previewCoord, contentResolver);
-            } else {
-                FileInfo fileInfo = extractFileInfo(uris.get(0), contentResolver);
-                int remUriCount = uriCount - 1;
-                Map<String, Object> arguments = new HashMap<>();
-                arguments.put(PLURALS_COUNT, remUriCount);
-                arguments.put(PLURALS_FILE_NAME, fileInfo.name);
-                String fileName =
-                        PluralsMessageFormatter.format(resources, arguments, R.string.file_count);
-
-                TextView fileNameView = contentPreviewLayout.findViewById(
-                        com.android.internal.R.id.content_preview_filename);
-                fileNameView.setText(fileName);
-
-                View thumbnailView = contentPreviewLayout.findViewById(
-                        com.android.internal.R.id.content_preview_file_thumbnail);
-                thumbnailView.setVisibility(View.GONE);
-
-                ImageView fileIconView = contentPreviewLayout.findViewById(
-                        com.android.internal.R.id.content_preview_file_icon);
-                fileIconView.setVisibility(View.VISIBLE);
-                fileIconView.setImageResource(R.drawable.ic_file_copy);
+            List<Uri> receivedUris = targetIntent.getParcelableArrayListExtra(Intent.EXTRA_STREAM);
+            if (receivedUris != null) {
+                for (Uri uri : receivedUris) {
+                    if (uri != null) {
+                        uris.add(uri);
+                    }
+                }
             }
         }
-
-        return contentPreviewLayout;
+        return uris;
     }
 
     private static List<ActionRow.Action> createFilePreviewActions(ActionFactory actionFactory) {
@@ -473,7 +585,7 @@ public final class ChooserContentPreviewUi {
     private static void loadFileUriIntoView(
             final Uri uri,
             final View parent,
-            final ContentPreviewCoordinator previewCoord,
+            final ImageLoader imageLoader,
             final ContentResolver contentResolver) {
         FileInfo fileInfo = extractFileInfo(uri, contentResolver);
 
@@ -482,7 +594,7 @@ public final class ChooserContentPreviewUi {
         fileNameView.setText(fileInfo.name);
 
         if (fileInfo.hasThumbnail) {
-            previewCoord.loadImage(
+            imageLoader.loadImage(
                     uri,
                     (bitmap) -> updateViewWithImage(
                             parent.findViewById(
@@ -561,6 +673,4 @@ public final class ChooserContentPreviewUi {
             this.hasThumbnail = hasThumbnail;
         }
     }
-
-    private ChooserContentPreviewUi() {}
 }

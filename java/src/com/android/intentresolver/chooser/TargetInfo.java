@@ -32,8 +32,6 @@ import android.service.chooser.ChooserTarget;
 import android.text.TextUtils;
 import android.util.HashedStringCache;
 
-import com.android.intentresolver.ResolverActivity;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -88,6 +86,12 @@ public interface TargetInfo {
     Intent getResolvedIntent();
 
     /**
+     * Get the target intent, the one that will be used with one of the <code>start</code> methods.
+     * @return the intent with target will be launced with.
+     */
+    @Nullable Intent getTargetIntent();
+
+    /**
      * Get the resolved component name that represents this target. Note that this may not
      * be the component that will be directly launched by calling one of the <code>start</code>
      * methods provided; this is the component that will be credited with the launch. This may be
@@ -118,24 +122,15 @@ public interface TargetInfo {
     }
 
     /**
-     * Start the activity referenced by this target.
-     *
-     * @param activity calling Activity performing the launch
-     * @param options ActivityOptions bundle
-     * @return true if the start completed successfully
-     */
-    boolean start(Activity activity, Bundle options);
-
-    /**
-     * Start the activity referenced by this target as if the ResolverActivity's caller
-     * was performing the start operation.
+     * Start the activity referenced by this target as if the Activity's caller was performing the
+     * start operation.
      *
      * @param activity calling Activity (actually) performing the launch
      * @param options ActivityOptions bundle
      * @param userId userId to start as or {@link UserHandle#USER_NULL} for activity's caller
      * @return true if the start completed successfully
      */
-    boolean startAsCaller(ResolverActivity activity, Bundle options, int userId);
+    boolean startAsCaller(Activity activity, Bundle options, int userId);
 
     /**
      * Start the activity referenced by this target as a given user.
