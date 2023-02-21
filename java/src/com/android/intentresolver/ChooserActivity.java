@@ -61,6 +61,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
+import android.os.Parcel;
 import android.os.Parcelable;
 import android.os.PatternMatcher;
 import android.os.ResultReceiver;
@@ -97,6 +98,9 @@ import com.android.intentresolver.NoCrossProfileEmptyStateProvider.DevicePolicyB
 import com.android.intentresolver.chooser.DisplayResolveInfo;
 import com.android.intentresolver.chooser.MultiDisplayResolveInfo;
 import com.android.intentresolver.chooser.TargetInfo;
+import com.android.intentresolver.flags.FeatureFlagRepository;
+import com.android.intentresolver.flags.FeatureFlagRepositoryFactory;
+import com.android.intentresolver.flags.Flags;
 import com.android.intentresolver.grid.ChooserGridAdapter;
 import com.android.intentresolver.grid.DirectShareViewHolder;
 import com.android.intentresolver.model.AbstractResolverComparator;
@@ -159,7 +163,6 @@ public class ChooserActivity extends ResolverActivity implements
     private static final String CHIP_ICON_METADATA_KEY = "android.service.chooser.chip_icon";
 
     private static final boolean DEBUG = true;
-    static final boolean ENABLE_CUSTOM_ACTIONS = false;
 
     public static final String LAUNCH_LOCATION_DIRECT_SHARE = "direct_share";
     private static final String SHORTCUT_TARGET = "shortcut_target";
@@ -216,6 +219,9 @@ public class ChooserActivity extends ResolverActivity implements
     @Nullable
     private ChooserRequestParameters mChooserRequest;
 
+    private FeatureFlagRepository mFeatureFlagRepository;
+    private ChooserContentPreviewUi mChooserContentPreviewUi;
+
     private boolean mShouldDisplayLandscape;
     // statsd logger wrapper
     protected ChooserActivityLogger mChooserActivityLogger;
@@ -265,15 +271,20 @@ public class ChooserActivity extends ResolverActivity implements
 
         getChooserActivityLogger().logSharesheetTriggered();
 
+        mFeatureFlagRepository = createFeatureFlagRepository();
         try {
             mChooserRequest = new ChooserRequestParameters(
-                    getIntent(), getReferrer(), getNearbySharingComponent(), ENABLE_CUSTOM_ACTIONS);
+                    getIntent(),
+                    getReferrer(),
+                    getNearbySharingComponent(),
+                    mFeatureFlagRepository);
         } catch (IllegalArgumentException e) {
             Log.e(TAG, "Caller provided invalid Chooser request parameters", e);
             finish();
             super_onCreate(null);
             return;
         }
+        mChooserContentPreviewUi = new ChooserContentPreviewUi(mFeatureFlagRepository);
 
         setAdditionalTargets(mChooserRequest.getAdditionalTargets());
 
@@ -358,6 +369,10 @@ public class ChooserActivity extends ResolverActivity implements
     @Override
     protected int appliedThemeResId() {
         return R.style.Theme_DeviceDefault_Chooser;
+    }
+
+    protected FeatureFlagRepository createFeatureFlagRepository() {
+        return new FeatureFlagRepositoryFactory().create(getApplicationContext());
     }
 
     private void createProfileRecords(
@@ -743,28 +758,35 @@ public class ChooserActivity extends ResolverActivity implements
                         }
                         return actions;
                     }
+
+                    @Nullable
+                    @Override
+                    public Runnable getReselectionAction() {
+                        if (!mFeatureFlagRepository
+                                .isEnabled(Flags.SHARESHEET_RESELECTION_ACTION)) {
+                            return null;
+                        }
+                        PendingIntent reselectionAction = mChooserRequest.getReselectionAction();
+                        return reselectionAction == null
+                                ? null
+                                : createReselectionRunnable(reselectionAction);
+                    }
                 };
 
-        ViewGroup layout = ChooserContentPreviewUi.displayContentPreview(
+        ViewGroup layout = mChooserContentPreviewUi.displayContentPreview(
                 previewType,
                 targetIntent,
                 getResources(),
                 getLayoutInflater(),
                 actionFactory,
-                ENABLE_CUSTOM_ACTIONS
-                        ? R.layout.scrollable_chooser_action_row
-                        : R.layout.chooser_action_row,
                 parent,
                 imageLoader,
-                mEnterTransitionAnimationDelegate::markImagePreviewReady,
+                mEnterTransitionAnimationDelegate,
                 getContentResolver(),
                 this::isImageType);
 
         if (layout != null) {
             adjustPreviewWidth(getResources().getConfiguration().orientation, layout);
-        }
-        if (previewType != ChooserContentPreviewUi.CONTENT_PREVIEW_IMAGE) {
-            mEnterTransitionAnimationDelegate.markImagePreviewReady(false);
         }
 
         return layout;
@@ -962,6 +984,19 @@ public class ChooserActivity extends ResolverActivity implements
         );
     }
 
+    private Runnable createReselectionRunnable(PendingIntent pendingIntent) {
+        return () -> {
+            try {
+                pendingIntent.send();
+            } catch (PendingIntent.CanceledException e) {
+                Log.d(TAG, "Payload reselection action has been cancelled");
+            }
+            // TODO: add reporting
+            setResult(RESULT_OK);
+            finish();
+        };
+    }
+
     @Nullable
     private View getFirstVisibleImgPreviewView() {
         View firstImage = findViewById(com.android.internal.R.id.content_preview_image_1_large);
@@ -1150,7 +1185,7 @@ public class ChooserActivity extends ResolverActivity implements
                 }
                 mRefinementResultReceiver = new RefinementResultReceiver(this, target, null);
                 fillIn.putExtra(Intent.EXTRA_RESULT_RECEIVER,
-                        mRefinementResultReceiver);
+                        mRefinementResultReceiver.copyForSending());
                 try {
                     mChooserRequest.getRefinementIntentSender().sendIntent(
                             this, 0, fillIn, null, null);
@@ -1535,9 +1570,9 @@ public class ChooserActivity extends ResolverActivity implements
                                 .getActiveListAdapter()
                                 .targetInfoForPosition(
                                         selectedPosition, /* filtered= */ true);
-                        // ItemViewHolder contents should always be "display resolve info"
-                        // targets, but check just to make sure.
-                        if (longPressedTargetInfo.isDisplayResolveInfo()) {
+                        // Only a direct share target or an app target is expected
+                        if (longPressedTargetInfo.isDisplayResolveInfo()
+                                || longPressedTargetInfo.isSelectableTargetInfo()) {
                             showTargetDetails(longPressedTargetInfo);
                         }
                     }
@@ -1871,21 +1906,20 @@ public class ChooserActivity extends ResolverActivity implements
     }
 
     @MainThread
-    private void onShortcutsLoaded(
-            UserHandle userHandle, ShortcutLoader.Result shortcutsResult) {
+    private void onShortcutsLoaded(UserHandle userHandle, ShortcutLoader.Result result) {
         if (DEBUG) {
             Log.d(TAG, "onShortcutsLoaded for user: " + userHandle);
         }
-        mDirectShareShortcutInfoCache.putAll(shortcutsResult.directShareShortcutInfoCache);
-        mDirectShareAppTargetCache.putAll(shortcutsResult.directShareAppTargetCache);
+        mDirectShareShortcutInfoCache.putAll(result.getDirectShareShortcutInfoCache());
+        mDirectShareAppTargetCache.putAll(result.getDirectShareAppTargetCache());
         ChooserListAdapter adapter =
                 mChooserMultiProfilePagerAdapter.getListAdapterForUserHandle(userHandle);
         if (adapter != null) {
-            for (ShortcutLoader.ShortcutResultInfo resultInfo : shortcutsResult.shortcutsByApp) {
+            for (ShortcutLoader.ShortcutResultInfo resultInfo : result.getShortcutsByApp()) {
                 adapter.addServiceResults(
-                        resultInfo.appTarget,
-                        resultInfo.shortcuts,
-                        shortcutsResult.isFromAppPredictor
+                        resultInfo.getAppTarget(),
+                        resultInfo.getShortcuts(),
+                        result.isFromAppPredictor()
                                 ? TARGET_TYPE_SHORTCUTS_FROM_PREDICTION_SERVICE
                                 : TARGET_TYPE_SHORTCUTS_FROM_SHORTCUT_MANAGER,
                         mDirectShareShortcutInfoCache,
@@ -2196,6 +2230,19 @@ public class ChooserActivity extends ResolverActivity implements
         public void destroy() {
             mChooserActivity = null;
             mSelectedTarget = null;
+        }
+
+        /**
+         * Apps can't load this class directly, so we need a regular ResultReceiver copy for
+         * sending. Obtain this by parceling and unparceling (one weird trick).
+         */
+        ResultReceiver copyForSending() {
+            Parcel parcel = Parcel.obtain();
+            writeToParcel(parcel, 0);
+            parcel.setDataPosition(0);
+            ResultReceiver receiverForSending = ResultReceiver.CREATOR.createFromParcel(parcel);
+            parcel.recycle();
+            return receiverForSending;
         }
     }
 
