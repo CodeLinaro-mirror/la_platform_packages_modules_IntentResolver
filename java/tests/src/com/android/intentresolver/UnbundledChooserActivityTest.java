@@ -20,6 +20,7 @@ import static android.app.Activity.RESULT_OK;
 
 import static androidx.test.espresso.Espresso.onView;
 import static androidx.test.espresso.action.ViewActions.click;
+import static androidx.test.espresso.action.ViewActions.longClick;
 import static androidx.test.espresso.action.ViewActions.swipeUp;
 import static androidx.test.espresso.assertion.ViewAssertions.doesNotExist;
 import static androidx.test.espresso.assertion.ViewAssertions.matches;
@@ -100,9 +101,13 @@ import androidx.test.rule.ActivityTestRule;
 
 import com.android.intentresolver.ResolverActivity.ResolvedComponentInfo;
 import com.android.intentresolver.chooser.DisplayResolveInfo;
+import com.android.intentresolver.flags.FeatureFlagRepository;
+import com.android.intentresolver.flags.Flags;
 import com.android.intentresolver.shortcuts.ShortcutLoader;
 import com.android.internal.config.sysui.SystemUiDeviceConfigFlags;
 import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
+import com.android.systemui.flags.ReleasedFlag;
+import com.android.systemui.flags.UnreleasedFlag;
 
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
@@ -1672,9 +1677,18 @@ public class UnbundledChooserActivityTest {
 
     @Test
     public void testLaunchWithCustomAction() throws InterruptedException {
-        if (!ChooserActivity.ENABLE_CUSTOM_ACTIONS) {
-            return;
-        }
+        ChooserActivityOverrideData.getInstance().featureFlagRepository =
+            new FeatureFlagRepository() {
+                @Override
+                public boolean isEnabled(@NonNull UnreleasedFlag flag) {
+                    return Flags.SHARESHEET_CUSTOM_ACTIONS.equals(flag) || flag.getDefault();
+                }
+
+                @Override
+                public boolean isEnabled(@NonNull ReleasedFlag flag) {
+                    return false;
+                }
+            };
         List<ResolvedComponentInfo> resolvedComponentInfos = createResolvedComponentsForTest(2);
         when(
                 ChooserActivityOverrideData
@@ -2189,6 +2203,72 @@ public class UnbundledChooserActivityTest {
                 /* isPinned= */ anyBoolean(),
                 /* successfullySelected= */ anyBoolean(),
                 /* selectionCost= */ anyLong());
+    }
+
+    @Test
+    public void testDirectTargetPinningDialog() {
+        Intent sendIntent = createSendTextIntent();
+        // We need app targets for direct targets to get displayed
+        List<ResolvedComponentInfo> resolvedComponentInfos = createResolvedComponentsForTest(2);
+        when(
+                ChooserActivityOverrideData
+                        .getInstance()
+                        .resolverListController
+                        .getResolversForIntent(
+                                Mockito.anyBoolean(),
+                                Mockito.anyBoolean(),
+                                Mockito.anyBoolean(),
+                                Mockito.isA(List.class)))
+                .thenReturn(resolvedComponentInfos);
+
+        // create test shortcut loader factory, remember loaders and their callbacks
+        SparseArray<Pair<ShortcutLoader, Consumer<ShortcutLoader.Result>>> shortcutLoaders =
+                new SparseArray<>();
+        ChooserActivityOverrideData.getInstance().shortcutLoaderFactory =
+                (userHandle, callback) -> {
+                    Pair<ShortcutLoader, Consumer<ShortcutLoader.Result>> pair =
+                            new Pair<>(mock(ShortcutLoader.class), callback);
+                    shortcutLoaders.put(userHandle.getIdentifier(), pair);
+                    return pair.first;
+                };
+
+        // Start activity
+        final IChooserWrapper activity = (IChooserWrapper)
+                mActivityRule.launchActivity(Intent.createChooser(sendIntent, null));
+        waitForIdle();
+
+        // verify that ShortcutLoader was queried
+        ArgumentCaptor<DisplayResolveInfo[]> appTargets =
+                ArgumentCaptor.forClass(DisplayResolveInfo[].class);
+        verify(shortcutLoaders.get(0).first, times(1))
+                .queryShortcuts(appTargets.capture());
+
+        // send shortcuts
+        List<ChooserTarget> serviceTargets = createDirectShareTargets(
+                1,
+                resolvedComponentInfos.get(0).getResolveInfoAt(0).activityInfo.packageName);
+        ShortcutLoader.Result result = new ShortcutLoader.Result(
+                // TODO: test another value as well
+                false,
+                appTargets.getValue(),
+                new ShortcutLoader.ShortcutResultInfo[] {
+                        new ShortcutLoader.ShortcutResultInfo(
+                                appTargets.getValue()[0],
+                                serviceTargets
+                        )
+                },
+                new HashMap<>(),
+                new HashMap<>()
+        );
+        activity.getMainExecutor().execute(() -> shortcutLoaders.get(0).second.accept(result));
+        waitForIdle();
+
+        // Long-click on the direct target
+        String name = serviceTargets.get(0).getTitle().toString();
+        onView(withText(name)).perform(longClick());
+        waitForIdle();
+
+        onView(withId(R.id.chooser_dialog_content)).check(matches(isDisplayed()));
     }
 
     @Test @Ignore
