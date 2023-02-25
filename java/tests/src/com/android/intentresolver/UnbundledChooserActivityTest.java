@@ -90,24 +90,24 @@ import android.util.HashedStringCache;
 import android.util.Pair;
 import android.util.SparseArray;
 import android.view.View;
+import android.view.ViewGroup;
 
 import androidx.annotation.CallSuper;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+import androidx.test.espresso.contrib.RecyclerViewActions;
 import androidx.test.espresso.matcher.BoundedDiagnosingMatcher;
 import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.rule.ActivityTestRule;
 
 import com.android.intentresolver.ResolverActivity.ResolvedComponentInfo;
 import com.android.intentresolver.chooser.DisplayResolveInfo;
-import com.android.intentresolver.flags.FeatureFlagRepository;
 import com.android.intentresolver.flags.Flags;
 import com.android.intentresolver.shortcuts.ShortcutLoader;
 import com.android.internal.config.sysui.SystemUiDeviceConfigFlags;
 import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
-import com.android.systemui.flags.ReleasedFlag;
-import com.android.systemui.flags.UnreleasedFlag;
+import com.android.systemui.flags.BooleanFlag;
 
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
@@ -116,6 +116,8 @@ import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.RuleChain;
+import org.junit.rules.TestRule;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.mockito.ArgumentCaptor;
@@ -128,6 +130,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -161,12 +164,38 @@ public class UnbundledChooserActivityTest {
                 return mock;
             };
 
+    private static final List<BooleanFlag> ALL_FLAGS =
+            Arrays.asList(
+                    Flags.SHARESHEET_CUSTOM_ACTIONS,
+                    Flags.SHARESHEET_RESELECTION_ACTION,
+                    Flags.SHARESHEET_IMAGE_AND_TEXT_PREVIEW,
+                    Flags.SHARESHEET_SCROLLABLE_IMAGE_PREVIEW);
+
+    private static final Map<BooleanFlag, Boolean> ALL_FLAGS_OFF =
+            createAllFlagsOverride(false);
+    private static final Map<BooleanFlag, Boolean> ALL_FLAGS_ON =
+            createAllFlagsOverride(true);
+
     @Parameterized.Parameters
     public static Collection packageManagers() {
         return Arrays.asList(new Object[][] {
-                {0, "Default PackageManager", DEFAULT_PM},
-                {1, "No App Prediction Service", NO_APP_PREDICTION_SERVICE_PM}
+                // Default PackageManager and all flags off
+                { DEFAULT_PM, ALL_FLAGS_OFF},
+                // Default PackageManager and all flags on
+                { DEFAULT_PM, ALL_FLAGS_ON},
+                // No App Prediction Service and all flags off
+                { NO_APP_PREDICTION_SERVICE_PM, ALL_FLAGS_OFF },
+                // No App Prediction Service and all flags on
+                { NO_APP_PREDICTION_SERVICE_PM, ALL_FLAGS_ON }
         });
+    }
+
+    private static Map<BooleanFlag, Boolean> createAllFlagsOverride(boolean value) {
+        HashMap<BooleanFlag, Boolean> overrides = new HashMap<>(ALL_FLAGS.size());
+        for (BooleanFlag flag : ALL_FLAGS) {
+            overrides.put(flag, value);
+        }
+        return overrides;
     }
 
     /* --------
@@ -188,6 +217,8 @@ public class UnbundledChooserActivityTest {
                 .adoptShellPermissionIdentity();
 
         cleanOverrideData();
+        ChooserActivityOverrideData.getInstance().featureFlagRepository =
+                new TestFeatureFlagRepository(mFlags);
     }
 
     /**
@@ -220,11 +251,13 @@ public class UnbundledChooserActivityTest {
      * --------
      */
 
+    @Rule
+    public final TestRule mRule;
+
     // Shared test code references the activity under test as ChooserActivity, the common ancestor
     // of any (inheritance-based) chooser implementation. For testing purposes, that activity will
     // usually be cast to IChooserWrapper to expose instrumentation.
-    @Rule
-    public ActivityTestRule<ChooserActivity> mActivityRule =
+    private ActivityTestRule<ChooserActivity> mActivityRule =
             new ActivityTestRule<>(ChooserActivity.class, false, false) {
                 @Override
                 public ChooserActivity launchActivity(Intent clientIntent) {
@@ -251,16 +284,20 @@ public class UnbundledChooserActivityTest {
     private static final int CONTENT_PREVIEW_IMAGE = 1;
     private static final int CONTENT_PREVIEW_FILE = 2;
     private static final int CONTENT_PREVIEW_TEXT = 3;
-    private Function<PackageManager, PackageManager> mPackageManagerOverride;
-    private int mTestNum;
+
+    private final Function<PackageManager, PackageManager> mPackageManagerOverride;
+    private final Map<BooleanFlag, Boolean> mFlags;
 
 
     public UnbundledChooserActivityTest(
-                int testNum,
-                String testName,
-                Function<PackageManager, PackageManager> packageManagerOverride) {
+                Function<PackageManager, PackageManager> packageManagerOverride,
+                Map<BooleanFlag, Boolean> flags) {
         mPackageManagerOverride = packageManagerOverride;
-        mTestNum = testNum;
+        mFlags = flags;
+
+        mRule = RuleChain
+                .outerRule(new FeatureFlagRule(flags))
+                .around(mActivityRule);
     }
 
     private void setDeviceConfigProperty(
@@ -756,6 +793,170 @@ public class UnbundledChooserActivityTest {
     }
 
     @Test
+    @RequireFeatureFlags(
+            flags = { Flags.SHARESHEET_IMAGE_AND_TEXT_PREVIEW_NAME },
+            values = { true })
+    public void testImagePlusTextSharing_ExcludeText() {
+        Intent sendIntent = createSendImageIntent(
+                Uri.parse("android.resource://com.android.frameworks.coretests/"
+                        + R.drawable.test320x240));
+        ChooserActivityOverrideData.getInstance().previewThumbnail = createBitmap();
+        ChooserActivityOverrideData.getInstance().isImageType = true;
+        sendIntent.putExtra(Intent.EXTRA_TEXT, "https://google.com/search?q=google");
+
+        List<ResolvedComponentInfo> resolvedComponentInfos = Arrays.asList(
+                ResolverDataProvider.createResolvedComponentInfo(
+                        new ComponentName("org.imageviewer", "ImageTarget"),
+                        sendIntent),
+                ResolverDataProvider.createResolvedComponentInfo(
+                        new ComponentName("org.textviewer", "UriTarget"),
+                        new Intent("VIEW_TEXT"))
+        );
+
+        when(
+                ChooserActivityOverrideData
+                        .getInstance()
+                        .resolverListController
+                        .getResolversForIntent(
+                                Mockito.anyBoolean(),
+                                Mockito.anyBoolean(),
+                                Mockito.anyBoolean(),
+                                Mockito.isA(List.class)))
+                .thenReturn(resolvedComponentInfos);
+
+        mActivityRule.launchActivity(Intent.createChooser(sendIntent, null));
+        waitForIdle();
+
+        onView(withId(R.id.include_text_action))
+                .check(matches(isDisplayed()))
+                .perform(click());
+        waitForIdle();
+
+        AtomicReference<Intent> launchedIntentRef = new AtomicReference<>();
+        ChooserActivityOverrideData.getInstance().onSafelyStartCallback = targetInfo -> {
+            launchedIntentRef.set(targetInfo.getTargetIntent());
+            return true;
+        };
+
+        onView(withText(resolvedComponentInfos.get(0).getResolveInfoAt(0).activityInfo.name))
+                .perform(click());
+        waitForIdle();
+        assertThat(launchedIntentRef.get().hasExtra(Intent.EXTRA_TEXT)).isFalse();
+    }
+
+    @Test
+    @RequireFeatureFlags(
+            flags = { Flags.SHARESHEET_IMAGE_AND_TEXT_PREVIEW_NAME },
+            values = { true })
+    public void testImagePlusTextSharing_RemoveAndAddBackText() {
+        Intent sendIntent = createSendImageIntent(
+                Uri.parse("android.resource://com.android.frameworks.coretests/"
+                        + R.drawable.test320x240));
+        ChooserActivityOverrideData.getInstance().previewThumbnail = createBitmap();
+        ChooserActivityOverrideData.getInstance().isImageType = true;
+        final String text = "https://google.com/search?q=google";
+        sendIntent.putExtra(Intent.EXTRA_TEXT, text);
+
+        List<ResolvedComponentInfo> resolvedComponentInfos = Arrays.asList(
+                ResolverDataProvider.createResolvedComponentInfo(
+                        new ComponentName("org.imageviewer", "ImageTarget"),
+                        sendIntent),
+                ResolverDataProvider.createResolvedComponentInfo(
+                        new ComponentName("org.textviewer", "UriTarget"),
+                        new Intent("VIEW_TEXT"))
+        );
+
+        when(
+                ChooserActivityOverrideData
+                        .getInstance()
+                        .resolverListController
+                        .getResolversForIntent(
+                                Mockito.anyBoolean(),
+                                Mockito.anyBoolean(),
+                                Mockito.anyBoolean(),
+                                Mockito.isA(List.class)))
+                .thenReturn(resolvedComponentInfos);
+
+        mActivityRule.launchActivity(Intent.createChooser(sendIntent, null));
+        waitForIdle();
+
+        onView(withId(R.id.include_text_action))
+                .check(matches(isDisplayed()))
+                .perform(click());
+        waitForIdle();
+        onView(withId(R.id.include_text_action))
+                .perform(click());
+        waitForIdle();
+
+        AtomicReference<Intent> launchedIntentRef = new AtomicReference<>();
+        ChooserActivityOverrideData.getInstance().onSafelyStartCallback = targetInfo -> {
+            launchedIntentRef.set(targetInfo.getTargetIntent());
+            return true;
+        };
+
+        onView(withText(resolvedComponentInfos.get(0).getResolveInfoAt(0).activityInfo.name))
+                .perform(click());
+        waitForIdle();
+        assertThat(launchedIntentRef.get().getStringExtra(Intent.EXTRA_TEXT)).isEqualTo(text);
+    }
+
+    @Test
+    @RequireFeatureFlags(
+            flags = { Flags.SHARESHEET_IMAGE_AND_TEXT_PREVIEW_NAME },
+            values = { true })
+    public void testImagePlusTextSharing_TextExclusionDoesNotAffectAlternativeIntent() {
+        Intent sendIntent = createSendImageIntent(
+                Uri.parse("android.resource://com.android.frameworks.coretests/"
+                        + R.drawable.test320x240));
+        ChooserActivityOverrideData.getInstance().previewThumbnail = createBitmap();
+        ChooserActivityOverrideData.getInstance().isImageType = true;
+        sendIntent.putExtra(Intent.EXTRA_TEXT, "https://google.com/search?q=google");
+
+        Intent alternativeIntent = createSendTextIntent();
+        final String text = "alternative intent";
+        alternativeIntent.putExtra(Intent.EXTRA_TEXT, text);
+
+        List<ResolvedComponentInfo> resolvedComponentInfos = Arrays.asList(
+                ResolverDataProvider.createResolvedComponentInfo(
+                        new ComponentName("org.imageviewer", "ImageTarget"),
+                        sendIntent),
+                ResolverDataProvider.createResolvedComponentInfo(
+                        new ComponentName("org.textviewer", "UriTarget"),
+                        alternativeIntent)
+        );
+
+        when(
+                ChooserActivityOverrideData
+                        .getInstance()
+                        .resolverListController
+                        .getResolversForIntent(
+                                Mockito.anyBoolean(),
+                                Mockito.anyBoolean(),
+                                Mockito.anyBoolean(),
+                                Mockito.isA(List.class)))
+                .thenReturn(resolvedComponentInfos);
+
+        mActivityRule.launchActivity(Intent.createChooser(sendIntent, null));
+        waitForIdle();
+
+        onView(withId(R.id.include_text_action))
+                .check(matches(isDisplayed()))
+                .perform(click());
+        waitForIdle();
+
+        AtomicReference<Intent> launchedIntentRef = new AtomicReference<>();
+        ChooserActivityOverrideData.getInstance().onSafelyStartCallback = targetInfo -> {
+            launchedIntentRef.set(targetInfo.getTargetIntent());
+            return true;
+        };
+
+        onView(withText(resolvedComponentInfos.get(1).getResolveInfoAt(0).activityInfo.name))
+                .perform(click());
+        waitForIdle();
+        assertThat(launchedIntentRef.get().getStringExtra(Intent.EXTRA_TEXT)).isEqualTo(text);
+    }
+
+    @Test
     public void copyTextToClipboard() throws Exception {
         Intent sendIntent = createSendTextIntent();
         List<ResolvedComponentInfo> resolvedComponentInfos = createResolvedComponentsForTest(2);
@@ -859,7 +1060,7 @@ public class UnbundledChooserActivityTest {
 
 
     @Test
-    public void oneVisibleImagePreview() throws InterruptedException {
+    public void oneVisibleImagePreview() {
         Uri uri = Uri.parse("android.resource://com.android.frameworks.coretests/"
                 + R.drawable.test320x240);
 
@@ -884,10 +1085,60 @@ public class UnbundledChooserActivityTest {
                 .thenReturn(resolvedComponentInfos);
         mActivityRule.launchActivity(Intent.createChooser(sendIntent, null));
         waitForIdle();
+        onView(withId(com.android.internal.R.id.content_preview_image_area))
+                .check((view, exception) -> {
+                    if (exception != null) {
+                        throw exception;
+                    }
+                    ViewGroup parent = (ViewGroup) view;
+                    ArrayList<View> visibleViews = new ArrayList<>();
+                    for (int i = 0, count = parent.getChildCount(); i < count; i++) {
+                        View child = parent.getChildAt(i);
+                        if (child.getVisibility() == View.VISIBLE) {
+                            visibleViews.add(child);
+                        }
+                    }
+                    assertThat(visibleViews.size(), is(1));
+                    assertThat(
+                            "image preview view is fully visible",
+                            isDisplayed().matches(visibleViews.get(0)));
+                });
+    }
+
+    @Test
+    @RequireFeatureFlags(
+            flags = { Flags.SHARESHEET_SCROLLABLE_IMAGE_PREVIEW_NAME },
+            values = { false })
+    public void twoVisibleImagePreview() {
+        Uri uri = Uri.parse("android.resource://com.android.frameworks.coretests/"
+                + R.drawable.test320x240);
+
+        ArrayList<Uri> uris = new ArrayList<>();
+        uris.add(uri);
+        uris.add(uri);
+
+        Intent sendIntent = createSendUriIntentWithPreview(uris);
+        ChooserActivityOverrideData.getInstance().previewThumbnail = createBitmap();
+        ChooserActivityOverrideData.getInstance().isImageType = true;
+
+        List<ResolvedComponentInfo> resolvedComponentInfos = createResolvedComponentsForTest(2);
+
+        when(
+                ChooserActivityOverrideData
+                        .getInstance()
+                        .resolverListController
+                        .getResolversForIntent(
+                                Mockito.anyBoolean(),
+                                Mockito.anyBoolean(),
+                                Mockito.anyBoolean(),
+                                Mockito.isA(List.class)))
+                .thenReturn(resolvedComponentInfos);
+        mActivityRule.launchActivity(Intent.createChooser(sendIntent, null));
+        waitForIdle();
         onView(withId(com.android.internal.R.id.content_preview_image_1_large))
                 .check(matches(isDisplayed()));
         onView(withId(com.android.internal.R.id.content_preview_image_2_large))
-                .check(matches(not(isDisplayed())));
+                .check(matches(isDisplayed()));
         onView(withId(com.android.internal.R.id.content_preview_image_2_small))
                 .check(matches(not(isDisplayed())));
         onView(withId(com.android.internal.R.id.content_preview_image_3_small))
@@ -895,11 +1146,17 @@ public class UnbundledChooserActivityTest {
     }
 
     @Test
-    public void twoVisibleImagePreview() throws InterruptedException {
+    @RequireFeatureFlags(
+            flags = { Flags.SHARESHEET_SCROLLABLE_IMAGE_PREVIEW_NAME },
+            values = { false })
+    public void threeOrMoreVisibleImagePreview() {
         Uri uri = Uri.parse("android.resource://com.android.frameworks.coretests/"
                 + R.drawable.test320x240);
 
         ArrayList<Uri> uris = new ArrayList<>();
+        uris.add(uri);
+        uris.add(uri);
+        uris.add(uri);
         uris.add(uri);
         uris.add(uri);
 
@@ -924,19 +1181,27 @@ public class UnbundledChooserActivityTest {
         onView(withId(com.android.internal.R.id.content_preview_image_1_large))
                 .check(matches(isDisplayed()));
         onView(withId(com.android.internal.R.id.content_preview_image_2_large))
-                .check(matches(isDisplayed()));
+                .check(matches(not(isDisplayed())));
         onView(withId(com.android.internal.R.id.content_preview_image_2_small))
-                .check(matches(not(isDisplayed())));
+                .check(matches(isDisplayed()));
         onView(withId(com.android.internal.R.id.content_preview_image_3_small))
-                .check(matches(not(isDisplayed())));
+                .check(matches(isDisplayed()));
     }
 
     @Test
-    public void threeOrMoreVisibleImagePreview() throws InterruptedException {
+    @RequireFeatureFlags(
+            flags = { Flags.SHARESHEET_SCROLLABLE_IMAGE_PREVIEW_NAME },
+            values = { true })
+    public void testManyVisibleImagePreview_ScrollableImagePreview() {
         Uri uri = Uri.parse("android.resource://com.android.frameworks.coretests/"
                 + R.drawable.test320x240);
 
         ArrayList<Uri> uris = new ArrayList<>();
+        uris.add(uri);
+        uris.add(uri);
+        uris.add(uri);
+        uris.add(uri);
+        uris.add(uri);
         uris.add(uri);
         uris.add(uri);
         uris.add(uri);
@@ -961,13 +1226,49 @@ public class UnbundledChooserActivityTest {
                 .thenReturn(resolvedComponentInfos);
         mActivityRule.launchActivity(Intent.createChooser(sendIntent, null));
         waitForIdle();
-        onView(withId(com.android.internal.R.id.content_preview_image_1_large))
-                .check(matches(isDisplayed()));
-        onView(withId(com.android.internal.R.id.content_preview_image_2_large))
-                .check(matches(not(isDisplayed())));
-        onView(withId(com.android.internal.R.id.content_preview_image_2_small))
-                .check(matches(isDisplayed()));
-        onView(withId(com.android.internal.R.id.content_preview_image_3_small))
+        onView(withId(com.android.internal.R.id.content_preview_image_area))
+                .perform(RecyclerViewActions.scrollToLastPosition())
+                .check((view, exception) -> {
+                    if (exception != null) {
+                        throw exception;
+                    }
+                    RecyclerView recyclerView = (RecyclerView) view;
+                    assertThat(recyclerView.getAdapter().getItemCount(), is(uris.size()));
+                });
+    }
+
+    @Test
+    @RequireFeatureFlags(
+            flags = { Flags.SHARESHEET_IMAGE_AND_TEXT_PREVIEW_NAME },
+            values = { true })
+    public void testImageAndTextPreview() {
+        final Uri uri = Uri.parse("android.resource://com.android.frameworks.coretests/"
+                + R.drawable.test320x240);
+        final String sharedText = "text-" + System.currentTimeMillis();
+
+        ArrayList<Uri> uris = new ArrayList<>();
+        uris.add(uri);
+
+        Intent sendIntent = createSendUriIntentWithPreview(uris);
+        sendIntent.putExtra(Intent.EXTRA_TEXT, sharedText);
+        ChooserActivityOverrideData.getInstance().previewThumbnail = createBitmap();
+        ChooserActivityOverrideData.getInstance().isImageType = true;
+
+        List<ResolvedComponentInfo> resolvedComponentInfos = createResolvedComponentsForTest(2);
+
+        when(
+                ChooserActivityOverrideData
+                        .getInstance()
+                        .resolverListController
+                        .getResolversForIntent(
+                                Mockito.anyBoolean(),
+                                Mockito.anyBoolean(),
+                                Mockito.anyBoolean(),
+                                Mockito.isA(List.class)))
+                .thenReturn(resolvedComponentInfos);
+        mActivityRule.launchActivity(Intent.createChooser(sendIntent, null));
+        waitForIdle();
+        onView(withText(sharedText))
                 .check(matches(isDisplayed()));
     }
 
@@ -1676,19 +1977,10 @@ public class UnbundledChooserActivityTest {
     }
 
     @Test
+    @RequireFeatureFlags(
+            flags = { Flags.SHARESHEET_CUSTOM_ACTIONS_NAME },
+            values = { true })
     public void testLaunchWithCustomAction() throws InterruptedException {
-        ChooserActivityOverrideData.getInstance().featureFlagRepository =
-            new FeatureFlagRepository() {
-                @Override
-                public boolean isEnabled(@NonNull UnreleasedFlag flag) {
-                    return Flags.SHARESHEET_CUSTOM_ACTIONS.equals(flag) || flag.getDefault();
-                }
-
-                @Override
-                public boolean isEnabled(@NonNull ReleasedFlag flag) {
-                    return false;
-                }
-            };
         List<ResolvedComponentInfo> resolvedComponentInfos = createResolvedComponentsForTest(2);
         when(
                 ChooserActivityOverrideData
@@ -1733,6 +2025,54 @@ public class UnbundledChooserActivityTest {
 
         try {
             onView(withText(customActionLabel)).perform(click());
+            broadcastInvoked.await();
+        } finally {
+            testContext.unregisterReceiver(testReceiver);
+        }
+    }
+
+    @Test
+    @RequireFeatureFlags(
+            flags = { Flags.SHARESHEET_RESELECTION_ACTION_NAME },
+            values = { true })
+    public void testLaunchWithShareModification() throws InterruptedException {
+        List<ResolvedComponentInfo> resolvedComponentInfos = createResolvedComponentsForTest(2);
+        when(
+                ChooserActivityOverrideData
+                        .getInstance()
+                        .resolverListController
+                        .getResolversForIntent(
+                                Mockito.anyBoolean(),
+                                Mockito.anyBoolean(),
+                                Mockito.anyBoolean(),
+                                Mockito.isA(List.class)))
+                .thenReturn(resolvedComponentInfos);
+
+        Context testContext = InstrumentationRegistry.getInstrumentation().getContext();
+        final String modifyShareAction = "test-broadcast-receiver-action";
+        Intent chooserIntent = Intent.createChooser(createSendTextIntent(), null);
+        chooserIntent.putExtra(
+                Intent.EXTRA_CHOOSER_MODIFY_SHARE_ACTION,
+                PendingIntent.getBroadcast(
+                        testContext,
+                        123,
+                        new Intent(modifyShareAction),
+                        PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_ONE_SHOT));
+        // Start activity
+        mActivityRule.launchActivity(chooserIntent);
+        waitForIdle();
+
+        final CountDownLatch broadcastInvoked = new CountDownLatch(1);
+        BroadcastReceiver testReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                broadcastInvoked.countDown();
+            }
+        };
+        testContext.registerReceiver(testReceiver, new IntentFilter(modifyShareAction));
+
+        try {
+            onView(withText(R.string.select_text)).perform(click());
             broadcastInvoked.await();
         } finally {
             testContext.unregisterReceiver(testReceiver);
