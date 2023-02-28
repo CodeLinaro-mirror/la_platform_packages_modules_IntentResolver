@@ -32,6 +32,8 @@ import android.provider.DocumentsContract;
 import android.provider.Downloads;
 import android.provider.OpenableColumns;
 import android.text.TextUtils;
+import android.text.util.Linkify;
+import android.transition.TransitionManager;
 import android.util.Log;
 import android.util.PluralsMessageFormatter;
 import android.view.LayoutInflater;
@@ -39,6 +41,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewStub;
 import android.view.animation.DecelerateInterpolator;
+import android.widget.CheckBox;
 import android.widget.ImageView;
 import android.widget.TextView;
 
@@ -58,6 +61,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 /**
@@ -95,10 +99,21 @@ public final class ChooserContentPreviewUi {
         List<ActionRow.Action> createCustomActions();
 
         /**
-         * Provides a re-selection action, if any.
+         * Provides a share modification action, if any.
          */
         @Nullable
-        Runnable getReselectionAction();
+        Runnable getModifyShareAction();
+
+        /**
+         * <p>
+         * Creates an exclude-text action that can be called when the user changes shared text
+         * status in the Media + Text preview.
+         * </p>
+         * <p>
+         * <code>true</code> argument value indicates that the text should be excluded.
+         * </p>
+         */
+        Consumer<Boolean> getExcludeSharedTextAction();
     }
 
     /**
@@ -221,7 +236,8 @@ public final class ChooserContentPreviewUi {
                         transitionElementStatusCallback,
                         contentResolver,
                         imageClassifier,
-                        actionRowLayout);
+                        actionRowLayout,
+                        actionFactory);
                 break;
             case CONTENT_PREVIEW_FILE:
                 layout = displayFileContentPreview(
@@ -239,13 +255,13 @@ public final class ChooserContentPreviewUi {
             default:
                 Log.e(TAG, "Unexpected content preview type: " + previewType);
         }
-        Runnable reselectionAction = actionFactory.getReselectionAction();
-        if (reselectionAction != null && layout != null
+        Runnable modifyShareAction = actionFactory.getModifyShareAction();
+        if (modifyShareAction != null && layout != null
                 && mFeatureFlagRepository.isEnabled(Flags.SHARESHEET_RESELECTION_ACTION)) {
-            View reselectionView = layout.findViewById(R.id.reselection_action);
-            if (reselectionView != null) {
-                reselectionView.setVisibility(View.VISIBLE);
-                reselectionView.setOnClickListener(view -> reselectionAction.run());
+            View modifyShareView = layout.findViewById(R.id.reselection_action);
+            if (modifyShareView != null) {
+                modifyShareView.setVisibility(View.VISIBLE);
+                modifyShareView.setOnClickListener(view -> modifyShareAction.run());
             }
         }
 
@@ -350,7 +366,7 @@ public final class ChooserContentPreviewUi {
         return actions;
     }
 
-    private static ViewGroup displayImageContentPreview(
+    private ViewGroup displayImageContentPreview(
             Intent targetIntent,
             LayoutInflater layoutInflater,
             List<ActionRow.Action> actions,
@@ -359,11 +375,11 @@ public final class ChooserContentPreviewUi {
             TransitionElementStatusCallback transitionElementStatusCallback,
             ContentResolver contentResolver,
             ImageMimeTypeClassifier imageClassifier,
-            @LayoutRes int actionRowLayout) {
+            @LayoutRes int actionRowLayout,
+            ActionFactory actionFactory) {
         ViewGroup contentPreviewLayout = (ViewGroup) layoutInflater.inflate(
                 R.layout.chooser_grid_preview_image, parent, false);
-        ImagePreviewView imagePreview = contentPreviewLayout.findViewById(
-                com.android.internal.R.id.content_preview_image_area);
+        ImagePreviewView imagePreview = inflateImagePreviewView(contentPreviewLayout);
 
         final ActionRow actionRow = inflateActionRow(contentPreviewLayout, actionRowLayout);
         if (actionRow != null) {
@@ -389,10 +405,48 @@ public final class ChooserContentPreviewUi {
             return contentPreviewLayout;
         }
 
+        setTextInImagePreviewVisibility(
+                contentPreviewLayout,
+                targetIntent.getCharSequenceExtra(Intent.EXTRA_TEXT),
+                actionFactory);
         imagePreview.setTransitionElementStatusCallback(transitionElementStatusCallback);
         imagePreview.setImages(imageUris, imageLoader);
 
         return contentPreviewLayout;
+    }
+
+    private void setTextInImagePreviewVisibility(
+            ViewGroup contentPreview, CharSequence text, ActionFactory actionFactory) {
+        int visibility = mFeatureFlagRepository.isEnabled(Flags.SHARESHEET_IMAGE_AND_TEXT_PREVIEW)
+                && !TextUtils.isEmpty(text)
+                        ? View.VISIBLE
+                        : View.GONE;
+
+        final TextView textView = contentPreview
+                .requireViewById(com.android.internal.R.id.content_preview_text);
+        CheckBox actionView = contentPreview
+                .requireViewById(R.id.include_text_action);
+        textView.setVisibility(visibility);
+        boolean isLink = visibility == View.VISIBLE && HttpUriMatcher.isHttpUri(text.toString());
+        textView.setAutoLinkMask(isLink ? Linkify.WEB_URLS : 0);
+        textView.setText(text);
+
+        if (visibility == View.VISIBLE) {
+            final int[] actionLabels = isLink
+                    ? new int[] { R.string.include_link, R.string.exclude_link }
+                    : new int[] { R.string.include_text, R.string.exclude_text };
+            final Consumer<Boolean> shareTextAction = actionFactory.getExcludeSharedTextAction();
+            actionView.setChecked(true);
+            actionView.setText(actionLabels[1]);
+            shareTextAction.accept(false);
+            actionView.setOnCheckedChangeListener((view, isChecked) -> {
+                view.setText(actionLabels[isChecked ? 1 : 0]);
+                TransitionManager.beginDelayedTransition((ViewGroup) textView.getParent());
+                textView.setVisibility(isChecked ? View.VISIBLE : View.GONE);
+                shareTextAction.accept(!isChecked);
+            });
+        }
+        actionView.setVisibility(visibility);
     }
 
     private static List<ActionRow.Action> createImagePreviewActions(
@@ -408,6 +462,20 @@ public final class ChooserContentPreviewUi {
             actions.add(action);
         }
         return actions;
+    }
+
+    private ImagePreviewView inflateImagePreviewView(ViewGroup previewLayout) {
+        ViewStub stub = previewLayout.findViewById(R.id.image_preview_stub);
+        if (stub != null) {
+            int layoutId =
+                    mFeatureFlagRepository.isEnabled(Flags.SHARESHEET_SCROLLABLE_IMAGE_PREVIEW)
+                            ? R.layout.scrollable_image_preview_view
+                            : R.layout.chooser_image_preview_view;
+            stub.setLayoutResource(layoutId);
+            stub.inflate();
+        }
+        return previewLayout.findViewById(
+                com.android.internal.R.id.content_preview_image_area);
     }
 
     private static ViewGroup displayFileContentPreview(
