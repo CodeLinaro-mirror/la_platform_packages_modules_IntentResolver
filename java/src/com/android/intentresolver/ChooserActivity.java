@@ -32,13 +32,10 @@ import android.annotation.Nullable;
 import android.app.Activity;
 import android.app.ActivityManager;
 import android.app.ActivityOptions;
-import android.app.PendingIntent;
 import android.app.prediction.AppPredictor;
 import android.app.prediction.AppTarget;
 import android.app.prediction.AppTargetEvent;
 import android.app.prediction.AppTargetId;
-import android.content.ClipData;
-import android.content.ClipboardManager;
 import android.content.ComponentName;
 import android.content.ContentResolver;
 import android.content.Context;
@@ -49,30 +46,24 @@ import android.content.IntentSender.SendIntentException;
 import android.content.SharedPreferences;
 import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
-import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.pm.ResolveInfo;
 import android.content.pm.ShortcutInfo;
 import android.content.res.Configuration;
-import android.content.res.Resources;
 import android.database.Cursor;
 import android.graphics.Insets;
-import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
+import android.os.Parcel;
 import android.os.Parcelable;
-import android.os.PatternMatcher;
 import android.os.ResultReceiver;
 import android.os.SystemClock;
 import android.os.UserHandle;
 import android.os.UserManager;
 import android.os.storage.StorageManager;
 import android.provider.DeviceConfig;
-import android.provider.Settings;
-import android.service.chooser.ChooserAction;
 import android.service.chooser.ChooserTarget;
-import android.text.TextUtils;
 import android.util.Log;
 import android.util.Slog;
 import android.util.SparseArray;
@@ -97,6 +88,8 @@ import com.android.intentresolver.NoCrossProfileEmptyStateProvider.DevicePolicyB
 import com.android.intentresolver.chooser.DisplayResolveInfo;
 import com.android.intentresolver.chooser.MultiDisplayResolveInfo;
 import com.android.intentresolver.chooser.TargetInfo;
+import com.android.intentresolver.flags.FeatureFlagRepository;
+import com.android.intentresolver.flags.FeatureFlagRepositoryFactory;
 import com.android.intentresolver.grid.ChooserGridAdapter;
 import com.android.intentresolver.grid.DirectShareViewHolder;
 import com.android.intentresolver.model.AbstractResolverComparator;
@@ -104,15 +97,12 @@ import com.android.intentresolver.model.AppPredictionServiceResolverComparator;
 import com.android.intentresolver.model.ResolverRankerServiceResolverComparator;
 import com.android.intentresolver.shortcuts.AppPredictorFactory;
 import com.android.intentresolver.shortcuts.ShortcutLoader;
-import com.android.intentresolver.widget.ActionRow;
 import com.android.intentresolver.widget.ResolverDrawerLayout;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.config.sysui.SystemUiDeviceConfigFlags;
 import com.android.internal.content.PackageMonitor;
 import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
 import com.android.internal.util.FrameworkStatsLog;
-
-import com.google.common.collect.ImmutableList;
 
 import java.io.File;
 import java.lang.annotation.Retention;
@@ -159,7 +149,6 @@ public class ChooserActivity extends ResolverActivity implements
     private static final String CHIP_ICON_METADATA_KEY = "android.service.chooser.chip_icon";
 
     private static final boolean DEBUG = true;
-    static final boolean ENABLE_CUSTOM_ACTIONS = false;
 
     public static final String LAUNCH_LOCATION_DIRECT_SHARE = "direct_share";
     private static final String SHORTCUT_TARGET = "shortcut_target";
@@ -207,6 +196,8 @@ public class ChooserActivity extends ResolverActivity implements
             | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION
             | Intent.FLAG_GRANT_PREFIX_URI_PERMISSION;
 
+    private ChooserIntegratedDeviceComponents mIntegratedDeviceComponents;
+
     /* TODO: this is `nullable` because we have to defer the assignment til onCreate(). We make the
      * only assignment there, and expect it to be ready by the time we ever use it --
      * someday if we move all the usage to a component with a narrower lifecycle (something that
@@ -215,6 +206,10 @@ public class ChooserActivity extends ResolverActivity implements
      */
     @Nullable
     private ChooserRequestParameters mChooserRequest;
+
+    private FeatureFlagRepository mFeatureFlagRepository;
+    private ChooserActionFactory mChooserActionFactory;
+    private ChooserContentPreviewUi mChooserContentPreviewUi;
 
     private boolean mShouldDisplayLandscape;
     // statsd logger wrapper
@@ -256,6 +251,8 @@ public class ChooserActivity extends ResolverActivity implements
 
     private final SparseArray<ProfileRecord> mProfileRecords = new SparseArray<>();
 
+    private boolean mExcludeSharedText = false;
+
     public ChooserActivity() {}
 
     @Override
@@ -265,15 +262,56 @@ public class ChooserActivity extends ResolverActivity implements
 
         getChooserActivityLogger().logSharesheetTriggered();
 
+        mFeatureFlagRepository = createFeatureFlagRepository();
+        mIntegratedDeviceComponents = getIntegratedDeviceComponents();
+
         try {
             mChooserRequest = new ChooserRequestParameters(
-                    getIntent(), getReferrer(), getNearbySharingComponent(), ENABLE_CUSTOM_ACTIONS);
+                    getIntent(),
+                    getReferrerPackageName(),
+                    getReferrer(),
+                    mIntegratedDeviceComponents,
+                    mFeatureFlagRepository);
         } catch (IllegalArgumentException e) {
             Log.e(TAG, "Caller provided invalid Chooser request parameters", e);
             finish();
             super_onCreate(null);
             return;
         }
+
+        mChooserActionFactory = new ChooserActionFactory(
+                this,
+                mChooserRequest,
+                mFeatureFlagRepository,
+                mIntegratedDeviceComponents,
+                getChooserActivityLogger(),
+                (isExcluded) -> mExcludeSharedText = isExcluded,
+                this::getFirstVisibleImgPreviewView,
+                new ChooserActionFactory.ActionActivityStarter() {
+                    @Override
+                    public void safelyStartActivityAsPersonalProfileUser(TargetInfo targetInfo) {
+                        safelyStartActivityAsUser(targetInfo, getPersonalProfileUserHandle());
+                        finish();
+                    }
+
+                    @Override
+                    public void safelyStartActivityAsPersonalProfileUserWithSharedElementTransition(
+                            TargetInfo targetInfo, View sharedElement, String sharedElementName) {
+                        ActivityOptions options = ActivityOptions.makeSceneTransitionAnimation(
+                                ChooserActivity.this, sharedElement, sharedElementName);
+                        safelyStartActivityAsUser(
+                                targetInfo, getPersonalProfileUserHandle(), options.toBundle());
+                        startFinishAnimation();
+                    }
+                },
+                (status) -> {
+                    if (status != null) {
+                        setResult(status);
+                    }
+                    finish();
+                });
+
+        mChooserContentPreviewUi = new ChooserContentPreviewUi(mFeatureFlagRepository);
 
         setAdditionalTargets(mChooserRequest.getAdditionalTargets());
 
@@ -355,9 +393,18 @@ public class ChooserActivity extends ResolverActivity implements
         mEnterTransitionAnimationDelegate.postponeTransition();
     }
 
+    @VisibleForTesting
+    protected ChooserIntegratedDeviceComponents getIntegratedDeviceComponents() {
+        return ChooserIntegratedDeviceComponents.get(this);
+    }
+
     @Override
     protected int appliedThemeResId() {
         return R.style.Theme_DeviceDefault_Chooser;
+    }
+
+    protected FeatureFlagRepository createFeatureFlagRepository() {
+        return new FeatureFlagRepositoryFactory().create(getApplicationContext());
     }
 
     private void createProfileRecords(
@@ -590,51 +637,6 @@ public class ChooserActivity extends ResolverActivity implements
         updateProfileViewButton();
     }
 
-    private void onCopyButtonClicked() {
-        Intent targetIntent = getTargetIntent();
-        if (targetIntent == null) {
-            finish();
-        } else {
-            final String action = targetIntent.getAction();
-
-            ClipData clipData = null;
-            if (Intent.ACTION_SEND.equals(action)) {
-                String extraText = targetIntent.getStringExtra(Intent.EXTRA_TEXT);
-                Uri extraStream = targetIntent.getParcelableExtra(Intent.EXTRA_STREAM);
-
-                if (extraText != null) {
-                    clipData = ClipData.newPlainText(null, extraText);
-                } else if (extraStream != null) {
-                    clipData = ClipData.newUri(getContentResolver(), null, extraStream);
-                } else {
-                    Log.w(TAG, "No data available to copy to clipboard");
-                    return;
-                }
-            } else if (Intent.ACTION_SEND_MULTIPLE.equals(action)) {
-                final ArrayList<Uri> streams = targetIntent.getParcelableArrayListExtra(
-                        Intent.EXTRA_STREAM);
-                clipData = ClipData.newUri(getContentResolver(), null, streams.get(0));
-                for (int i = 1; i < streams.size(); i++) {
-                    clipData.addItem(getContentResolver(), new ClipData.Item(streams.get(i)));
-                }
-            } else {
-                // expected to only be visible with ACTION_SEND or ACTION_SEND_MULTIPLE
-                // so warn about unexpected action
-                Log.w(TAG, "Action (" + action + ") not supported for copying to clipboard");
-                return;
-            }
-
-            ClipboardManager clipboardManager = (ClipboardManager) getSystemService(
-                    Context.CLIPBOARD_SERVICE);
-            clipboardManager.setPrimaryClipAsPackage(clipData, getReferrerPackageName());
-
-            getChooserActivityLogger().logActionSelected(ChooserActivityLogger.SELECTION_TYPE_COPY);
-
-            setResult(RESULT_OK);
-            finish();
-        }
-    }
-
     @Override
     protected void onResume() {
         super.onResume();
@@ -711,255 +713,23 @@ public class ChooserActivity extends ResolverActivity implements
         int previewType = ChooserContentPreviewUi.findPreferredContentPreview(
                 targetIntent, getContentResolver(), this::isImageType);
 
-        ChooserContentPreviewUi.ActionFactory actionFactory =
-                new ChooserContentPreviewUi.ActionFactory() {
-                    @Override
-                    public ActionRow.Action createCopyButton() {
-                        return ChooserActivity.this.createCopyAction();
-                    }
-
-                    @Nullable
-                    @Override
-                    public ActionRow.Action createEditButton() {
-                        return ChooserActivity.this.createEditAction(targetIntent);
-                    }
-
-                    @Nullable
-                    @Override
-                    public ActionRow.Action createNearbyButton() {
-                        return ChooserActivity.this.createNearbyAction(targetIntent);
-                    }
-
-                    @Override
-                    public List<ActionRow.Action> createCustomActions() {
-                        ImmutableList<ChooserAction> customActions =
-                                mChooserRequest.getChooserActions();
-                        List<ActionRow.Action> actions = new ArrayList<>(customActions.size());
-                        for (ChooserAction customAction : customActions) {
-                            ActionRow.Action action = createCustomAction(customAction);
-                            if (action != null) {
-                                actions.add(action);
-                            }
-                        }
-                        return actions;
-                    }
-                };
-
-        ViewGroup layout = ChooserContentPreviewUi.displayContentPreview(
+        ViewGroup layout = mChooserContentPreviewUi.displayContentPreview(
                 previewType,
                 targetIntent,
                 getResources(),
                 getLayoutInflater(),
-                actionFactory,
-                ENABLE_CUSTOM_ACTIONS
-                        ? R.layout.scrollable_chooser_action_row
-                        : R.layout.chooser_action_row,
+                mChooserActionFactory,
                 parent,
                 imageLoader,
-                mEnterTransitionAnimationDelegate::markImagePreviewReady,
+                mEnterTransitionAnimationDelegate,
                 getContentResolver(),
                 this::isImageType);
 
         if (layout != null) {
             adjustPreviewWidth(getResources().getConfiguration().orientation, layout);
         }
-        if (previewType != ChooserContentPreviewUi.CONTENT_PREVIEW_IMAGE) {
-            mEnterTransitionAnimationDelegate.markImagePreviewReady(false);
-        }
 
         return layout;
-    }
-
-    @VisibleForTesting
-    protected ComponentName getNearbySharingComponent() {
-        String nearbyComponent = Settings.Secure.getString(
-                getContentResolver(),
-                Settings.Secure.NEARBY_SHARING_COMPONENT);
-        if (TextUtils.isEmpty(nearbyComponent)) {
-            nearbyComponent = getString(R.string.config_defaultNearbySharingComponent);
-        }
-        if (TextUtils.isEmpty(nearbyComponent)) {
-            return null;
-        }
-        return ComponentName.unflattenFromString(nearbyComponent);
-    }
-
-    @VisibleForTesting
-    protected @Nullable ComponentName getEditSharingComponent() {
-        String editorPackage = getApplicationContext().getString(R.string.config_systemImageEditor);
-        if (editorPackage == null || TextUtils.isEmpty(editorPackage)) {
-            return null;
-        }
-        return ComponentName.unflattenFromString(editorPackage);
-    }
-
-    @VisibleForTesting
-    protected TargetInfo getEditSharingTarget(Intent originalIntent) {
-        final ComponentName cn = getEditSharingComponent();
-
-        final Intent resolveIntent = new Intent(originalIntent);
-        // Retain only URI permission grant flags if present. Other flags may prevent the scene
-        // transition animation from running (i.e FLAG_ACTIVITY_NO_ANIMATION,
-        // FLAG_ACTIVITY_NEW_TASK, FLAG_ACTIVITY_NEW_DOCUMENT) but also not needed.
-        resolveIntent.setFlags(originalIntent.getFlags() & URI_PERMISSION_INTENT_FLAGS);
-        resolveIntent.setComponent(cn);
-        resolveIntent.setAction(Intent.ACTION_EDIT);
-        String originalAction = originalIntent.getAction();
-        if (Intent.ACTION_SEND.equals(originalAction)) {
-            if (resolveIntent.getData() == null) {
-                Uri uri = resolveIntent.getParcelableExtra(Intent.EXTRA_STREAM);
-                if (uri != null) {
-                    String mimeType = getContentResolver().getType(uri);
-                    resolveIntent.setDataAndType(uri, mimeType);
-                }
-            }
-        } else {
-            Log.e(TAG, originalAction + " is not supported.");
-            return null;
-        }
-        final ResolveInfo ri = getPackageManager().resolveActivity(
-                resolveIntent, PackageManager.GET_META_DATA);
-        if (ri == null || ri.activityInfo == null) {
-            Log.e(TAG, "Device-specified image edit component (" + cn
-                    + ") not available");
-            return null;
-        }
-
-        final DisplayResolveInfo dri = DisplayResolveInfo.newDisplayResolveInfo(
-                originalIntent,
-                ri,
-                getString(com.android.internal.R.string.screenshot_edit),
-                "",
-                resolveIntent,
-                null);
-        dri.getDisplayIconHolder().setDisplayIcon(
-                getDrawable(com.android.internal.R.drawable.ic_screenshot_edit));
-        return dri;
-    }
-
-    @VisibleForTesting
-    protected TargetInfo getNearbySharingTarget(Intent originalIntent) {
-        final ComponentName cn = getNearbySharingComponent();
-        if (cn == null) return null;
-
-        final Intent resolveIntent = new Intent(originalIntent);
-        resolveIntent.setComponent(cn);
-        final ResolveInfo ri = getPackageManager().resolveActivity(
-                resolveIntent, PackageManager.GET_META_DATA);
-        if (ri == null || ri.activityInfo == null) {
-            Log.e(TAG, "Device-specified nearby sharing component (" + cn
-                    + ") not available");
-            return null;
-        }
-
-        // Allow the nearby sharing component to provide a more appropriate icon and label
-        // for the chip.
-        CharSequence name = null;
-        Drawable icon = null;
-        final Bundle metaData = ri.activityInfo.metaData;
-        if (metaData != null) {
-            try {
-                final Resources pkgRes = getPackageManager().getResourcesForActivity(cn);
-                final int nameResId = metaData.getInt(CHIP_LABEL_METADATA_KEY);
-                name = pkgRes.getString(nameResId);
-                final int resId = metaData.getInt(CHIP_ICON_METADATA_KEY);
-                icon = pkgRes.getDrawable(resId);
-            } catch (Resources.NotFoundException ex) {
-            } catch (NameNotFoundException ex) {
-            }
-        }
-        if (TextUtils.isEmpty(name)) {
-            name = ri.loadLabel(getPackageManager());
-        }
-        if (icon == null) {
-            icon = ri.loadIcon(getPackageManager());
-        }
-
-        final DisplayResolveInfo dri = DisplayResolveInfo.newDisplayResolveInfo(
-                originalIntent, ri, name, "", resolveIntent, null);
-        dri.getDisplayIconHolder().setDisplayIcon(icon);
-        return dri;
-    }
-
-    private ActionRow.Action createCopyAction() {
-        return new ActionRow.Action(
-                com.android.internal.R.id.chooser_copy_button,
-                getString(com.android.internal.R.string.copy),
-                getDrawable(com.android.internal.R.drawable.ic_menu_copy_material),
-                this::onCopyButtonClicked);
-    }
-
-    @Nullable
-    private ActionRow.Action createNearbyAction(Intent originalIntent) {
-        final TargetInfo ti = getNearbySharingTarget(originalIntent);
-        if (ti == null) {
-            return null;
-        }
-
-        return new ActionRow.Action(
-                com.android.internal.R.id.chooser_nearby_button,
-                ti.getDisplayLabel(),
-                ti.getDisplayIconHolder().getDisplayIcon(),
-                () -> {
-                    getChooserActivityLogger().logActionSelected(
-                            ChooserActivityLogger.SELECTION_TYPE_NEARBY);
-                    // Action bar is user-independent, always start as primary
-                    safelyStartActivityAsUser(ti, getPersonalProfileUserHandle());
-                    finish();
-                });
-    }
-
-    @Nullable
-    private ActionRow.Action createEditAction(Intent originalIntent) {
-        final TargetInfo ti = getEditSharingTarget(originalIntent);
-        if (ti == null) {
-            return null;
-        }
-
-        return new ActionRow.Action(
-                com.android.internal.R.id.chooser_edit_button,
-                ti.getDisplayLabel(),
-                ti.getDisplayIconHolder().getDisplayIcon(),
-                () -> {
-                    // Log share completion via edit
-                    getChooserActivityLogger().logActionSelected(
-                            ChooserActivityLogger.SELECTION_TYPE_EDIT);
-                    View firstImgView = getFirstVisibleImgPreviewView();
-                    // Action bar is user-independent, always start as primary
-                    if (firstImgView == null) {
-                        safelyStartActivityAsUser(ti, getPersonalProfileUserHandle());
-                        finish();
-                    } else {
-                        ActivityOptions options = ActivityOptions.makeSceneTransitionAnimation(
-                                this, firstImgView, IMAGE_EDITOR_SHARED_ELEMENT);
-                        safelyStartActivityAsUser(
-                                ti, getPersonalProfileUserHandle(), options.toBundle());
-                        startFinishAnimation();
-                    }
-                }
-        );
-    }
-
-    @Nullable
-    private ActionRow.Action createCustomAction(ChooserAction action) {
-        Drawable icon = action.getIcon().loadDrawable(this);
-        if (icon == null && TextUtils.isEmpty(action.getLabel())) {
-            return null;
-        }
-        return new ActionRow.Action(
-                action.getLabel(),
-                icon,
-                () -> {
-                    try {
-                        action.getAction().send();
-                    } catch (PendingIntent.CanceledException e) {
-                        Log.d(TAG, "Custom action, " + action.getLabel() + ", has been cancelled");
-                    }
-                    // TODO: add reporting
-                    setResult(RESULT_OK);
-                    finish();
-                }
-        );
     }
 
     @Nullable
@@ -1150,7 +920,7 @@ public class ChooserActivity extends ResolverActivity implements
                 }
                 mRefinementResultReceiver = new RefinementResultReceiver(this, target, null);
                 fillIn.putExtra(Intent.EXTRA_RESULT_RECEIVER,
-                        mRefinementResultReceiver);
+                        mRefinementResultReceiver.copyForSending());
                 try {
                     mChooserRequest.getRefinementIntentSender().sendIntent(
                             this, 0, fillIn, null, null);
@@ -1161,6 +931,7 @@ public class ChooserActivity extends ResolverActivity implements
             }
         }
         updateModelAndChooserCounts(target);
+        maybeRemoveSharedText(target);
         return super.onTargetSelected(target, alwaysCheck);
     }
 
@@ -1272,45 +1043,6 @@ public class ChooserActivity extends ResolverActivity implements
         }
     }
 
-    private IntentFilter getTargetIntentFilter() {
-        return getTargetIntentFilter(getTargetIntent());
-    }
-
-    private IntentFilter getTargetIntentFilter(final Intent intent) {
-        try {
-            String dataString = intent.getDataString();
-            if (intent.getType() == null) {
-                if (!TextUtils.isEmpty(dataString)) {
-                    return new IntentFilter(intent.getAction(), dataString);
-                }
-                Log.e(TAG, "Failed to get target intent filter: intent data and type are null");
-                return null;
-            }
-            IntentFilter intentFilter = new IntentFilter(intent.getAction(), intent.getType());
-            List<Uri> contentUris = new ArrayList<>();
-            if (Intent.ACTION_SEND.equals(intent.getAction())) {
-                Uri uri = (Uri) intent.getParcelableExtra(Intent.EXTRA_STREAM);
-                if (uri != null) {
-                    contentUris.add(uri);
-                }
-            } else {
-                List<Uri> uris = intent.getParcelableArrayListExtra(Intent.EXTRA_STREAM);
-                if (uris != null) {
-                    contentUris.addAll(uris);
-                }
-            }
-            for (Uri uri : contentUris) {
-                intentFilter.addDataScheme(uri.getScheme());
-                intentFilter.addDataAuthority(uri.getAuthority(), null);
-                intentFilter.addDataPath(uri.getPath(), PatternMatcher.PATTERN_LITERAL);
-            }
-            return intentFilter;
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to get target intent filter", e);
-            return null;
-        }
-    }
-
     private void logDirectShareTargetReceived(UserHandle forUser) {
         ProfileRecord profileRecord = getProfileRecord(forUser);
         if (profileRecord == null) {
@@ -1347,6 +1079,27 @@ public class ChooserActivity extends ResolverActivity implements
             }
         }
         mIsSuccessfullySelected = true;
+    }
+
+    private void maybeRemoveSharedText(@androidx.annotation.NonNull TargetInfo targetInfo) {
+        Intent targetIntent = targetInfo.getTargetIntent();
+        if (targetIntent == null) {
+            return;
+        }
+        Intent originalTargetIntent = new Intent(mChooserRequest.getTargetIntent());
+        // Our TargetInfo implementations add associated component to the intent, let's do the same
+        // for the sake of the comparison below.
+        if (targetIntent.getComponent() != null) {
+            originalTargetIntent.setComponent(targetIntent.getComponent());
+        }
+        // Use filterEquals as a way to check that the primary intent is in use (and not an
+        // alternative one). For example, an app is sharing an image and a link with mime type
+        // "image/png" and provides an alternative intent to share only the link with mime type
+        // "text/uri". Should there be a target that accepts only the latter, the alternative intent
+        // will be used and we don't want to exclude the link from it.
+        if (mExcludeSharedText && originalTargetIntent.filterEquals(targetIntent)) {
+            targetIntent.removeExtra(Intent.EXTRA_TEXT);
+        }
     }
 
     private void sendImpressionToAppPredictor(TargetInfo targetInfo, ChooserListAdapter adapter) {
@@ -1416,6 +1169,7 @@ public class ChooserActivity extends ResolverActivity implements
                     + " cannot match refined source intent " + matchingIntent);
         } else {
             TargetInfo clonedTarget = selectedTarget.cloneFilledIn(matchingIntent, 0);
+            maybeRemoveSharedText(clonedTarget);
             if (super.onTargetSelected(clonedTarget, false)) {
                 updateModelAndChooserCounts(clonedTarget);
                 finish();
@@ -1535,9 +1289,9 @@ public class ChooserActivity extends ResolverActivity implements
                                 .getActiveListAdapter()
                                 .targetInfoForPosition(
                                         selectedPosition, /* filtered= */ true);
-                        // ItemViewHolder contents should always be "display resolve info"
-                        // targets, but check just to make sure.
-                        if (longPressedTargetInfo.isDisplayResolveInfo()) {
+                        // Only a direct share target or an app target is expected
+                        if (longPressedTargetInfo.isDisplayResolveInfo()
+                                || longPressedTargetInfo.isSelectableTargetInfo()) {
                             showTargetDetails(longPressedTargetInfo);
                         }
                     }
@@ -1629,7 +1383,7 @@ public class ChooserActivity extends ResolverActivity implements
                 mPm,
                 getTargetIntent(),
                 getReferrerPackageName(),
-                mLaunchedFromUid,
+                getAnnotatedUserHandles().userIdOfCallingApp,
                 userHandle,
                 resolverComparator);
     }
@@ -1871,21 +1625,20 @@ public class ChooserActivity extends ResolverActivity implements
     }
 
     @MainThread
-    private void onShortcutsLoaded(
-            UserHandle userHandle, ShortcutLoader.Result shortcutsResult) {
+    private void onShortcutsLoaded(UserHandle userHandle, ShortcutLoader.Result result) {
         if (DEBUG) {
             Log.d(TAG, "onShortcutsLoaded for user: " + userHandle);
         }
-        mDirectShareShortcutInfoCache.putAll(shortcutsResult.directShareShortcutInfoCache);
-        mDirectShareAppTargetCache.putAll(shortcutsResult.directShareAppTargetCache);
+        mDirectShareShortcutInfoCache.putAll(result.getDirectShareShortcutInfoCache());
+        mDirectShareAppTargetCache.putAll(result.getDirectShareAppTargetCache());
         ChooserListAdapter adapter =
                 mChooserMultiProfilePagerAdapter.getListAdapterForUserHandle(userHandle);
         if (adapter != null) {
-            for (ShortcutLoader.ShortcutResultInfo resultInfo : shortcutsResult.shortcutsByApp) {
+            for (ShortcutLoader.ShortcutResultInfo resultInfo : result.getShortcutsByApp()) {
                 adapter.addServiceResults(
-                        resultInfo.appTarget,
-                        resultInfo.shortcuts,
-                        shortcutsResult.isFromAppPredictor
+                        resultInfo.getAppTarget(),
+                        resultInfo.getShortcuts(),
+                        result.isFromAppPredictor()
                                 ? TARGET_TYPE_SHORTCUTS_FROM_PREDICTION_SERVICE
                                 : TARGET_TYPE_SHORTCUTS_FROM_SHORTCUT_MANAGER,
                         mDirectShareShortcutInfoCache,
@@ -2196,6 +1949,19 @@ public class ChooserActivity extends ResolverActivity implements
         public void destroy() {
             mChooserActivity = null;
             mSelectedTarget = null;
+        }
+
+        /**
+         * Apps can't load this class directly, so we need a regular ResultReceiver copy for
+         * sending. Obtain this by parceling and unparceling (one weird trick).
+         */
+        ResultReceiver copyForSending() {
+            Parcel parcel = Parcel.obtain();
+            writeToParcel(parcel, 0);
+            parcel.setDataPosition(0);
+            ResultReceiver receiverForSending = ResultReceiver.CREATOR.createFromParcel(parcel);
+            parcel.recycle();
+            return receiverForSending;
         }
     }
 
