@@ -14,11 +14,7 @@
   ~ limitations under the License.
   -->
 
-<com.android.intentresolver.widget.RoundedRectImageView
-    xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/image"
-    android:layout_width="@dimen/chooser_preview_image_width"
-    android:layout_height="@dimen/chooser_preview_image_height"
-    android:layout_alignParentTop="true"
-    android:adjustViewBounds="false"
-    android:scaleType="centerCrop"/>
+<set xmlns:android="http://schemas.android.com/apk/res/android">
+    <translate android:fromXDelta="0" android:toXDelta="-100%p"
+        android:duration="@android:integer/config_mediumAnimTime"/>
+</set>

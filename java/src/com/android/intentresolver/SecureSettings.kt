@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 The Android Open Source Project
+ * Copyright (C) 2023 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,11 +16,14 @@
 
 package com.android.intentresolver
 
-import android.graphics.Bitmap
-import android.net.Uri
-import java.util.function.Consumer
+import android.content.ContentResolver
+import android.provider.Settings
 
-interface ImageLoader : suspend (Uri) -> Bitmap? {
-    fun loadImage(uri: Uri, callback: Consumer<Bitmap?>)
-    fun prePopulate(uris: List<Uri>)
+/**
+ * A proxy class for secure settings, for easier testing.
+ */
+open class SecureSettings {
+    open fun getString(resolver: ContentResolver, name: String): String? {
+        return Settings.Secure.getString(resolver, name)
+    }
 }

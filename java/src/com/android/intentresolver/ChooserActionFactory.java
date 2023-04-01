@@ -18,6 +18,7 @@ package com.android.intentresolver;
 
 import android.annotation.Nullable;
 import android.app.Activity;
+import android.app.ActivityOptions;
 import android.app.PendingIntent;
 import android.content.ClipData;
 import android.content.ClipboardManager;
@@ -49,7 +50,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.function.Consumer;
-import java.util.stream.Collectors;
 
 /**
  * Implementation of {@link ChooserContentPreviewUi.ActionFactory} specialized to the application
@@ -96,9 +96,10 @@ public final class ChooserActionFactory implements ChooserContentPreviewUi.Actio
     private final TargetInfo mNearbySharingTarget;
     private final Runnable mOnNearbyButtonClicked;
     private final ImmutableList<ChooserAction> mCustomActions;
-    private final PendingIntent mReselectionIntent;
+    private final Runnable mOnModifyShareClicked;
     private final Consumer<Boolean> mExcludeSharedTextAction;
     private final Consumer</* @Nullable */ Integer> mFinishCallback;
+    private final ChooserActivityLogger mLogger;
 
     /**
      * @param context
@@ -160,8 +161,13 @@ public final class ChooserActionFactory implements ChooserContentPreviewUi.Actio
                         logger),
                 chooserRequest.getChooserActions(),
                 (featureFlagRepository.isEnabled(Flags.SHARESHEET_RESELECTION_ACTION)
-                        ? chooserRequest.getModifyShareAction() : null),
+                        ? createModifyShareRunnable(
+                                chooserRequest.getModifyShareAction(),
+                                finishCallback,
+                                logger)
+                        : null),
                 onUpdateSharedTextIsExcluded,
+                logger,
                 finishCallback);
     }
 
@@ -176,8 +182,9 @@ public final class ChooserActionFactory implements ChooserContentPreviewUi.Actio
             TargetInfo nearbySharingTarget,
             Runnable onNearbyButtonClicked,
             List<ChooserAction> customActions,
-            @Nullable PendingIntent reselectionIntent,
+            @Nullable Runnable onModifyShareClicked,
             Consumer<Boolean> onUpdateSharedTextIsExcluded,
+            ChooserActivityLogger logger,
             Consumer</* @Nullable */ Integer> finishCallback) {
         mContext = context;
         mCopyButtonLabel = copyButtonLabel;
@@ -188,8 +195,9 @@ public final class ChooserActionFactory implements ChooserContentPreviewUi.Actio
         mNearbySharingTarget = nearbySharingTarget;
         mOnNearbyButtonClicked = onNearbyButtonClicked;
         mCustomActions = ImmutableList.copyOf(customActions);
-        mReselectionIntent = reselectionIntent;
+        mOnModifyShareClicked = onModifyShareClicked;
         mExcludeSharedTextAction = onUpdateSharedTextIsExcluded;
+        mLogger = logger;
         mFinishCallback = finishCallback;
     }
 
@@ -236,10 +244,15 @@ public final class ChooserActionFactory implements ChooserContentPreviewUi.Actio
     /** Create custom actions */
     @Override
     public List<ActionRow.Action> createCustomActions() {
-        return mCustomActions.stream()
-                .map(target -> createCustomAction(mContext, target, mFinishCallback))
-                .filter(action -> action != null)
-                .collect(Collectors.toList());
+        List<ActionRow.Action> actions = new ArrayList<>();
+        for (int i = 0; i < mCustomActions.size(); i++) {
+            ActionRow.Action actionRow = createCustomAction(
+                    mContext, mCustomActions.get(i), mFinishCallback, i, mLogger);
+            if (actionRow != null) {
+                actions.add(actionRow);
+            }
+        }
+        return actions;
     }
 
     /**
@@ -248,18 +261,25 @@ public final class ChooserActionFactory implements ChooserContentPreviewUi.Actio
     @Override
     @Nullable
     public Runnable getModifyShareAction() {
-        return (mReselectionIntent == null) ? null : createReselectionRunnable(mReselectionIntent);
+        return mOnModifyShareClicked;
     }
 
-    private Runnable createReselectionRunnable(PendingIntent pendingIntent) {
+    private static Runnable createModifyShareRunnable(
+            PendingIntent pendingIntent,
+            Consumer<Integer> finishCallback,
+            ChooserActivityLogger logger) {
+        if (pendingIntent == null) {
+            return null;
+        }
+
         return () -> {
             try {
                 pendingIntent.send();
             } catch (PendingIntent.CanceledException e) {
                 Log.d(TAG, "Payload reselection action has been cancelled");
             }
-            // TODO: add reporting
-            mFinishCallback.accept(Activity.RESULT_OK);
+            logger.logActionSelected(ChooserActivityLogger.SELECTION_TYPE_MODIFY_SHARE);
+            finishCallback.accept(Activity.RESULT_OK);
         };
     }
 
@@ -402,7 +422,9 @@ public final class ChooserActionFactory implements ChooserContentPreviewUi.Actio
             Intent originalIntent,
             ChooserIntegratedDeviceComponents integratedComponents) {
         final ComponentName cn = integratedComponents.getNearbySharingComponent();
-        if (cn == null) return null;
+        if (cn == null) {
+            return null;
+        }
 
         final Intent resolveIntent = new Intent(originalIntent);
         resolveIntent.setComponent(cn);
@@ -455,7 +477,11 @@ public final class ChooserActionFactory implements ChooserContentPreviewUi.Actio
 
     @Nullable
     private static ActionRow.Action createCustomAction(
-            Context context, ChooserAction action, Consumer<Integer> finishCallback) {
+            Context context,
+            ChooserAction action,
+            Consumer<Integer> finishCallback,
+            int position,
+            ChooserActivityLogger logger) {
         Drawable icon = action.getIcon().loadDrawable(context);
         if (icon == null && TextUtils.isEmpty(action.getLabel())) {
             return null;
@@ -465,11 +491,22 @@ public final class ChooserActionFactory implements ChooserContentPreviewUi.Actio
                 icon,
                 () -> {
                     try {
-                        action.getAction().send();
+                        action.getAction().send(
+                                null,
+                                0,
+                                null,
+                                null,
+                                null,
+                                null,
+                                ActivityOptions.makeCustomAnimation(
+                                        context,
+                                        R.anim.slide_in_right,
+                                        R.anim.slide_out_left)
+                                                .toBundle());
                     } catch (PendingIntent.CanceledException e) {
                         Log.d(TAG, "Custom action, " + action.getLabel() + ", has been cancelled");
                     }
-                    // TODO: add reporting
+                    logger.logCustomActionSelected(position);
                     finishCallback.accept(Activity.RESULT_OK);
                 }
         );

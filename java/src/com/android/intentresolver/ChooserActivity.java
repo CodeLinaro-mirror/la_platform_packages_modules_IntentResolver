@@ -42,7 +42,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.IntentSender;
-import android.content.IntentSender.SendIntentException;
 import android.content.SharedPreferences;
 import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
@@ -54,10 +53,6 @@ import android.graphics.Insets;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
-import android.os.Handler;
-import android.os.Parcel;
-import android.os.Parcelable;
-import android.os.ResultReceiver;
 import android.os.SystemClock;
 import android.os.UserHandle;
 import android.os.UserManager;
@@ -90,6 +85,7 @@ import com.android.intentresolver.chooser.MultiDisplayResolveInfo;
 import com.android.intentresolver.chooser.TargetInfo;
 import com.android.intentresolver.flags.FeatureFlagRepository;
 import com.android.intentresolver.flags.FeatureFlagRepositoryFactory;
+import com.android.intentresolver.flags.Flags;
 import com.android.intentresolver.grid.ChooserGridAdapter;
 import com.android.intentresolver.grid.DirectShareViewHolder;
 import com.android.intentresolver.model.AbstractResolverComparator;
@@ -102,7 +98,6 @@ import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.config.sysui.SystemUiDeviceConfigFlags;
 import com.android.internal.content.PackageMonitor;
 import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
-import com.android.internal.util.FrameworkStatsLog;
 
 import java.io.File;
 import java.lang.annotation.Retention;
@@ -207,6 +202,8 @@ public class ChooserActivity extends ResolverActivity implements
     @Nullable
     private ChooserRequestParameters mChooserRequest;
 
+    private ChooserRefinementManager mRefinementManager;
+
     private FeatureFlagRepository mFeatureFlagRepository;
     private ChooserActionFactory mChooserActionFactory;
     private ChooserContentPreviewUi mChooserContentPreviewUi;
@@ -214,9 +211,6 @@ public class ChooserActivity extends ResolverActivity implements
     private boolean mShouldDisplayLandscape;
     // statsd logger wrapper
     protected ChooserActivityLogger mChooserActivityLogger;
-
-    @Nullable
-    private RefinementResultReceiver mRefinementResultReceiver;
 
     private long mChooserShownTime;
     protected boolean mIsSuccessfullySelected;
@@ -311,6 +305,20 @@ public class ChooserActivity extends ResolverActivity implements
                     finish();
                 });
 
+        mRefinementManager = new ChooserRefinementManager(
+                this,
+                mChooserRequest.getRefinementIntentSender(),
+                (validatedRefinedTarget) -> {
+                    maybeRemoveSharedText(validatedRefinedTarget);
+                    if (super.onTargetSelected(validatedRefinedTarget, false)) {
+                        finish();
+                    }
+                },
+                () -> {
+                    mRefinementManager.destroy();
+                    finish();
+                });
+
         mChooserContentPreviewUi = new ChooserContentPreviewUi(mFeatureFlagRepository);
 
         setAdditionalTargets(mChooserRequest.getAdditionalTargets());
@@ -378,7 +386,6 @@ public class ChooserActivity extends ResolverActivity implements
         }
 
         getChooserActivityLogger().logShareStarted(
-                FrameworkStatsLog.SHARESHEET_STARTED,
                 getReferrerPackageName(),
                 mChooserRequest.getTargetType(),
                 mChooserRequest.getCallerChooserTargets().size(),
@@ -387,7 +394,9 @@ public class ChooserActivity extends ResolverActivity implements
                 isWorkProfile(),
                 ChooserContentPreviewUi.findPreferredContentPreview(
                         getTargetIntent(), getContentResolver(), this::isImageType),
-                mChooserRequest.getTargetAction()
+                mChooserRequest.getTargetAction(),
+                mChooserRequest.getChooserActions().size(),
+                mChooserRequest.getModifyShareAction() != null
         );
 
         mEnterTransitionAnimationDelegate.postponeTransition();
@@ -395,7 +404,7 @@ public class ChooserActivity extends ResolverActivity implements
 
     @VisibleForTesting
     protected ChooserIntegratedDeviceComponents getIntegratedDeviceComponents() {
-        return ChooserIntegratedDeviceComponents.get(this);
+        return ChooserIntegratedDeviceComponents.get(this, new SecureSettings());
     }
 
     @Override
@@ -535,7 +544,7 @@ public class ChooserActivity extends ResolverActivity implements
                 /* context */ this,
                 adapter,
                 createEmptyStateProvider(/* workProfileUserHandle= */ null),
-                mQuietModeManager,
+                /* workProfileQuietModeChecker= */ () -> false,
                 /* workProfileUserHandle= */ null,
                 mMaxTargetsPerRow);
     }
@@ -564,7 +573,7 @@ public class ChooserActivity extends ResolverActivity implements
                 personalAdapter,
                 workAdapter,
                 createEmptyStateProvider(/* workProfileUserHandle= */ getWorkProfileUserHandle()),
-                mQuietModeManager,
+                () -> mWorkProfileAvailability.isQuietModeEnabled(),
                 selectedProfile,
                 getWorkProfileUserHandle(),
                 mMaxTargetsPerRow);
@@ -777,9 +786,9 @@ public class ChooserActivity extends ResolverActivity implements
             mLatencyTracker.onActionCancel(ACTION_LOAD_SHARE_SHEET);
         }
 
-        if (mRefinementResultReceiver != null) {
-            mRefinementResultReceiver.destroy();
-            mRefinementResultReceiver = null;
+        if (mRefinementManager != null) {  // TODO: null-checked in case of early-destroy, or skip?
+            mRefinementManager.destroy();
+            mRefinementManager = null;
         }
 
         mBackgroundThreadPoolExecutor.shutdownNow();
@@ -903,32 +912,8 @@ public class ChooserActivity extends ResolverActivity implements
 
     @Override
     protected boolean onTargetSelected(TargetInfo target, boolean alwaysCheck) {
-        if (mChooserRequest.getRefinementIntentSender() != null) {
-            final Intent fillIn = new Intent();
-            final List<Intent> sourceIntents = target.getAllSourceIntents();
-            if (!sourceIntents.isEmpty()) {
-                fillIn.putExtra(Intent.EXTRA_INTENT, sourceIntents.get(0));
-                if (sourceIntents.size() > 1) {
-                    final Intent[] alts = new Intent[sourceIntents.size() - 1];
-                    for (int i = 1, N = sourceIntents.size(); i < N; i++) {
-                        alts[i - 1] = sourceIntents.get(i);
-                    }
-                    fillIn.putExtra(Intent.EXTRA_ALTERNATE_INTENTS, alts);
-                }
-                if (mRefinementResultReceiver != null) {
-                    mRefinementResultReceiver.destroy();
-                }
-                mRefinementResultReceiver = new RefinementResultReceiver(this, target, null);
-                fillIn.putExtra(Intent.EXTRA_RESULT_RECEIVER,
-                        mRefinementResultReceiver.copyForSending());
-                try {
-                    mChooserRequest.getRefinementIntentSender().sendIntent(
-                            this, 0, fillIn, null, null);
-                    return false;
-                } catch (SendIntentException e) {
-                    Log.e(TAG, "Refinement IntentSender failed to send", e);
-                }
-            }
+        if (mRefinementManager.maybeHandleSelection(target)) {
+            return false;
         }
         updateModelAndChooserCounts(target);
         maybeRemoveSharedText(target);
@@ -1157,47 +1142,6 @@ public class ChooserActivity extends ResolverActivity implements
         return (record == null) ? null : record.appPredictor;
     }
 
-    void onRefinementResult(TargetInfo selectedTarget, Intent matchingIntent) {
-        if (mRefinementResultReceiver != null) {
-            mRefinementResultReceiver.destroy();
-            mRefinementResultReceiver = null;
-        }
-        if (selectedTarget == null) {
-            Log.e(TAG, "Refinement result intent did not match any known targets; canceling");
-        } else if (!checkTargetSourceIntent(selectedTarget, matchingIntent)) {
-            Log.e(TAG, "onRefinementResult: Selected target " + selectedTarget
-                    + " cannot match refined source intent " + matchingIntent);
-        } else {
-            TargetInfo clonedTarget = selectedTarget.cloneFilledIn(matchingIntent, 0);
-            maybeRemoveSharedText(clonedTarget);
-            if (super.onTargetSelected(clonedTarget, false)) {
-                updateModelAndChooserCounts(clonedTarget);
-                finish();
-                return;
-            }
-        }
-        onRefinementCanceled();
-    }
-
-    void onRefinementCanceled() {
-        if (mRefinementResultReceiver != null) {
-            mRefinementResultReceiver.destroy();
-            mRefinementResultReceiver = null;
-        }
-        finish();
-    }
-
-    boolean checkTargetSourceIntent(TargetInfo target, Intent matchingIntent) {
-        final List<Intent> targetIntents = target.getAllSourceIntents();
-        for (int i = 0, N = targetIntents.size(); i < N; i++) {
-            final Intent targetIntent = targetIntents.get(i);
-            if (targetIntent.filterEquals(matchingIntent)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     /**
      * Sort intents alphabetically based on display label.
      */
@@ -1222,14 +1166,19 @@ public class ChooserActivity extends ResolverActivity implements
     }
 
     public class ChooserListController extends ResolverListController {
-        public ChooserListController(Context context,
+        public ChooserListController(
+                Context context,
                 PackageManager pm,
                 Intent targetIntent,
                 String referrerPackageName,
                 int launchedFromUid,
-                UserHandle userId,
                 AbstractResolverComparator resolverComparator) {
-            super(context, pm, targetIntent, referrerPackageName, launchedFromUid, userId,
+            super(
+                    context,
+                    pm,
+                    targetIntent,
+                    referrerPackageName,
+                    launchedFromUid,
                     resolverComparator);
         }
 
@@ -1365,8 +1314,9 @@ public class ChooserActivity extends ResolverActivity implements
                 maxTargetsPerRow);
     }
 
+    @Override
     @VisibleForTesting
-    protected ResolverListController createListController(UserHandle userHandle) {
+    protected ChooserListController createListController(UserHandle userHandle) {
         AppPredictor appPredictor = getAppPredictor(userHandle);
         AbstractResolverComparator resolverComparator;
         if (appPredictor != null) {
@@ -1384,13 +1334,20 @@ public class ChooserActivity extends ResolverActivity implements
                 getTargetIntent(),
                 getReferrerPackageName(),
                 getAnnotatedUserHandles().userIdOfCallingApp,
-                userHandle,
                 resolverComparator);
     }
 
     @VisibleForTesting
     protected ImageLoader createPreviewImageLoader() {
-        return new ImagePreviewImageLoader(this, getLifecycle());
+        final int cacheSize;
+        if (mFeatureFlagRepository.isEnabled(Flags.SHARESHEET_SCROLLABLE_IMAGE_PREVIEW)) {
+            float chooserWidth = getResources().getDimension(R.dimen.chooser_width);
+            float imageWidth = getResources().getDimension(R.dimen.chooser_preview_image_width);
+            cacheSize = (int) (Math.ceil(chooserWidth / imageWidth) + 2);
+        } else {
+            cacheSize = 3;
+        }
+        return new ImagePreviewImageLoader(this, getLifecycle(), cacheSize);
     }
 
     private void handleScroll(View view, int x, int y, int oldx, int oldy) {
@@ -1889,79 +1846,6 @@ public class ChooserActivity extends ResolverActivity implements
                 mScrollStatus = SCROLL_STATUS_IDLE;
                 setVerticalScrollEnabled(true);
             }
-        }
-    }
-
-    static class ChooserTargetRankingInfo {
-        public final List<AppTarget> scores;
-        public final UserHandle userHandle;
-
-        ChooserTargetRankingInfo(List<AppTarget> chooserTargetScores,
-                UserHandle userHandle) {
-            this.scores = chooserTargetScores;
-            this.userHandle = userHandle;
-        }
-    }
-
-    static class RefinementResultReceiver extends ResultReceiver {
-        private ChooserActivity mChooserActivity;
-        private TargetInfo mSelectedTarget;
-
-        public RefinementResultReceiver(ChooserActivity host, TargetInfo target,
-                Handler handler) {
-            super(handler);
-            mChooserActivity = host;
-            mSelectedTarget = target;
-        }
-
-        @Override
-        protected void onReceiveResult(int resultCode, Bundle resultData) {
-            if (mChooserActivity == null) {
-                Log.e(TAG, "Destroyed RefinementResultReceiver received a result");
-                return;
-            }
-            if (resultData == null) {
-                Log.e(TAG, "RefinementResultReceiver received null resultData");
-                return;
-            }
-
-            switch (resultCode) {
-                case RESULT_CANCELED:
-                    mChooserActivity.onRefinementCanceled();
-                    break;
-                case RESULT_OK:
-                    Parcelable intentParcelable = resultData.getParcelable(Intent.EXTRA_INTENT);
-                    if (intentParcelable instanceof Intent) {
-                        mChooserActivity.onRefinementResult(mSelectedTarget,
-                                (Intent) intentParcelable);
-                    } else {
-                        Log.e(TAG, "RefinementResultReceiver received RESULT_OK but no Intent"
-                                + " in resultData with key Intent.EXTRA_INTENT");
-                    }
-                    break;
-                default:
-                    Log.w(TAG, "Unknown result code " + resultCode
-                            + " sent to RefinementResultReceiver");
-                    break;
-            }
-        }
-
-        public void destroy() {
-            mChooserActivity = null;
-            mSelectedTarget = null;
-        }
-
-        /**
-         * Apps can't load this class directly, so we need a regular ResultReceiver copy for
-         * sending. Obtain this by parceling and unparceling (one weird trick).
-         */
-        ResultReceiver copyForSending() {
-            Parcel parcel = Parcel.obtain();
-            writeToParcel(parcel, 0);
-            parcel.setDataPosition(0);
-            ResultReceiver receiverForSending = ResultReceiver.CREATOR.createFromParcel(parcel);
-            parcel.recycle();
-            return receiverForSending;
         }
     }
 
