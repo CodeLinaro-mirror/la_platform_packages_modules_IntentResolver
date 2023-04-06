@@ -46,6 +46,7 @@ class TextContentPreviewUi extends ContentPreviewUi {
     private final ImageLoader mImageLoader;
     private final ChooserContentPreviewUi.ActionFactory mActionFactory;
     private final FeatureFlagRepository mFeatureFlagRepository;
+    private final HeadlineGenerator mHeadlineGenerator;
 
     TextContentPreviewUi(
             @Nullable CharSequence sharingText,
@@ -53,13 +54,15 @@ class TextContentPreviewUi extends ContentPreviewUi {
             @Nullable Uri previewThumbnail,
             ChooserContentPreviewUi.ActionFactory actionFactory,
             ImageLoader imageLoader,
-            FeatureFlagRepository featureFlagRepository) {
+            FeatureFlagRepository featureFlagRepository,
+            HeadlineGenerator headlineGenerator) {
         mSharingText = sharingText;
         mPreviewTitle = previewTitle;
         mPreviewThumbnail = previewThumbnail;
         mImageLoader = imageLoader;
         mActionFactory = actionFactory;
         mFeatureFlagRepository = featureFlagRepository;
+        mHeadlineGenerator = headlineGenerator;
     }
 
     @Override
@@ -70,7 +73,7 @@ class TextContentPreviewUi extends ContentPreviewUi {
     @Override
     public ViewGroup display(Resources resources, LayoutInflater layoutInflater, ViewGroup parent) {
         ViewGroup layout = displayInternal(layoutInflater, parent);
-        displayPayloadReselectionAction(layout, mActionFactory, mFeatureFlagRepository);
+        displayModifyShareAction(layout, mActionFactory, mFeatureFlagRepository);
         return layout;
     }
 
@@ -92,36 +95,37 @@ class TextContentPreviewUi extends ContentPreviewUi {
 
         if (mSharingText == null) {
             contentPreviewLayout
-                    .findViewById(com.android.internal.R.id.content_preview_text_layout)
+                    .findViewById(R.id.text_preview_layout)
                     .setVisibility(View.GONE);
-        } else {
-            TextView textView = contentPreviewLayout.findViewById(
-                    com.android.internal.R.id.content_preview_text);
-            textView.setText(mSharingText);
+            return contentPreviewLayout;
         }
 
+        TextView textView = contentPreviewLayout.findViewById(
+                com.android.internal.R.id.content_preview_text);
+        textView.setText(mSharingText);
+
+        TextView previewTitleView = contentPreviewLayout.findViewById(
+                com.android.internal.R.id.content_preview_title);
         if (TextUtils.isEmpty(mPreviewTitle)) {
-            contentPreviewLayout
-                    .findViewById(com.android.internal.R.id.content_preview_title_layout)
-                    .setVisibility(View.GONE);
+            previewTitleView.setVisibility(View.GONE);
         } else {
-            TextView previewTitleView = contentPreviewLayout.findViewById(
-                    com.android.internal.R.id.content_preview_title);
             previewTitleView.setText(mPreviewTitle);
-
-            ImageView previewThumbnailView = contentPreviewLayout.findViewById(
-                    com.android.internal.R.id.content_preview_thumbnail);
-            if (!validForContentPreview(mPreviewThumbnail)) {
-                previewThumbnailView.setVisibility(View.GONE);
-            } else {
-                mImageLoader.loadImage(
-                        mPreviewThumbnail,
-                        (bitmap) -> updateViewWithImage(
-                                contentPreviewLayout.findViewById(
-                                        com.android.internal.R.id.content_preview_thumbnail),
-                                bitmap));
-            }
         }
+
+        ImageView previewThumbnailView = contentPreviewLayout.findViewById(
+                com.android.internal.R.id.content_preview_thumbnail);
+        if (!validForContentPreview(mPreviewThumbnail)) {
+            previewThumbnailView.setVisibility(View.GONE);
+        } else {
+            mImageLoader.loadImage(
+                    mPreviewThumbnail,
+                    (bitmap) -> updateViewWithImage(
+                            contentPreviewLayout.findViewById(
+                                    com.android.internal.R.id.content_preview_thumbnail),
+                            bitmap));
+        }
+
+        displayHeadline(contentPreviewLayout, mHeadlineGenerator.getTextHeadline(mSharingText));
 
         return contentPreviewLayout;
     }
