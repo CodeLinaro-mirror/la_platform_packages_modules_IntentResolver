@@ -39,6 +39,7 @@ import android.view.View;
 
 import com.android.intentresolver.chooser.DisplayResolveInfo;
 import com.android.intentresolver.chooser.TargetInfo;
+import com.android.intentresolver.contentpreview.ChooserContentPreviewUi;
 import com.android.intentresolver.flags.FeatureFlagRepository;
 import com.android.intentresolver.flags.Flags;
 import com.android.intentresolver.widget.ActionRow;
@@ -385,7 +386,7 @@ public final class ChooserActionFactory implements ChooserContentPreviewUi.Actio
         final DisplayResolveInfo dri = DisplayResolveInfo.newDisplayResolveInfo(
                 originalIntent,
                 ri,
-                context.getString(com.android.internal.R.string.screenshot_edit),
+                context.getString(R.string.screenshot_edit),
                 "",
                 resolveIntent,
                 null);
