@@ -84,6 +84,7 @@ import com.android.intentresolver.chooser.MultiDisplayResolveInfo;
 import com.android.intentresolver.chooser.TargetInfo;
 import com.android.intentresolver.contentpreview.ChooserContentPreviewUi;
 import com.android.intentresolver.contentpreview.HeadlineGeneratorImpl;
+import com.android.intentresolver.contentpreview.ImageLoader;
 import com.android.intentresolver.flags.FeatureFlagRepository;
 import com.android.intentresolver.flags.FeatureFlagRepositoryFactory;
 import com.android.intentresolver.grid.ChooserGridAdapter;
@@ -239,7 +240,6 @@ public class ChooserActivity extends ResolverActivity implements
                     getIntent(),
                     getReferrerPackageName(),
                     getReferrer(),
-                    mIntegratedDeviceComponents,
                     mFeatureFlagRepository);
         } catch (IllegalArgumentException e) {
             Log.e(TAG, "Caller provided invalid Chooser request parameters", e);
@@ -1261,7 +1261,8 @@ public class ChooserActivity extends ResolverActivity implements
         AbstractResolverComparator resolverComparator;
         if (appPredictor != null) {
             resolverComparator = new AppPredictionServiceResolverComparator(this, getTargetIntent(),
-                    getReferrerPackageName(), appPredictor, userHandle, getChooserActivityLogger());
+                    getReferrerPackageName(), appPredictor, userHandle, getChooserActivityLogger(),
+                    getIntegratedDeviceComponents().getNearbySharingComponent());
         } else {
             resolverComparator =
                     new ResolverRankerServiceResolverComparator(
@@ -1270,7 +1271,8 @@ public class ChooserActivity extends ResolverActivity implements
                             getReferrerPackageName(),
                             null,
                             getChooserActivityLogger(),
-                            getResolverRankerServiceUserHandleList(userHandle));
+                            getResolverRankerServiceUserHandleList(userHandle),
+                            getIntegratedDeviceComponents().getNearbySharingComponent());
         }
 
         return new ChooserListController(
@@ -1287,9 +1289,9 @@ public class ChooserActivity extends ResolverActivity implements
     protected ImageLoader createPreviewImageLoader() {
         final int cacheSize;
         float chooserWidth = getResources().getDimension(R.dimen.chooser_width);
-        // imageWidth = imagePreviewHeight / minAspectRatio (see ScrollableImagePreviewView)
+        // imageWidth = imagePreviewHeight * minAspectRatio (see ScrollableImagePreviewView)
         float imageWidth =
-                getResources().getDimension(R.dimen.chooser_preview_image_height_tall) * 5 / 2;
+                getResources().getDimension(R.dimen.chooser_preview_image_height_tall) * 2 / 5;
         cacheSize = (int) (Math.ceil(chooserWidth / imageWidth) + 2);
         return new ImagePreviewImageLoader(this, getLifecycle(), cacheSize);
     }
@@ -1623,8 +1625,7 @@ public class ChooserActivity extends ResolverActivity implements
      * we instead show the content preview as a regular list item.
      */
     private boolean shouldShowStickyContentPreview() {
-        return shouldShowStickyContentPreviewNoOrientationCheck()
-                && !getResources().getBoolean(R.bool.resolver_landscape_phone);
+        return shouldShowStickyContentPreviewNoOrientationCheck();
     }
 
     private boolean shouldShowStickyContentPreviewNoOrientationCheck() {

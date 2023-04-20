@@ -56,6 +56,8 @@ private const val MIN_ASPECT_RATIO_STRING = "2:5"
 private const val MAX_ASPECT_RATIO = 2.5f
 private const val MAX_ASPECT_RATIO_STRING = "5:2"
 
+private typealias CachingImageLoader = suspend (Uri, Boolean) -> Bitmap?
+
 class ScrollableImagePreviewView : RecyclerView, ImagePreviewView {
     constructor(context: Context) : this(context, null)
     constructor(context: Context, attrs: AttributeSet?) : this(context, attrs, 0)
@@ -76,7 +78,7 @@ class ScrollableImagePreviewView : RecyclerView, ImagePreviewView {
                     TypedValue.COMPLEX_UNIT_DIP, 3f, context.resources.displayMetrics
                 ).toInt()
             }
-            var outerSpacing = a.getDimensionPixelSize(
+            outerSpacing = a.getDimensionPixelSize(
                 R.styleable.ScrollableImagePreviewView_itemOuterSpacing, -1
             )
             if (outerSpacing < 0) {
@@ -102,12 +104,24 @@ class ScrollableImagePreviewView : RecyclerView, ImagePreviewView {
     var maxWidthHint: Int = -1
     private var requestedHeight: Int = 0
     private var isMeasured = false
+    private var maxAspectRatio = MAX_ASPECT_RATIO
+    private var maxAspectRatioString = MAX_ASPECT_RATIO_STRING
+    private var outerSpacing: Int = 0
 
     override fun onMeasure(widthSpec: Int, heightSpec: Int) {
         super.onMeasure(widthSpec, heightSpec)
         if (!isMeasured) {
             isMeasured = true
-            batchLoader?.loadAspectRatios(getMaxWidth(), this::calcPreviewWidth)
+            updateMaxWidthHint(widthSpec)
+            updateMaxAspectRatio()
+            batchLoader?.loadAspectRatios(getMaxWidth(), this::updatePreviewSize)
+        }
+    }
+
+    private fun updateMaxWidthHint(widthSpec: Int) {
+        if (maxWidthHint > 0) return
+        if (View.MeasureSpec.getMode(widthSpec) != View.MeasureSpec.UNSPECIFIED) {
+            maxWidthHint = View.MeasureSpec.getSize(widthSpec)
         }
     }
 
@@ -131,7 +145,7 @@ class ScrollableImagePreviewView : RecyclerView, ImagePreviewView {
         return null
     }
 
-    fun setPreviews(previews: List<Preview>, otherItemCount: Int, imageLoader: ImageLoader) {
+    fun setPreviews(previews: List<Preview>, otherItemCount: Int, imageLoader: CachingImageLoader) {
         previewAdapter.reset(0, imageLoader)
         batchLoader?.cancel()
         batchLoader = BatchPreviewLoader(
@@ -144,7 +158,7 @@ class ScrollableImagePreviewView : RecyclerView, ImagePreviewView {
         }
         .apply {
             if (isMeasured) {
-                loadAspectRatios(getMaxWidth(), this@ScrollableImagePreviewView::calcPreviewWidth)
+                loadAspectRatios(getMaxWidth(), this@ScrollableImagePreviewView::updatePreviewSize)
             }
         }
     }
@@ -158,14 +172,39 @@ class ScrollableImagePreviewView : RecyclerView, ImagePreviewView {
             else -> measuredWidth
         }
 
-    private fun calcPreviewWidth(bitmap: Bitmap): Int {
+    private fun updateMaxAspectRatio() {
+        val padding = outerSpacing * 2
+        val w = maxOf(padding, getMaxWidth() - padding)
+        val h = if (isLaidOut) height else measuredHeight
+        if (w > 0 && h > 0) {
+            maxAspectRatio = (w.toFloat() / h.toFloat())
+                .coerceIn(MIN_ASPECT_RATIO, MAX_ASPECT_RATIO)
+            maxAspectRatioString = when {
+                maxAspectRatio <= MIN_ASPECT_RATIO -> MIN_ASPECT_RATIO_STRING
+                maxAspectRatio >= MAX_ASPECT_RATIO -> MAX_ASPECT_RATIO_STRING
+                else -> "$w:$h"
+            }
+        }
+    }
+
+    /**
+     * Sets [preview]'s aspect ratio based on the preview image size.
+     * @return adjusted preview width
+     */
+    private fun updatePreviewSize(preview: Preview, width: Int, height: Int): Int {
         val effectiveHeight = if (isLaidOut) height else measuredHeight
-        return if (bitmap.width <= 0 || bitmap.height <= 0) {
+        return if (width <= 0 || height <= 0) {
+            preview.aspectRatioString = "1:1"
             effectiveHeight
         } else {
-            val ar = (bitmap.width.toFloat() / bitmap.height.toFloat())
-                    .coerceIn(MIN_ASPECT_RATIO, MAX_ASPECT_RATIO)
-            (effectiveHeight * ar).roundToInt()
+            val aspectRatio = (width.toFloat() / height.toFloat())
+                    .coerceIn(MIN_ASPECT_RATIO, maxAspectRatio)
+            preview.aspectRatioString = when {
+                aspectRatio <= MIN_ASPECT_RATIO -> MIN_ASPECT_RATIO_STRING
+                aspectRatio >= maxAspectRatio -> maxAspectRatioString
+                else -> "$width:$height"
+            }
+            (effectiveHeight * aspectRatio).toInt()
         }
     }
 
@@ -175,18 +214,6 @@ class ScrollableImagePreviewView : RecyclerView, ImagePreviewView {
         internal var aspectRatioString: String
     ) {
         constructor(type: PreviewType, uri: Uri) : this(type, uri, "1:1")
-
-        internal var bitmap: Bitmap? = null
-
-        internal fun updateAspectRatio(width: Int, height: Int) {
-            if (width <= 0 || height <= 0) return
-            val aspectRatio = width.toFloat() / height.toFloat()
-            aspectRatioString = when {
-                aspectRatio <= MIN_ASPECT_RATIO -> MIN_ASPECT_RATIO_STRING
-                aspectRatio >= MAX_ASPECT_RATIO -> MAX_ASPECT_RATIO_STRING
-                else -> "$width:$height"
-            }
-        }
     }
 
     enum class PreviewType {
@@ -197,7 +224,7 @@ class ScrollableImagePreviewView : RecyclerView, ImagePreviewView {
         private val context: Context
     ) : RecyclerView.Adapter<ViewHolder>() {
         private val previews = ArrayList<Preview>()
-        private var imageLoader: ImageLoader? = null
+        private var imageLoader: CachingImageLoader? = null
         private var firstImagePos = -1
         private var totalItemCount: Int = 0
 
@@ -206,7 +233,7 @@ class ScrollableImagePreviewView : RecyclerView, ImagePreviewView {
 
         var transitionStatusElementCallback: TransitionElementStatusCallback? = null
 
-        fun reset(totalItemCount: Int, imageLoader: ImageLoader) {
+        fun reset(totalItemCount: Int, imageLoader: CachingImageLoader) {
             this.imageLoader = imageLoader
             firstImagePos = -1
             previews.clear()
@@ -299,7 +326,7 @@ class ScrollableImagePreviewView : RecyclerView, ImagePreviewView {
 
         fun bind(
             preview: Preview,
-            imageLoader: ImageLoader,
+            imageLoader: CachingImageLoader,
             isSharedTransitionElement: Boolean,
             previewReadyCallback: ((String) -> Unit)?
         ) {
@@ -334,11 +361,11 @@ class ScrollableImagePreviewView : RecyclerView, ImagePreviewView {
             }
         }
 
-        private suspend fun loadImage(preview: Preview, imageLoader: ImageLoader) {
-            val bitmap = preview.bitmap ?: runCatching {
+        private suspend fun loadImage(preview: Preview, imageLoader: CachingImageLoader) {
+            val bitmap = runCatching {
                 // it's expected for all loading/caching optimizations to be implemented by the
                 // loader
-                imageLoader(preview.uri)
+                imageLoader(preview.uri, true)
             }.getOrNull()
             image.setImageBitmap(bitmap)
         }
@@ -384,7 +411,7 @@ class ScrollableImagePreviewView : RecyclerView, ImagePreviewView {
 
     private class BatchPreviewLoader(
         private val adapter: Adapter,
-        private val imageLoader: ImageLoader,
+        private val imageLoader: CachingImageLoader,
         previews: List<Preview>,
         otherItemCount: Int,
         private val onNoPreviewCallback: (() -> Unit)
@@ -398,7 +425,7 @@ class ScrollableImagePreviewView : RecyclerView, ImagePreviewView {
             scope = null
         }
 
-        fun loadAspectRatios(maxWidth: Int, previewWidthCalculator: (Bitmap) -> Int) {
+        fun loadAspectRatios(maxWidth: Int, previewSizeUpdater: (Preview, Int, Int) -> Int) {
             val scope = this.scope ?: return
             val updates = ArrayDeque<Preview>(pendingPreviews.size)
             // replay 2 items to guarantee that we'd get at least one update
@@ -435,18 +462,16 @@ class ScrollableImagePreviewView : RecyclerView, ImagePreviewView {
                     launch {
                         while (pendingPreviews.isNotEmpty()) {
                             val preview = pendingPreviews.poll() ?: continue
+                            val isVisible = loadedPreviewWidth < maxWidth
                             val bitmap = runCatching {
                                 // TODO: decide on adding a timeout
-                                imageLoader(preview.uri)
+                                imageLoader(preview.uri, isVisible)
                             }.getOrNull() ?: continue
-                            preview.updateAspectRatio(bitmap.width, bitmap.height)
+                            val previewWidth =
+                                previewSizeUpdater(preview, bitmap.width, bitmap.height)
                             updates.add(preview)
-                            if (loadedPreviewWidth < maxWidth) {
-                                loadedPreviewWidth += previewWidthCalculator(bitmap)
-                                // cache bitmaps for the first preview items to aovid potential
-                                // double-loading (in case those values are evicted from the image
-                                // loader's cache)
-                                preview.bitmap = bitmap
+                            if (isVisible) {
+                                loadedPreviewWidth += previewWidth
                                 if (loadedPreviewWidth >= maxWidth) {
                                     // notify that the preview now can be displayed
                                     reportFlow.emit(updateEvent)

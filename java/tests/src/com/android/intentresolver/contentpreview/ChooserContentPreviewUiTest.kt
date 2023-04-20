@@ -21,7 +21,6 @@ import android.content.ContentInterface
 import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
-import com.android.intentresolver.ImageLoader
 import com.android.intentresolver.any
 import com.android.intentresolver.anyOrNull
 import com.android.intentresolver.contentpreview.ChooserContentPreviewUi.ActionFactory
@@ -48,12 +47,11 @@ class ChooserContentPreviewUiTest {
             callback.accept(null)
         }
         override fun prePopulate(uris: List<Uri>) = Unit
-        override suspend fun invoke(uri: Uri): Bitmap? = null
+        override suspend fun invoke(uri: Uri, caching: Boolean): Bitmap? = null
     }
     private val actionFactory = object : ActionFactory {
         override fun createCopyButton() = ActionRow.Action(label = "Copy", icon = null) {}
         override fun createEditButton(): ActionRow.Action? = null
-        override fun createNearbyButton(): ActionRow.Action? = null
         override fun createCustomActions(): List<ActionRow.Action> = emptyList()
         override fun getModifyShareAction(): ActionRow.Action? = null
         override fun getExcludeSharedTextAction(): Consumer<Boolean> = Consumer<Boolean> {}

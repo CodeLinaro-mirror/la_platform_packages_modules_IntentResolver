@@ -27,7 +27,6 @@ import android.widget.TextView;
 
 import androidx.annotation.Nullable;
 
-import com.android.intentresolver.ImageLoader;
 import com.android.intentresolver.R;
 import com.android.intentresolver.widget.ActionRow;
 
@@ -125,10 +124,6 @@ class TextContentPreviewUi extends ContentPreviewUi {
     private List<ActionRow.Action> createTextPreviewActions() {
         ArrayList<ActionRow.Action> actions = new ArrayList<>(2);
         actions.add(mActionFactory.createCopyButton());
-        ActionRow.Action nearbyAction = mActionFactory.createNearbyButton();
-        if (nearbyAction != null) {
-            actions.add(nearbyAction);
-        }
         return actions;
     }
 }
