@@ -26,17 +26,12 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.ViewStub;
 import android.widget.CheckBox;
 import android.widget.TextView;
 
-import androidx.annotation.LayoutRes;
 import androidx.annotation.Nullable;
 
-import com.android.intentresolver.ImageLoader;
 import com.android.intentresolver.R;
-import com.android.intentresolver.flags.FeatureFlagRepository;
-import com.android.intentresolver.flags.Flags;
 import com.android.intentresolver.widget.ActionRow;
 import com.android.intentresolver.widget.ImagePreviewView.TransitionElementStatusCallback;
 import com.android.intentresolver.widget.ScrollableImagePreviewView;
@@ -54,7 +49,6 @@ class UnifiedContentPreviewUi extends ContentPreviewUi {
     private final ImageLoader mImageLoader;
     private final MimeTypeClassifier mTypeClassifier;
     private final TransitionElementStatusCallback mTransitionElementStatusCallback;
-    private final FeatureFlagRepository mFeatureFlagRepository;
     private final HeadlineGenerator mHeadlineGenerator;
 
     UnifiedContentPreviewUi(
@@ -64,7 +58,6 @@ class UnifiedContentPreviewUi extends ContentPreviewUi {
             ImageLoader imageLoader,
             MimeTypeClassifier typeClassifier,
             TransitionElementStatusCallback transitionElementStatusCallback,
-            FeatureFlagRepository featureFlagRepository,
             HeadlineGenerator headlineGenerator) {
         mFiles = files;
         mText = text;
@@ -72,7 +65,6 @@ class UnifiedContentPreviewUi extends ContentPreviewUi {
         mImageLoader = imageLoader;
         mTypeClassifier = typeClassifier;
         mTransitionElementStatusCallback = transitionElementStatusCallback;
-        mFeatureFlagRepository = featureFlagRepository;
         mHeadlineGenerator = headlineGenerator;
 
         mImageLoader.prePopulate(mFiles.stream()
@@ -89,24 +81,23 @@ class UnifiedContentPreviewUi extends ContentPreviewUi {
     @Override
     public ViewGroup display(Resources resources, LayoutInflater layoutInflater, ViewGroup parent) {
         ViewGroup layout = displayInternal(layoutInflater, parent);
-        displayModifyShareAction(layout, mActionFactory, mFeatureFlagRepository);
+        displayModifyShareAction(layout, mActionFactory);
         return layout;
     }
 
     private ViewGroup displayInternal(LayoutInflater layoutInflater, ViewGroup parent) {
-        @LayoutRes int actionRowLayout = getActionRowLayout(mFeatureFlagRepository);
         ViewGroup contentPreviewLayout = (ViewGroup) layoutInflater.inflate(
                 R.layout.chooser_grid_preview_image, parent, false);
-        ScrollableImagePreviewView imagePreview = inflateImagePreviewView(contentPreviewLayout);
+        ScrollableImagePreviewView imagePreview =
+                contentPreviewLayout.findViewById(R.id.scrollable_image_preview);
+        imagePreview.setOnNoPreviewCallback(() -> imagePreview.setVisibility(View.GONE));
 
-        final ActionRow actionRow = inflateActionRow(contentPreviewLayout, actionRowLayout);
-        if (actionRow != null) {
-            actionRow.setActions(
-                    createActions(
-                            createImagePreviewActions(),
-                            mActionFactory.createCustomActions(),
-                            mFeatureFlagRepository));
-        }
+        final ActionRow actionRow =
+                contentPreviewLayout.findViewById(com.android.internal.R.id.chooser_action_row);
+        actionRow.setActions(
+                createActions(
+                        createImagePreviewActions(),
+                        mActionFactory.createCustomActions()));
 
         if (mFiles.size() == 0) {
             Log.i(
@@ -140,11 +131,8 @@ class UnifiedContentPreviewUi extends ContentPreviewUi {
                 mFiles.size() - previews.size(),
                 mImageLoader);
 
-        if (mFeatureFlagRepository.isEnabled(Flags.SHARESHEET_IMAGE_AND_TEXT_PREVIEW)
-                && !TextUtils.isEmpty(mText)
-                && mFiles.size() == 1
-                && allImages) {
-            setTextInImagePreviewVisibility(contentPreviewLayout, mActionFactory);
+        if (!TextUtils.isEmpty(mText) && mFiles.size() == 1 && allImages) {
+            setTextInImagePreviewVisibility(contentPreviewLayout, imagePreview, mActionFactory);
             updateTextWithImageHeadline(contentPreviewLayout);
         } else {
             if (allImages) {
@@ -169,20 +157,13 @@ class UnifiedContentPreviewUi extends ContentPreviewUi {
         if (action != null) {
             actions.add(action);
         }
-        action = mActionFactory.createEditButton();
-        if (action != null) {
-            actions.add(action);
+        if (mFiles.size() == 1 && mTypeClassifier.isImageType(mFiles.get(0).getMimeType())) {
+            action = mActionFactory.createEditButton();
+            if (action != null) {
+                actions.add(action);
+            }
         }
         return actions;
-    }
-
-    private ScrollableImagePreviewView inflateImagePreviewView(ViewGroup previewLayout) {
-        ViewStub stub = previewLayout.findViewById(R.id.image_preview_stub);
-        if (stub != null) {
-            stub.setLayoutResource(R.layout.scrollable_image_preview_view);
-            stub.inflate();
-        }
-        return previewLayout.findViewById(R.id.scrollable_image_preview);
     }
 
     private void updateTextWithImageHeadline(ViewGroup contentPreview) {
@@ -196,7 +177,9 @@ class UnifiedContentPreviewUi extends ContentPreviewUi {
     }
 
     private void setTextInImagePreviewVisibility(
-            ViewGroup contentPreview, ChooserContentPreviewUi.ActionFactory actionFactory) {
+            ViewGroup contentPreview,
+            ScrollableImagePreviewView imagePreview,
+            ChooserContentPreviewUi.ActionFactory actionFactory) {
         final TextView textView = contentPreview
                 .requireViewById(com.android.internal.R.id.content_preview_text);
         CheckBox actionView = contentPreview
@@ -215,8 +198,12 @@ class UnifiedContentPreviewUi extends ContentPreviewUi {
         shareTextAction.accept(false);
         actionView.setOnCheckedChangeListener((view, isChecked) -> {
             view.setText(actionLabels[isChecked ? 1 : 0]);
-            TransitionManager.beginDelayedTransition((ViewGroup) textView.getParent());
-            textView.setVisibility(isChecked ? View.VISIBLE : View.GONE);
+            textView.setEnabled(isChecked);
+            if (imagePreview.getVisibility() == View.VISIBLE) {
+                // animate only only if we have preview
+                TransitionManager.beginDelayedTransition((ViewGroup) textView.getParent());
+                textView.setVisibility(isChecked ? View.VISIBLE : View.GONE);
+            }
             shareTextAction.accept(!isChecked);
             updateTextWithImageHeadline(contentPreview);
         });
