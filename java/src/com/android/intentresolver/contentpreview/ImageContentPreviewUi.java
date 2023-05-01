@@ -39,7 +39,8 @@ import com.android.intentresolver.R;
 import com.android.intentresolver.flags.FeatureFlagRepository;
 import com.android.intentresolver.flags.Flags;
 import com.android.intentresolver.widget.ActionRow;
-import com.android.intentresolver.widget.ImagePreviewView;
+import com.android.intentresolver.widget.ChooserImagePreviewView;
+import com.android.intentresolver.widget.ImagePreviewView.TransitionElementStatusCallback;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -51,22 +52,25 @@ class ImageContentPreviewUi extends ContentPreviewUi {
     private final CharSequence mText;
     private final ChooserContentPreviewUi.ActionFactory mActionFactory;
     private final ImageLoader mImageLoader;
-    private final ImagePreviewView.TransitionElementStatusCallback mTransitionElementStatusCallback;
+    private final TransitionElementStatusCallback mTransitionElementStatusCallback;
     private final FeatureFlagRepository mFeatureFlagRepository;
+    private final HeadlineGenerator mHeadlineGenerator;
 
     ImageContentPreviewUi(
             List<Uri> imageUris,
             @Nullable CharSequence text,
             ChooserContentPreviewUi.ActionFactory actionFactory,
             ImageLoader imageLoader,
-            ImagePreviewView.TransitionElementStatusCallback transitionElementStatusCallback,
-            FeatureFlagRepository featureFlagRepository) {
+            TransitionElementStatusCallback transitionElementStatusCallback,
+            FeatureFlagRepository featureFlagRepository,
+            HeadlineGenerator headlineGenerator) {
         mImageUris = imageUris;
         mText = text;
         mActionFactory = actionFactory;
         mImageLoader = imageLoader;
         mTransitionElementStatusCallback = transitionElementStatusCallback;
         mFeatureFlagRepository = featureFlagRepository;
+        mHeadlineGenerator = headlineGenerator;
 
         mImageLoader.prePopulate(mImageUris);
     }
@@ -79,7 +83,7 @@ class ImageContentPreviewUi extends ContentPreviewUi {
     @Override
     public ViewGroup display(Resources resources, LayoutInflater layoutInflater, ViewGroup parent) {
         ViewGroup layout = displayInternal(layoutInflater, parent);
-        displayPayloadReselectionAction(layout, mActionFactory, mFeatureFlagRepository);
+        displayModifyShareAction(layout, mActionFactory, mFeatureFlagRepository);
         return layout;
     }
 
@@ -87,7 +91,7 @@ class ImageContentPreviewUi extends ContentPreviewUi {
         @LayoutRes int actionRowLayout = getActionRowLayout(mFeatureFlagRepository);
         ViewGroup contentPreviewLayout = (ViewGroup) layoutInflater.inflate(
                 R.layout.chooser_grid_preview_image, parent, false);
-        ImagePreviewView imagePreview = inflateImagePreviewView(contentPreviewLayout);
+        ChooserImagePreviewView imagePreview = inflateImagePreviewView(contentPreviewLayout);
 
         final ActionRow actionRow = inflateActionRow(contentPreviewLayout, actionRowLayout);
         if (actionRow != null) {
@@ -103,7 +107,7 @@ class ImageContentPreviewUi extends ContentPreviewUi {
                     TAG,
                     "Attempted to display image preview area with zero"
                         + " available images detected in EXTRA_STREAM list");
-            ((View) imagePreview).setVisibility(View.GONE);
+            imagePreview.setVisibility(View.GONE);
             mTransitionElementStatusCallback.onAllTransitionElementsReady();
             return contentPreviewLayout;
         }
@@ -111,6 +115,8 @@ class ImageContentPreviewUi extends ContentPreviewUi {
         setTextInImagePreviewVisibility(contentPreviewLayout, mActionFactory);
         imagePreview.setTransitionElementStatusCallback(mTransitionElementStatusCallback);
         imagePreview.setImages(mImageUris, mImageLoader);
+
+        updateHeadline(contentPreviewLayout);
 
         return contentPreviewLayout;
     }
@@ -129,18 +135,25 @@ class ImageContentPreviewUi extends ContentPreviewUi {
         return actions;
     }
 
-    private ImagePreviewView inflateImagePreviewView(ViewGroup previewLayout) {
+    private ChooserImagePreviewView inflateImagePreviewView(ViewGroup previewLayout) {
         ViewStub stub = previewLayout.findViewById(R.id.image_preview_stub);
         if (stub != null) {
-            int layoutId =
-                    mFeatureFlagRepository.isEnabled(Flags.SHARESHEET_SCROLLABLE_IMAGE_PREVIEW)
-                            ? R.layout.scrollable_image_preview_view
-                            : R.layout.chooser_image_preview_view;
-            stub.setLayoutResource(layoutId);
+            stub.setLayoutResource(R.layout.chooser_image_preview_view);
             stub.inflate();
         }
         return previewLayout.findViewById(
                 com.android.internal.R.id.content_preview_image_area);
+    }
+
+    private void updateHeadline(ViewGroup contentPreview) {
+        CheckBox includeTextCheckbox = contentPreview.requireViewById(R.id.include_text_action);
+        if (includeTextCheckbox.getVisibility() == View.VISIBLE
+                && includeTextCheckbox.isChecked()) {
+            displayHeadline(contentPreview, mHeadlineGenerator.getImageWithTextHeadline(mText));
+        } else {
+            displayHeadline(
+                    contentPreview, mHeadlineGenerator.getImagesHeadline(mImageUris.size()));
+        }
     }
 
     private void setTextInImagePreviewVisibility(
@@ -172,6 +185,7 @@ class ImageContentPreviewUi extends ContentPreviewUi {
                 TransitionManager.beginDelayedTransition((ViewGroup) textView.getParent());
                 textView.setVisibility(isChecked ? View.VISIBLE : View.GONE);
                 shareTextAction.accept(!isChecked);
+                updateHeadline(contentPreview);
             });
         }
         actionView.setVisibility(visibility);

@@ -16,17 +16,23 @@
 
 package com.android.intentresolver.contentpreview;
 
-import static com.android.intentresolver.contentpreview.ContentPreviewType.CONTENT_PREVIEW_FILE;
+import static android.provider.DocumentsContract.Document.FLAG_SUPPORTS_THUMBNAIL;
+
 import static com.android.intentresolver.contentpreview.ContentPreviewType.CONTENT_PREVIEW_IMAGE;
-import static com.android.intentresolver.contentpreview.ContentPreviewType.CONTENT_PREVIEW_TEXT;
 
 import android.content.ClipData;
 import android.content.ClipDescription;
 import android.content.ContentInterface;
 import android.content.Intent;
 import android.content.res.Resources;
+import android.database.Cursor;
+import android.media.MediaMetadata;
 import android.net.Uri;
-import android.os.RemoteException;
+import android.provider.DocumentsContract;
+import android.provider.Downloads;
+import android.provider.OpenableColumns;
+import android.text.TextUtils;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.ViewGroup;
 
@@ -34,14 +40,14 @@ import androidx.annotation.Nullable;
 
 import com.android.intentresolver.ImageLoader;
 import com.android.intentresolver.flags.FeatureFlagRepository;
+import com.android.intentresolver.flags.Flags;
 import com.android.intentresolver.widget.ActionRow;
-import com.android.intentresolver.widget.ImagePreviewView;
 import com.android.intentresolver.widget.ImagePreviewView.TransitionElementStatusCallback;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Consumer;
-import java.util.stream.Collectors;
 
 /**
  * Collection of helpers for building the content preview UI displayed in
@@ -74,7 +80,7 @@ public final class ChooserContentPreviewUi {
          * Provides a share modification action, if any.
          */
         @Nullable
-        Runnable getModifyShareAction();
+        ActionRow.Action getModifyShareAction();
 
         /**
          * <p>
@@ -88,28 +94,17 @@ public final class ChooserContentPreviewUi {
         Consumer<Boolean> getExcludeSharedTextAction();
     }
 
-    /**
-     * Testing shim to specify whether a given mime type is considered to be an "image."
-     *
-     * TODO: move away from {@link ChooserActivityOverrideData} as a model to configure our tests,
-     * then migrate {@link com.android.intentresolver.ChooserActivity#isImageType(String)} into this
-     * class.
-     */
-    public interface ImageMimeTypeClassifier {
-        /** @return whether the specified {@code mimeType} is classified as an "image" type. */
-        boolean isImageType(String mimeType);
-    }
-
     private final ContentPreviewUi mContentPreviewUi;
 
     public ChooserContentPreviewUi(
             Intent targetIntent,
             ContentInterface contentResolver,
-            ImageMimeTypeClassifier imageClassifier,
+            MimeTypeClassifier imageClassifier,
             ImageLoader imageLoader,
             ActionFactory actionFactory,
             TransitionElementStatusCallback transitionElementStatusCallback,
-            FeatureFlagRepository featureFlagRepository) {
+            FeatureFlagRepository featureFlagRepository,
+            HeadlineGenerator headlineGenerator) {
 
         mContentPreviewUi = createContentPreview(
                 targetIntent,
@@ -118,7 +113,8 @@ public final class ChooserContentPreviewUi {
                 imageLoader,
                 actionFactory,
                 transitionElementStatusCallback,
-                featureFlagRepository);
+                featureFlagRepository,
+                headlineGenerator);
         if (mContentPreviewUi.getType() != CONTENT_PREVIEW_IMAGE) {
             transitionElementStatusCallback.onAllTransitionElementsReady();
         }
@@ -127,37 +123,92 @@ public final class ChooserContentPreviewUi {
     private ContentPreviewUi createContentPreview(
             Intent targetIntent,
             ContentInterface contentResolver,
-            ImageMimeTypeClassifier imageClassifier,
+            MimeTypeClassifier typeClassifier,
             ImageLoader imageLoader,
             ActionFactory actionFactory,
             TransitionElementStatusCallback transitionElementStatusCallback,
-            FeatureFlagRepository featureFlagRepository) {
-        int type = findPreferredContentPreview(targetIntent, contentResolver, imageClassifier);
-        switch (type) {
-            case CONTENT_PREVIEW_TEXT:
-                return createTextPreview(
-                        targetIntent, actionFactory, imageLoader, featureFlagRepository);
+            FeatureFlagRepository featureFlagRepository,
+            HeadlineGenerator headlineGenerator) {
 
-            case CONTENT_PREVIEW_FILE:
-                return new FileContentPreviewUi(
-                        extractContentUris(targetIntent),
-                        actionFactory,
-                        imageLoader,
-                        contentResolver,
-                        featureFlagRepository);
+        /* In {@link android.content.Intent#getType}, the app may specify a very general mime type
+         * that broadly covers all data being shared, such as {@literal *}/* when sending an image
+         * and text. We therefore should inspect each item for the preferred type, in order: IMAGE,
+         * FILE, TEXT.  */
+        final String action = targetIntent.getAction();
+        final String type = targetIntent.getType();
+        final boolean isSend = Intent.ACTION_SEND.equals(action);
+        final boolean isSendMultiple = Intent.ACTION_SEND_MULTIPLE.equals(action);
 
-            case CONTENT_PREVIEW_IMAGE:
-                return createImagePreview(
-                        targetIntent,
-                        actionFactory,
-                        contentResolver,
-                        imageClassifier,
-                        imageLoader,
-                        transitionElementStatusCallback,
-                        featureFlagRepository);
+        if (!(isSend || isSendMultiple)
+                || (type != null && ClipDescription.compareMimeTypes(type, "text/*"))) {
+            return createTextPreview(
+                    targetIntent,
+                    actionFactory,
+                    imageLoader,
+                    featureFlagRepository,
+                    headlineGenerator);
         }
-
-        return new NoContextPreviewUi(type);
+        List<Uri> uris = extractContentUris(targetIntent);
+        if (uris.isEmpty()) {
+            return createTextPreview(
+                    targetIntent,
+                    actionFactory,
+                    imageLoader,
+                    featureFlagRepository,
+                    headlineGenerator);
+        }
+        ArrayList<FileInfo> files = new ArrayList<>(uris.size());
+        int previewCount = readFileInfo(contentResolver, typeClassifier, uris, files);
+        if (previewCount == 0) {
+            return new FileContentPreviewUi(
+                    files,
+                    actionFactory,
+                    imageLoader,
+                    featureFlagRepository,
+                    headlineGenerator);
+        }
+        if (featureFlagRepository.isEnabled(Flags.SHARESHEET_SCROLLABLE_IMAGE_PREVIEW)) {
+            return new UnifiedContentPreviewUi(
+                    files,
+                    targetIntent.getCharSequenceExtra(Intent.EXTRA_TEXT),
+                    actionFactory,
+                    imageLoader,
+                    typeClassifier,
+                    transitionElementStatusCallback,
+                    featureFlagRepository,
+                    headlineGenerator);
+        }
+        if (previewCount < uris.size()) {
+            return new FileContentPreviewUi(
+                    files,
+                    actionFactory,
+                    imageLoader,
+                    featureFlagRepository,
+                    headlineGenerator);
+        }
+        // The legacy (3-image) image preview is on it's way out and it's unlikely that we'd end up
+        // here. To preserve the legacy behavior, before using it, check that all uris are images.
+        for (FileInfo fileInfo: files) {
+            if (!typeClassifier.isImageType(fileInfo.getMimeType())) {
+                return new FileContentPreviewUi(
+                        files,
+                        actionFactory,
+                        imageLoader,
+                        featureFlagRepository,
+                        headlineGenerator);
+            }
+        }
+        return new ImageContentPreviewUi(
+                files.stream()
+                        .map(FileInfo::getPreviewUri)
+                        .filter(Objects::nonNull)
+                        .toList(),
+                targetIntent.getCharSequenceExtra(Intent.EXTRA_TEXT),
+                actionFactory,
+                imageLoader,
+                transitionElementStatusCallback,
+                featureFlagRepository,
+                headlineGenerator);
     }
 
     public int getPreferredContentPreview() {
@@ -174,68 +225,106 @@ public final class ChooserContentPreviewUi {
         return mContentPreviewUi.display(resources, layoutInflater, parent);
     }
 
-    /** Determine the most appropriate type of preview to show for the provided {@link Intent}. */
-    @ContentPreviewType
-    private static int findPreferredContentPreview(
-            Intent targetIntent,
-            ContentInterface resolver,
-            ImageMimeTypeClassifier imageClassifier) {
-        /* In {@link android.content.Intent#getType}, the app may specify a very general mime type
-         * that broadly covers all data being shared, such as {@literal *}/* when sending an image
-         * and text. We therefore should inspect each item for the preferred type, in order: IMAGE,
-         * FILE, TEXT.  */
-        final String action = targetIntent.getAction();
-        final String type = targetIntent.getType();
-        final boolean isSend = Intent.ACTION_SEND.equals(action);
-        final boolean isSendMultiple = Intent.ACTION_SEND_MULTIPLE.equals(action);
-
-        if (!(isSend || isSendMultiple)
-                || (type != null && ClipDescription.compareMimeTypes(type, "text/*"))) {
-            return CONTENT_PREVIEW_TEXT;
-        }
-
-        if (isSend) {
-            Uri uri = targetIntent.getParcelableExtra(Intent.EXTRA_STREAM);
-            return findPreferredContentPreview(uri, resolver, imageClassifier);
-        }
-
-        List<Uri> uris = targetIntent.getParcelableArrayListExtra(Intent.EXTRA_STREAM);
-        if (uris == null || uris.isEmpty()) {
-            return CONTENT_PREVIEW_TEXT;
-        }
-
-        for (Uri uri : uris) {
-            // Defaulting to file preview when there are mixed image/file types is
-            // preferable, as it shows the user the correct number of items being shared
-            int uriPreviewType = findPreferredContentPreview(uri, resolver, imageClassifier);
-            if (uriPreviewType == CONTENT_PREVIEW_FILE) {
-                return CONTENT_PREVIEW_FILE;
+    private static int readFileInfo(
+            ContentInterface contentResolver,
+            MimeTypeClassifier typeClassifier,
+            List<Uri> uris,
+            List<FileInfo> fileInfos) {
+        int previewCount = 0;
+        for (Uri uri: uris) {
+            FileInfo fileInfo = getFileInfo(contentResolver, typeClassifier, uri);
+            if (fileInfo.getPreviewUri() != null) {
+                previewCount++;
             }
+            fileInfos.add(fileInfo);
         }
-
-        return CONTENT_PREVIEW_IMAGE;
+        return previewCount;
     }
 
-    @ContentPreviewType
-    private static int findPreferredContentPreview(
-            Uri uri, ContentInterface resolver, ImageMimeTypeClassifier imageClassifier) {
-        if (uri == null) {
-            return CONTENT_PREVIEW_TEXT;
+    private static FileInfo getFileInfo(
+            ContentInterface resolver, MimeTypeClassifier typeClassifier, Uri uri) {
+        FileInfo.Builder builder = new FileInfo.Builder(uri)
+                .withName(getFileName(uri));
+        String mimeType = getType(resolver, uri);
+        builder.withMimeType(mimeType);
+        if (typeClassifier.isImageType(mimeType)) {
+            return builder.withPreviewUri(uri).build();
+        }
+        readFileMetadata(resolver, uri, builder);
+        if (builder.getPreviewUri() == null) {
+            readOtherFileTypes(resolver, uri, typeClassifier, builder);
+        }
+        return builder.build();
+    }
+
+    private static void readFileMetadata(
+            ContentInterface resolver, Uri uri, FileInfo.Builder builder) {
+        Cursor cursor = query(resolver, uri);
+        if (cursor == null || !cursor.moveToFirst()) {
+            return;
+        }
+        int flagColIdx = -1;
+        int displayIconUriColIdx = -1;
+        int nameColIndex = -1;
+        int titleColIndex = -1;
+        String[] columns = cursor.getColumnNames();
+        // TODO: double-check why Cursor#getColumnInded didn't work
+        for (int i = 0; i < columns.length; i++) {
+            String columnName = columns[i];
+            if (DocumentsContract.Document.COLUMN_FLAGS.equals(columnName)) {
+                flagColIdx = i;
+            } else if (MediaMetadata.METADATA_KEY_DISPLAY_ICON_URI.equals(columnName)) {
+                displayIconUriColIdx = i;
+            } else if (OpenableColumns.DISPLAY_NAME.equals(columnName)) {
+                nameColIndex = i;
+            } else if (Downloads.Impl.COLUMN_TITLE.equals(columnName)) {
+                titleColIndex = i;
+            }
+        }
+        String fileName = "";
+        if (nameColIndex >= 0) {
+            fileName = cursor.getString(nameColIndex);
+        } else if (titleColIndex >= 0) {
+            fileName = cursor.getString(titleColIndex);
+        }
+        if (!TextUtils.isEmpty(fileName)) {
+            builder.withName(fileName);
         }
 
-        String mimeType = null;
-        try {
-            mimeType = resolver.getType(uri);
-        } catch (RemoteException ignored) {
+        Uri previewUri = null;
+        if (flagColIdx >= 0 && ((cursor.getInt(flagColIdx) & FLAG_SUPPORTS_THUMBNAIL) != 0)) {
+            previewUri = uri;
+        } else if (displayIconUriColIdx >= 0) {
+            String uriStr = cursor.getString(displayIconUriColIdx);
+            previewUri = uriStr == null ? null : Uri.parse(uriStr);
         }
-        return imageClassifier.isImageType(mimeType) ? CONTENT_PREVIEW_IMAGE : CONTENT_PREVIEW_FILE;
+        if (previewUri != null) {
+            builder.withPreviewUri(previewUri);
+        }
+    }
+
+    private static void readOtherFileTypes(
+            ContentInterface resolver,
+            Uri uri,
+            MimeTypeClassifier typeClassifier,
+            FileInfo.Builder builder) {
+        String[] otherTypes = getStreamTypes(resolver, uri);
+        if (otherTypes != null && otherTypes.length > 0) {
+            for (String mimeType : otherTypes) {
+                if (typeClassifier.isImageType(mimeType)) {
+                    builder.withPreviewUri(uri);
+                    break;
+                }
+            }
+        }
     }
 
     private static TextContentPreviewUi createTextPreview(
             Intent targetIntent,
             ChooserContentPreviewUi.ActionFactory actionFactory,
             ImageLoader imageLoader,
-            FeatureFlagRepository featureFlagRepository) {
+            FeatureFlagRepository featureFlagRepository,
+            HeadlineGenerator headlineGenerator) {
         CharSequence sharingText = targetIntent.getCharSequenceExtra(Intent.EXTRA_TEXT);
         String previewTitle = targetIntent.getStringExtra(Intent.EXTRA_TITLE);
         ClipData previewData = targetIntent.getClipData();
@@ -252,40 +341,8 @@ public final class ChooserContentPreviewUi {
                 previewThumbnail,
                 actionFactory,
                 imageLoader,
-                featureFlagRepository);
-    }
-
-    static ImageContentPreviewUi createImagePreview(
-            Intent targetIntent,
-            ChooserContentPreviewUi.ActionFactory actionFactory,
-            ContentInterface contentResolver,
-            ChooserContentPreviewUi.ImageMimeTypeClassifier imageClassifier,
-            ImageLoader imageLoader,
-            ImagePreviewView.TransitionElementStatusCallback transitionElementStatusCallback,
-            FeatureFlagRepository featureFlagRepository) {
-        CharSequence text = targetIntent.getCharSequenceExtra(Intent.EXTRA_TEXT);
-        String action = targetIntent.getAction();
-        // TODO: why don't we use image classifier for single-element ACTION_SEND?
-        final List<Uri> imageUris = Intent.ACTION_SEND.equals(action)
-                ? extractContentUris(targetIntent)
-                : extractContentUris(targetIntent)
-                        .stream()
-                        .filter(uri -> {
-                            String type = null;
-                            try {
-                                type = contentResolver.getType(uri);
-                            } catch (RemoteException ignored) {
-                            }
-                            return imageClassifier.isImageType(type);
-                        })
-                        .collect(Collectors.toList());
-        return new ImageContentPreviewUi(
-                imageUris,
-                text,
-                actionFactory,
-                imageLoader,
-                transitionElementStatusCallback,
-                featureFlagRepository);
+                featureFlagRepository,
+                headlineGenerator);
     }
 
     private static List<Uri> extractContentUris(Intent targetIntent) {
@@ -306,5 +363,58 @@ public final class ChooserContentPreviewUi {
             }
         }
         return uris;
+    }
+
+    @Nullable
+    private static String getType(ContentInterface resolver, Uri uri) {
+        try {
+            return resolver.getType(uri);
+        } catch (SecurityException e) {
+            logProviderPermissionWarning(uri, "mime type");
+        } catch (Throwable t) {
+            Log.e(ContentPreviewUi.TAG, "Failed to read content type, uri: " +  uri, t);
+        }
+        return null;
+    }
+
+    @Nullable
+    private static Cursor query(ContentInterface resolver, Uri uri) {
+        try {
+            return resolver.query(uri, null, null, null);
+        } catch (SecurityException e) {
+            logProviderPermissionWarning(uri, "metadata");
+        } catch (Throwable t) {
+            Log.e(ContentPreviewUi.TAG, "Failed to read metadata, uri: " +  uri, t);
+        }
+        return null;
+    }
+
+    @Nullable
+    private static String[] getStreamTypes(ContentInterface resolver, Uri uri) {
+        try {
+            return resolver.getStreamTypes(uri, "*/*");
+        } catch (SecurityException e) {
+            logProviderPermissionWarning(uri, "stream types");
+        } catch (Throwable t) {
+            Log.e(ContentPreviewUi.TAG, "Failed to read stream types, uri: " +  uri, t);
+        }
+        return null;
+    }
+
+    private static String getFileName(Uri uri) {
+        String fileName = uri.getPath();
+        fileName = fileName == null ? "" : fileName;
+        int index = fileName.lastIndexOf('/');
+        if (index != -1) {
+            fileName = fileName.substring(index + 1);
+        }
+        return fileName;
+    }
+
+    private static void logProviderPermissionWarning(Uri uri, String dataName) {
+        // The ContentResolver already logs the exception. Log something more informative.
+        Log.w(ContentPreviewUi.TAG, "Could not read " + uri + " " + dataName + "."
+                + " If a preview is desired, call Intent#setClipData() to ensure that the"
+                + " sharesheet is given permission.");
     }
 }
