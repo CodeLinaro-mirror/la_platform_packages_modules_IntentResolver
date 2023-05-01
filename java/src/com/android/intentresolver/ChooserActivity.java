@@ -57,7 +57,6 @@ import android.os.SystemClock;
 import android.os.UserHandle;
 import android.os.UserManager;
 import android.os.storage.StorageManager;
-import android.provider.DeviceConfig;
 import android.service.chooser.ChooserTarget;
 import android.util.Log;
 import android.util.Slog;
@@ -85,19 +84,18 @@ import com.android.intentresolver.chooser.MultiDisplayResolveInfo;
 import com.android.intentresolver.chooser.TargetInfo;
 import com.android.intentresolver.contentpreview.ChooserContentPreviewUi;
 import com.android.intentresolver.contentpreview.HeadlineGeneratorImpl;
+import com.android.intentresolver.contentpreview.ImageLoader;
 import com.android.intentresolver.flags.FeatureFlagRepository;
 import com.android.intentresolver.flags.FeatureFlagRepositoryFactory;
-import com.android.intentresolver.flags.Flags;
 import com.android.intentresolver.grid.ChooserGridAdapter;
-import com.android.intentresolver.grid.DirectShareViewHolder;
 import com.android.intentresolver.model.AbstractResolverComparator;
 import com.android.intentresolver.model.AppPredictionServiceResolverComparator;
 import com.android.intentresolver.model.ResolverRankerServiceResolverComparator;
 import com.android.intentresolver.shortcuts.AppPredictorFactory;
 import com.android.intentresolver.shortcuts.ShortcutLoader;
+import com.android.intentresolver.widget.ImagePreviewView;
 import com.android.intentresolver.widget.ResolverDrawerLayout;
 import com.android.internal.annotations.VisibleForTesting;
-import com.android.internal.config.sysui.SystemUiDeviceConfigFlags;
 import com.android.internal.content.PackageMonitor;
 import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
 
@@ -142,18 +140,10 @@ public class ChooserActivity extends ResolverActivity implements
 
     private static final String PREF_NUM_SHEET_EXPANSIONS = "pref_num_sheet_expansions";
 
-    private static final String CHIP_LABEL_METADATA_KEY = "android.service.chooser.chip_label";
-    private static final String CHIP_ICON_METADATA_KEY = "android.service.chooser.chip_icon";
-
     private static final boolean DEBUG = true;
 
     public static final String LAUNCH_LOCATION_DIRECT_SHARE = "direct_share";
     private static final String SHORTCUT_TARGET = "shortcut_target";
-
-    private static final String PLURALS_COUNT = "count";
-    private static final String PLURALS_FILE_NAME = "file_name";
-
-    private static final String IMAGE_EDITOR_SHARED_ELEMENT = "screenshot_preview_image";
 
     // TODO: these data structures are for one-time use in shuttling data from where they're
     // populated in `ShortcutToChooserTargetConverter` to where they're consumed in
@@ -180,18 +170,6 @@ public class ChooserActivity extends ResolverActivity implements
     })
     @Retention(RetentionPolicy.SOURCE)
     public @interface ShareTargetType {}
-
-    public static final float DIRECT_SHARE_EXPANSION_RATE = 0.78f;
-
-    private static final int DEFAULT_SALT_EXPIRATION_DAYS = 7;
-    private final int mMaxHashSaltDays = DeviceConfig.getInt(DeviceConfig.NAMESPACE_SYSTEMUI,
-            SystemUiDeviceConfigFlags.HASH_SALT_MAX_DAYS,
-            DEFAULT_SALT_EXPIRATION_DAYS);
-
-    private static final int URI_PERMISSION_INTENT_FLAGS = Intent.FLAG_GRANT_READ_URI_PERMISSION
-            | Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-            | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION
-            | Intent.FLAG_GRANT_PREFIX_URI_PERMISSION;
 
     private ChooserIntegratedDeviceComponents mIntegratedDeviceComponents;
 
@@ -293,7 +271,6 @@ public class ChooserActivity extends ResolverActivity implements
                 createPreviewImageLoader(),
                 createChooserActionFactory(),
                 mEnterTransitionAnimationDelegate,
-                mFeatureFlagRepository,
                 new HeadlineGeneratorImpl(this));
 
         setAdditionalTargets(mChooserRequest.getAdditionalTargets());
@@ -330,11 +307,6 @@ public class ChooserActivity extends ResolverActivity implements
 
         if (mResolverDrawerLayout != null) {
             mResolverDrawerLayout.addOnLayoutChangeListener(this::handleLayoutChange);
-
-            // expand/shrink direct share 4 -> 8 viewgroup
-            if (mChooserRequest.isSendActionTarget()) {
-                mResolverDrawerLayout.setOnScrollChangeListener(this::handleScroll);
-            }
 
             mResolverDrawerLayout.setOnCollapsedChangedListener(
                     new ResolverDrawerLayout.OnCollapsedChangedListener() {
@@ -712,8 +684,10 @@ public class ChooserActivity extends ResolverActivity implements
 
     @Nullable
     private View getFirstVisibleImgPreviewView() {
-        View firstImage = findViewById(com.android.internal.R.id.content_preview_image_1_large);
-        return firstImage != null && firstImage.isVisibleToUser() ? firstImage : null;
+        View imagePreview = findViewById(R.id.scrollable_image_preview);
+        return imagePreview instanceof ImagePreviewView
+                ? ((ImagePreviewView) imagePreview).getTransitionView()
+                : null;
     }
 
     /**
@@ -1242,34 +1216,6 @@ public class ChooserActivity extends ResolverActivity implements
                         mProfileView.setOnClickListener(ChooserActivity.this::onProfileClick);
                         ChooserActivity.this.updateProfileViewButton();
                     }
-
-                    @Override
-                    public int getValidTargetCount() {
-                        return mChooserMultiProfilePagerAdapter
-                                .getActiveListAdapter()
-                                .getSelectableServiceTargetCount();
-                    }
-
-                    @Override
-                    public void updateDirectShareExpansion(DirectShareViewHolder directShareGroup) {
-                        RecyclerView activeAdapterView =
-                                mChooserMultiProfilePagerAdapter.getActiveAdapterView();
-                        if (mResolverDrawerLayout.isCollapsed()) {
-                            directShareGroup.collapse(activeAdapterView);
-                        } else {
-                            directShareGroup.expand(activeAdapterView);
-                        }
-                    }
-
-                    @Override
-                    public void handleScrollToExpandDirectShare(
-                            DirectShareViewHolder directShareGroup, int y, int oldy) {
-                        directShareGroup.handleScroll(
-                                mChooserMultiProfilePagerAdapter.getActiveAdapterView(),
-                                y,
-                                oldy,
-                                mMaxTargetsPerRow);
-                    }
                 },
                 chooserListAdapter,
                 shouldShowContentPreview(),
@@ -1341,15 +1287,11 @@ public class ChooserActivity extends ResolverActivity implements
     @VisibleForTesting
     protected ImageLoader createPreviewImageLoader() {
         final int cacheSize;
-        if (mFeatureFlagRepository.isEnabled(Flags.SHARESHEET_SCROLLABLE_IMAGE_PREVIEW)) {
-            float chooserWidth = getResources().getDimension(R.dimen.chooser_width);
-            // imageWidth = imagePreviewHeight / minAspectRatio (see ScrollableImagePreviewView)
-            float imageWidth =
-                    getResources().getDimension(R.dimen.chooser_preview_image_height_tall) * 5 / 2;
-            cacheSize = (int) (Math.ceil(chooserWidth / imageWidth) + 2);
-        } else {
-            cacheSize = 3;
-        }
+        float chooserWidth = getResources().getDimension(R.dimen.chooser_width);
+        // imageWidth = imagePreviewHeight * minAspectRatio (see ScrollableImagePreviewView)
+        float imageWidth =
+                getResources().getDimension(R.dimen.chooser_preview_image_height_tall) * 2 / 5;
+        cacheSize = (int) (Math.ceil(chooserWidth / imageWidth) + 2);
         return new ImagePreviewImageLoader(this, getLifecycle(), cacheSize);
     }
 
@@ -1357,7 +1299,6 @@ public class ChooserActivity extends ResolverActivity implements
         return new ChooserActionFactory(
                 this,
                 mChooserRequest,
-                mFeatureFlagRepository,
                 mIntegratedDeviceComponents,
                 getChooserActivityLogger(),
                 (isExcluded) -> mExcludeSharedText = isExcluded,
@@ -1385,12 +1326,6 @@ public class ChooserActivity extends ResolverActivity implements
                     }
                     finish();
                 });
-    }
-
-    private void handleScroll(View view, int x, int y, int oldx, int oldy) {
-        if (mChooserMultiProfilePagerAdapter.getCurrentRootAdapter() != null) {
-            mChooserMultiProfilePagerAdapter.getCurrentRootAdapter().handleScroll(view, y, oldy);
-        }
     }
 
     /*
@@ -1461,9 +1396,7 @@ public class ChooserActivity extends ResolverActivity implements
     private int calculateDrawerOffset(
             int top, int bottom, RecyclerView recyclerView, ChooserGridAdapter gridAdapter) {
 
-        final int bottomInset = mSystemWindowInsets != null
-                ? mSystemWindowInsets.bottom : 0;
-        int offset = bottomInset;
+        int offset = mSystemWindowInsets != null ? mSystemWindowInsets.bottom : 0;
         int rowsToShow = gridAdapter.getSystemRowCount()
                 + gridAdapter.getProfileRowCount()
                 + gridAdapter.getServiceTargetRowCount()
@@ -1493,7 +1426,6 @@ public class ChooserActivity extends ResolverActivity implements
         }
 
         if (recyclerView.getVisibility() == View.VISIBLE) {
-            int directShareHeight = 0;
             rowsToShow = Math.min(4, rowsToShow);
             boolean shouldShowExtraRow = shouldShowExtraRow(rowsToShow);
             mLastNumberOfChildren = recyclerView.getChildCount();
@@ -1509,27 +1441,7 @@ public class ChooserActivity extends ResolverActivity implements
                 if (shouldShowExtraRow) {
                     offset += height;
                 }
-
-                if (gridAdapter.getTargetType(
-                        recyclerView.getChildAdapterPosition(child))
-                        == ChooserListAdapter.TARGET_SERVICE) {
-                    directShareHeight = height;
-                }
                 rowsToShow--;
-            }
-
-            boolean isExpandable = getResources().getConfiguration().orientation
-                    == Configuration.ORIENTATION_PORTRAIT && !isInMultiWindowMode();
-            if (directShareHeight != 0 && shouldShowContentPreview()
-                    && isExpandable) {
-                // make sure to leave room for direct share 4->8 expansion
-                int requiredExpansionHeight =
-                        (int) (directShareHeight / DIRECT_SHARE_EXPANSION_RATE);
-                int topInset = mSystemWindowInsets != null ? mSystemWindowInsets.top : 0;
-                int minHeight = bottom - top - mResolverDrawerLayout.getAlwaysShowHeight()
-                        - requiredExpansionHeight - topInset - bottomInset;
-
-                offset = Math.min(offset, minHeight);
             }
         } else {
             ViewGroup currentEmptyStateView = getActiveEmptyStateView();
@@ -1830,9 +1742,6 @@ public class ChooserActivity extends ResolverActivity implements
 
     @Override
     protected void onProfileTabSelected() {
-        ChooserGridAdapter currentRootAdapter =
-                mChooserMultiProfilePagerAdapter.getCurrentRootAdapter();
-        currentRootAdapter.updateDirectShareExpansion();
         // This fixes an edge case where after performing a variety of gestures, vertical scrolling
         // ends up disabled. That's because at some point the old tab's vertical scrolling is
         // disabled and the new tab's is enabled. For context, see b/159997845
