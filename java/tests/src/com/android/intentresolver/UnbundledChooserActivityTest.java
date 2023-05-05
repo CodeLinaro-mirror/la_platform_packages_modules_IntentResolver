@@ -81,6 +81,7 @@ import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.Rect;
 import android.graphics.drawable.Icon;
 import android.net.Uri;
 import android.os.Bundle;
@@ -92,6 +93,7 @@ import android.util.HashedStringCache;
 import android.util.Pair;
 import android.util.SparseArray;
 import android.view.View;
+import android.view.WindowManager;
 
 import androidx.annotation.CallSuper;
 import androidx.annotation.NonNull;
@@ -692,14 +694,13 @@ public class UnbundledChooserActivityTest {
     }
 
     @Test
-    public void testImagePlusTextSharing_ExcludeText() {
+    public void testFilePlusTextSharing_ExcludeText() {
         Uri uri = Uri.parse(
                 "android.resource://com.android.frameworks.coretests/"
                         + R.drawable.test320x240);
         Intent sendIntent = createSendImageIntent(uri);
         ChooserActivityOverrideData.getInstance().imageLoader =
                 createImageLoader(uri, createBitmap());
-        ChooserActivityOverrideData.getInstance().isImageType = true;
         sendIntent.putExtra(Intent.EXTRA_TEXT, "https://google.com/search?q=google");
 
         List<ResolvedComponentInfo> resolvedComponentInfos = Arrays.asList(
@@ -721,6 +722,8 @@ public class UnbundledChooserActivityTest {
                 .perform(click());
         waitForIdle();
 
+        onView(withId(R.id.content_preview_text)).check(matches(withText("File only")));
+
         AtomicReference<Intent> launchedIntentRef = new AtomicReference<>();
         ChooserActivityOverrideData.getInstance().onSafelyStartInternalCallback = targetInfo -> {
             launchedIntentRef.set(targetInfo.getTargetIntent());
@@ -734,14 +737,13 @@ public class UnbundledChooserActivityTest {
     }
 
     @Test
-    public void testImagePlusTextSharing_RemoveAndAddBackText() {
+    public void testFilePlusTextSharing_RemoveAndAddBackText() {
         Uri uri = Uri.parse(
                 "android.resource://com.android.frameworks.coretests/"
                         + R.drawable.test320x240);
         Intent sendIntent = createSendImageIntent(uri);
         ChooserActivityOverrideData.getInstance().imageLoader =
                 createImageLoader(uri, createBitmap());
-        ChooserActivityOverrideData.getInstance().isImageType = true;
         final String text = "https://google.com/search?q=google";
         sendIntent.putExtra(Intent.EXTRA_TEXT, text);
 
@@ -763,9 +765,13 @@ public class UnbundledChooserActivityTest {
                 .check(matches(isDisplayed()))
                 .perform(click());
         waitForIdle();
+        onView(withId(R.id.content_preview_text)).check(matches(withText("File only")));
+
         onView(withId(R.id.include_text_action))
                 .perform(click());
         waitForIdle();
+
+        onView(withId(R.id.content_preview_text)).check(matches(withText(text)));
 
         AtomicReference<Intent> launchedIntentRef = new AtomicReference<>();
         ChooserActivityOverrideData.getInstance().onSafelyStartInternalCallback = targetInfo -> {
@@ -780,14 +786,13 @@ public class UnbundledChooserActivityTest {
     }
 
     @Test
-    public void testImagePlusTextSharing_TextExclusionDoesNotAffectAlternativeIntent() {
+    public void testFilePlusTextSharing_TextExclusionDoesNotAffectAlternativeIntent() {
         Uri uri = Uri.parse(
                 "android.resource://com.android.frameworks.coretests/"
                         + R.drawable.test320x240);
         Intent sendIntent = createSendImageIntent(uri);
         ChooserActivityOverrideData.getInstance().imageLoader =
                 createImageLoader(uri, createBitmap());
-        ChooserActivityOverrideData.getInstance().isImageType = true;
         sendIntent.putExtra(Intent.EXTRA_TEXT, "https://google.com/search?q=google");
 
         Intent alternativeIntent = createSendTextIntent();
@@ -826,7 +831,7 @@ public class UnbundledChooserActivityTest {
     }
 
     @Test
-    public void testImagePlusTextSharing_failedThumbnailAndExcludedText_textRemainsVisible() {
+    public void testImagePlusTextSharing_failedThumbnailAndExcludedText_textChanges() {
         Uri uri = Uri.parse(
                 "android.resource://com.android.frameworks.coretests/"
                         + R.drawable.test320x240);
@@ -855,10 +860,10 @@ public class UnbundledChooserActivityTest {
                 .perform(click());
         waitForIdle();
 
-        onView(withId(R.id.scrollable_image_preview))
+        onView(withId(R.id.image_view))
                 .check(matches(withEffectiveVisibility(ViewMatchers.Visibility.GONE)));
-        onView(withId(com.android.internal.R.id.content_preview_text))
-                .check(matches(allOf(isDisplayed(), not(isEnabled()))));
+        onView(withId(R.id.content_preview_text))
+                .check(matches(allOf(isDisplayed(), not(isEnabled()), withText("File only"))));
     }
 
     @Test
@@ -959,7 +964,7 @@ public class UnbundledChooserActivityTest {
 
         Intent sendIntent = createSendUriIntentWithPreview(uris);
         ChooserActivityOverrideData.getInstance().imageLoader =
-                createImageLoader(uri, createBitmap());
+                createImageLoader(uri, createWideBitmap());
         ChooserActivityOverrideData.getInstance().isImageType = true;
 
         List<ResolvedComponentInfo> resolvedComponentInfos = createResolvedComponentsForTest(2);
@@ -975,9 +980,14 @@ public class UnbundledChooserActivityTest {
                     RecyclerView recyclerView = (RecyclerView) view;
                     assertThat(recyclerView.getAdapter().getItemCount(), is(1));
                     assertThat(recyclerView.getChildCount(), is(1));
+                    View imageView = recyclerView.getChildAt(0);
+                    Rect rect = new Rect();
+                    boolean isPartiallyVisible = imageView.getGlobalVisibleRect(rect);
                     assertThat(
-                            "image preview view is fully visible",
-                            isDisplayed().matches(recyclerView.getChildAt(0)));
+                            "image preview view is not fully visible",
+                            isPartiallyVisible
+                                    && rect.width() == imageView.getWidth()
+                                    && rect.height() == imageView.getHeight());
                 });
     }
 
@@ -1067,7 +1077,7 @@ public class UnbundledChooserActivityTest {
     }
 
     @Test
-    public void testNoTextPreviewWhenTextIsSharedWithMultipleImages() {
+    public void testTextPreviewWhenTextIsSharedWithMultipleImages() {
         final Uri uri = Uri.parse("android.resource://com.android.frameworks.coretests/"
                 + R.drawable.test320x240);
         final String sharedText = "text-" + System.currentTimeMillis();
@@ -1097,8 +1107,7 @@ public class UnbundledChooserActivityTest {
                 .thenReturn(resolvedComponentInfos);
         mActivityRule.launchActivity(Intent.createChooser(sendIntent, null));
         waitForIdle();
-        onView(withId(com.android.internal.R.id.content_preview_text))
-                .check(matches(withEffectiveVisibility(ViewMatchers.Visibility.GONE)));
+        onView(withText(sharedText)).check(matches(isDisplayed()));
     }
 
     @Test
@@ -1197,12 +1206,9 @@ public class UnbundledChooserActivityTest {
         setupResolverControllers(resolvedComponentInfos);
         mActivityRule.launchActivity(Intent.createChooser(sendIntent, null));
         waitForIdle();
-        onView(withId(com.android.internal.R.id.content_preview_filename))
-                .check(matches(isDisplayed()));
-        onView(withId(com.android.internal.R.id.content_preview_filename))
-                .check(matches(withText("app.pdf")));
-        onView(withId(com.android.internal.R.id.content_preview_file_icon))
-                .check(matches(isDisplayed()));
+        onView(withId(R.id.content_preview_filename)).check(matches(isDisplayed()));
+        onView(withId(R.id.content_preview_filename)).check(matches(withText("app.pdf")));
+        onView(withId(R.id.content_preview_file_icon)).check(matches(isDisplayed()));
     }
 
 
@@ -1222,12 +1228,11 @@ public class UnbundledChooserActivityTest {
         setupResolverControllers(resolvedComponentInfos);
         mActivityRule.launchActivity(Intent.createChooser(sendIntent, null));
         waitForIdle();
-        onView(withId(com.android.internal.R.id.content_preview_filename))
-                .check(matches(isDisplayed()));
-        onView(withId(com.android.internal.R.id.content_preview_filename))
-                .check(matches(withText("app.pdf + 2 files")));
-        onView(withId(com.android.internal.R.id.content_preview_file_icon))
-                .check(matches(isDisplayed()));
+        onView(withId(R.id.content_preview_filename)).check(matches(isDisplayed()));
+        onView(withId(R.id.content_preview_filename)).check(matches(withText("app.pdf")));
+        onView(withId(R.id.content_preview_more_files)).check(matches(isDisplayed()));
+        onView(withId(R.id.content_preview_more_files)).check(matches(withText("+ 2 more files")));
+        onView(withId(R.id.content_preview_file_icon)).check(matches(isDisplayed()));
     }
 
     @Test
@@ -1246,12 +1251,9 @@ public class UnbundledChooserActivityTest {
 
         mActivityRule.launchActivity(Intent.createChooser(sendIntent, null));
         waitForIdle();
-        onView(withId(com.android.internal.R.id.content_preview_filename))
-                .check(matches(isDisplayed()));
-        onView(withId(com.android.internal.R.id.content_preview_filename))
-                .check(matches(withText("app.pdf")));
-        onView(withId(com.android.internal.R.id.content_preview_file_icon))
-                .check(matches(isDisplayed()));
+        onView(withId(R.id.content_preview_filename)).check(matches(isDisplayed()));
+        onView(withId(R.id.content_preview_filename)).check(matches(withText("app.pdf")));
+        onView(withId(R.id.content_preview_file_icon)).check(matches(isDisplayed()));
     }
 
     @Test
@@ -1277,12 +1279,11 @@ public class UnbundledChooserActivityTest {
 
         mActivityRule.launchActivity(Intent.createChooser(sendIntent, null));
         waitForIdle();
-        onView(withId(com.android.internal.R.id.content_preview_filename))
-                .check(matches(isDisplayed()));
-        onView(withId(com.android.internal.R.id.content_preview_filename))
-                .check(matches(withText("app.pdf + 1 file")));
-        onView(withId(com.android.internal.R.id.content_preview_file_icon))
-                .check(matches(isDisplayed()));
+        onView(withId(R.id.content_preview_filename)).check(matches(isDisplayed()));
+        onView(withId(R.id.content_preview_filename)).check(matches(withText("app.pdf")));
+        onView(withId(R.id.content_preview_more_files)).check(matches(isDisplayed()));
+        onView(withId(R.id.content_preview_more_files)).check(matches(withText("+ 1 more file")));
+        onView(withId(R.id.content_preview_file_icon)).check(matches(isDisplayed()));
     }
 
     @Test
@@ -1344,7 +1345,7 @@ public class UnbundledChooserActivityTest {
         // verify that ShortcutLoader was queried
         ArgumentCaptor<DisplayResolveInfo[]> appTargets =
                 ArgumentCaptor.forClass(DisplayResolveInfo[].class);
-        verify(shortcutLoaders.get(0).first, times(1)).queryShortcuts(appTargets.capture());
+        verify(shortcutLoaders.get(0).first, times(1)).updateAppTargets(appTargets.capture());
 
         // send shortcuts
         assertThat(
@@ -1425,7 +1426,7 @@ public class UnbundledChooserActivityTest {
         // verify that ShortcutLoader was queried
         ArgumentCaptor<DisplayResolveInfo[]> appTargets =
                 ArgumentCaptor.forClass(DisplayResolveInfo[].class);
-        verify(shortcutLoaders.get(0).first, times(1)).queryShortcuts(appTargets.capture());
+        verify(shortcutLoaders.get(0).first, times(1)).updateAppTargets(appTargets.capture());
 
         // send shortcuts
         assertThat(
@@ -1510,7 +1511,7 @@ public class UnbundledChooserActivityTest {
         // verify that ShortcutLoader was queried
         ArgumentCaptor<DisplayResolveInfo[]> appTargets =
                 ArgumentCaptor.forClass(DisplayResolveInfo[].class);
-        verify(shortcutLoaders.get(0).first, times(1)).queryShortcuts(appTargets.capture());
+        verify(shortcutLoaders.get(0).first, times(1)).updateAppTargets(appTargets.capture());
 
         // send shortcuts
         assertThat(
@@ -1585,7 +1586,7 @@ public class UnbundledChooserActivityTest {
         // verify that ShortcutLoader was queried
         ArgumentCaptor<DisplayResolveInfo[]> appTargets =
                 ArgumentCaptor.forClass(DisplayResolveInfo[].class);
-        verify(shortcutLoaders.get(0).first, times(1)).queryShortcuts(appTargets.capture());
+        verify(shortcutLoaders.get(0).first, times(1)).updateAppTargets(appTargets.capture());
 
         // send shortcuts
         assertThat(
@@ -1677,7 +1678,7 @@ public class UnbundledChooserActivityTest {
         // verify that ShortcutLoader was queried
         ArgumentCaptor<DisplayResolveInfo[]> appTargets =
                 ArgumentCaptor.forClass(DisplayResolveInfo[].class);
-        verify(shortcutLoaders.get(0).first, times(1)).queryShortcuts(appTargets.capture());
+        verify(shortcutLoaders.get(0).first, times(1)).updateAppTargets(appTargets.capture());
 
         // send shortcuts
         assertThat(
@@ -2176,7 +2177,7 @@ public class UnbundledChooserActivityTest {
         ArgumentCaptor<DisplayResolveInfo[]> appTargets =
                 ArgumentCaptor.forClass(DisplayResolveInfo[].class);
         verify(shortcutLoaders.get(0).first, times(1))
-                .queryShortcuts(appTargets.capture());
+                .updateAppTargets(appTargets.capture());
 
         // send shortcuts
         assertThat(
@@ -2257,7 +2258,7 @@ public class UnbundledChooserActivityTest {
         ArgumentCaptor<DisplayResolveInfo[]> appTargets =
                 ArgumentCaptor.forClass(DisplayResolveInfo[].class);
         verify(shortcutLoaders.get(0).first, times(1))
-                .queryShortcuts(appTargets.capture());
+                .updateAppTargets(appTargets.capture());
 
         // send shortcuts
         List<ChooserTarget> serviceTargets = createDirectShareTargets(
@@ -2552,12 +2553,12 @@ public class UnbundledChooserActivityTest {
                 .perform(swipeUp());
         waitForIdle();
 
-        verify(personalProfileShortcutLoader, times(1)).queryShortcuts(any());
+        verify(personalProfileShortcutLoader, times(1)).updateAppTargets(any());
 
         onView(withText(R.string.resolver_work_tab)).perform(click());
         waitForIdle();
 
-        verify(workProfileShortcutLoader, times(1)).queryShortcuts(any());
+        verify(workProfileShortcutLoader, times(1)).updateAppTargets(any());
     }
 
     @Test
@@ -2785,8 +2786,22 @@ public class UnbundledChooserActivityTest {
     }
 
     private Bitmap createBitmap() {
-        int width = 200;
-        int height = 200;
+        return createBitmap(200, 200);
+    }
+
+    private Bitmap createWideBitmap() {
+        WindowManager windowManager = InstrumentationRegistry.getInstrumentation()
+                .getTargetContext()
+                .getSystemService(WindowManager.class);
+        int width = 3000;
+        if (windowManager != null) {
+            Rect bounds = windowManager.getMaximumWindowMetrics().getBounds();
+            width = bounds.width() + 200;
+        }
+        return createBitmap(width, 100);
+    }
+
+    private Bitmap createBitmap(int width, int height) {
         Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(bitmap);
 
