@@ -16,16 +16,11 @@
 
 package com.android.intentresolver.contentpreview;
 
-import static android.content.ContentProvider.getUserIdFromUri;
-
 import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
 import android.content.res.Resources;
 import android.graphics.Bitmap;
-import android.net.Uri;
-import android.os.UserHandle;
 import android.text.TextUtils;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -35,6 +30,7 @@ import android.widget.TextView;
 
 import com.android.intentresolver.R;
 import com.android.intentresolver.widget.ActionRow;
+import com.android.intentresolver.widget.ScrollableImagePreviewView;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -60,24 +56,6 @@ abstract class ContentPreviewUi {
             actions.addAll(systemActions);
         }
         return actions;
-    }
-
-    /**
-     * Indicate if the incoming content URI should be allowed.
-     *
-     * @param uri the uri to test
-     * @return true if the URI is allowed for content preview
-     */
-    protected static boolean validForContentPreview(Uri uri) throws SecurityException {
-        if (uri == null) {
-            return false;
-        }
-        int userId = getUserIdFromUri(uri, UserHandle.USER_CURRENT);
-        if (userId != UserHandle.USER_CURRENT && userId != UserHandle.myUserId()) {
-            Log.e(ContentPreviewUi.TAG, "dropped invalid content URI belonging to user " + userId);
-            return false;
-        }
-        return true;
     }
 
     protected static void updateViewWithImage(ImageView imageView, Bitmap image) {
@@ -121,5 +99,19 @@ abstract class ContentPreviewUi {
                 modifyShareView.setOnClickListener(view -> modifyShareAction.getOnClicked().run());
             }
         }
+    }
+
+    protected static ScrollableImagePreviewView.PreviewType getPreviewType(
+            MimeTypeClassifier typeClassifier, String mimeType) {
+        if (mimeType == null) {
+            return ScrollableImagePreviewView.PreviewType.File;
+        }
+        if (typeClassifier.isImageType(mimeType)) {
+            return ScrollableImagePreviewView.PreviewType.Image;
+        }
+        if (typeClassifier.isVideoType(mimeType)) {
+            return ScrollableImagePreviewView.PreviewType.Video;
+        }
+        return ScrollableImagePreviewView.PreviewType.File;
     }
 }
