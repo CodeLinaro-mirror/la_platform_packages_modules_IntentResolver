@@ -86,6 +86,7 @@ import com.android.intentresolver.chooser.TargetInfo;
 import com.android.intentresolver.contentpreview.ChooserContentPreviewUi;
 import com.android.intentresolver.contentpreview.HeadlineGeneratorImpl;
 import com.android.intentresolver.contentpreview.ImageLoader;
+import com.android.intentresolver.contentpreview.PreviewDataProvider;
 import com.android.intentresolver.flags.FeatureFlagRepository;
 import com.android.intentresolver.flags.FeatureFlagRepositoryFactory;
 import com.android.intentresolver.grid.ChooserGridAdapter;
@@ -272,8 +273,9 @@ public class ChooserActivity extends ResolverActivity implements
         });
 
         mChooserContentPreviewUi = new ChooserContentPreviewUi(
+                getLifecycle(),
+                createPreviewDataProvider(),
                 mChooserRequest.getTargetIntent(),
-                getContentResolver(),
                 this::isImageType,
                 createPreviewImageLoader(),
                 createChooserActionFactory(),
@@ -534,6 +536,14 @@ public class ChooserActivity extends ResolverActivity implements
                 getWorkProfileUserHandle(),
                 getCloneProfileUserHandle(),
                 mMaxTargetsPerRow);
+    }
+
+    private PreviewDataProvider createPreviewDataProvider() {
+        // TODO: move this into a ViewModel so it could survive orientation change
+        return new PreviewDataProvider(
+                mChooserRequest.getTargetIntent(),
+                getContentResolver(),
+                this::isImageType);
     }
 
     private int findSelectedProfile() {
@@ -800,15 +810,20 @@ public class ChooserActivity extends ResolverActivity implements
         }
     }
 
-    @Override
-    public void addUseDifferentAppLabelIfNecessary(ResolverListAdapter adapter) {
-        if (mChooserRequest.getCallerChooserTargets().size() > 0) {
-            mChooserMultiProfilePagerAdapter.getActiveListAdapter().addServiceResults(
-                    /* origTarget */ null,
-                    new ArrayList<>(mChooserRequest.getCallerChooserTargets()),
-                    TARGET_TYPE_DEFAULT,
-                    /* directShareShortcutInfoCache */ Collections.emptyMap(),
-                    /* directShareAppTargetCache */ Collections.emptyMap());
+    private void addCallerChooserTargets() {
+        if (!mChooserRequest.getCallerChooserTargets().isEmpty()) {
+            // Send the caller's chooser targets only to the default profile.
+            UserHandle defaultUser = (findSelectedProfile() == PROFILE_WORK)
+                    ? getAnnotatedUserHandles().workProfileUserHandle
+                    : getAnnotatedUserHandles().personalProfileUserHandle;
+            if (mChooserMultiProfilePagerAdapter.getCurrentUserHandle() == defaultUser) {
+                mChooserMultiProfilePagerAdapter.getActiveListAdapter().addServiceResults(
+                        /* origTarget */ null,
+                        new ArrayList<>(mChooserRequest.getCallerChooserTargets()),
+                        TARGET_TYPE_DEFAULT,
+                        /* directShareShortcutInfoCache */ Collections.emptyMap(),
+                        /* directShareAppTargetCache */ Collections.emptyMap());
+            }
         }
     }
 
@@ -1535,6 +1550,7 @@ public class ChooserActivity extends ResolverActivity implements
         }
 
         if (rebuildComplete) {
+            addCallerChooserTargets();
             getChooserActivityLogger().logSharesheetAppLoadComplete();
             maybeQueryAdditionalPostProcessingTargets(chooserListAdapter);
             mLatencyTracker.onActionEnd(ACTION_LOAD_SHARE_SHEET);
