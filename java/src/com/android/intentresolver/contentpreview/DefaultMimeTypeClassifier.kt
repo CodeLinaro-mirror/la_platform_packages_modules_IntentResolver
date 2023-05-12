@@ -14,20 +14,6 @@
  * limitations under the License.
  */
 
-package com.android.intentresolver
+package com.android.intentresolver.contentpreview
 
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleOwner
-import androidx.lifecycle.LifecycleRegistry
-
-internal class TestLifecycleOwner : LifecycleOwner {
-    private val lifecycleRegistry = LifecycleRegistry.createUnsafe(this)
-
-    override fun getLifecycle(): Lifecycle = lifecycleRegistry
-
-    var state: Lifecycle.State
-        get() = lifecycle.currentState
-        set(value) {
-            lifecycleRegistry.currentState = value
-        }
-}
+object DefaultMimeTypeClassifier : MimeTypeClassifier

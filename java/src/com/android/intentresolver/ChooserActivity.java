@@ -86,7 +86,7 @@ import com.android.intentresolver.chooser.TargetInfo;
 import com.android.intentresolver.contentpreview.ChooserContentPreviewUi;
 import com.android.intentresolver.contentpreview.HeadlineGeneratorImpl;
 import com.android.intentresolver.contentpreview.ImageLoader;
-import com.android.intentresolver.contentpreview.PreviewDataProvider;
+import com.android.intentresolver.contentpreview.PreviewViewModel;
 import com.android.intentresolver.flags.FeatureFlagRepository;
 import com.android.intentresolver.flags.FeatureFlagRepositoryFactory;
 import com.android.intentresolver.grid.ChooserGridAdapter;
@@ -274,9 +274,10 @@ public class ChooserActivity extends ResolverActivity implements
 
         mChooserContentPreviewUi = new ChooserContentPreviewUi(
                 getLifecycle(),
-                createPreviewDataProvider(),
+                new ViewModelProvider(this, PreviewViewModel.Companion.getFactory())
+                        .get(PreviewViewModel.class)
+                        .createOrReuseProvider(mChooserRequest),
                 mChooserRequest.getTargetIntent(),
-                this::isImageType,
                 createPreviewImageLoader(),
                 createChooserActionFactory(),
                 mEnterTransitionAnimationDelegate,
@@ -538,14 +539,6 @@ public class ChooserActivity extends ResolverActivity implements
                 mMaxTargetsPerRow);
     }
 
-    private PreviewDataProvider createPreviewDataProvider() {
-        // TODO: move this into a ViewModel so it could survive orientation change
-        return new PreviewDataProvider(
-                mChooserRequest.getTargetIntent(),
-                getContentResolver(),
-                this::isImageType);
-    }
-
     private int findSelectedProfile() {
         int selectedProfile = getSelectedProfileExtra();
         if (selectedProfile == -1) {
@@ -720,10 +713,6 @@ public class ChooserActivity extends ResolverActivity implements
     @VisibleForTesting
     public Cursor queryResolver(ContentResolver resolver, Uri uri) {
         return resolver.query(uri, null, null, null, null);
-    }
-
-    private boolean isImageType(@Nullable String mimeType) {
-        return mimeType != null && mimeType.startsWith("image/");
     }
 
     private int getNumSheetExpansions() {
@@ -1550,6 +1539,10 @@ public class ChooserActivity extends ResolverActivity implements
         }
 
         if (rebuildComplete) {
+            long duration = Tracer.INSTANCE.endAppTargetLoadingSection(listAdapter.getUserHandle());
+            if (duration >= 0) {
+                Log.d(TAG, "app target loading time " + duration + " ms");
+            }
             addCallerChooserTargets();
             getChooserActivityLogger().logSharesheetAppLoadComplete();
             maybeQueryAdditionalPostProcessingTargets(chooserListAdapter);
@@ -1591,7 +1584,10 @@ public class ChooserActivity extends ResolverActivity implements
         }
 
         if (mMultiProfilePagerAdapter.getActiveListAdapter() == adapter) {
-            Tracer.INSTANCE.endLaunchToShortcutTrace();
+            long duration = Tracer.INSTANCE.endLaunchToShortcutTrace();
+            if (duration >= 0) {
+                Log.d(TAG, "stat to first shortcut time: " + duration + " ms");
+            }
         }
         logDirectShareTargetReceived(userHandle);
         sendVoiceChoicesIfNeeded();
