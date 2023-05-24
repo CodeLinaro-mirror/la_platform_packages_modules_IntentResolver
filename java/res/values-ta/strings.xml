@@ -66,11 +66,14 @@
     <string name="sharing_videos_with_link" msgid="6383290441403042321">"{count,plural, =1{இணைப்புடன் வீடியோவைப் பகிர்கிறது}other{இணைப்புடன் # வீடியோக்களைப் பகிர்கிறது}}"</string>
     <string name="sharing_files_with_text" msgid="7331187260405018080">"{count,plural, =1{வார்த்தைகளைக் கொண்ட ஃபைலைப் பகிர்கிறது}other{வார்த்தைகளைக் கொண்ட # ஃபைல்களைப் பகிர்கிறது}}"</string>
     <string name="sharing_files_with_link" msgid="6052797122358827239">"{count,plural, =1{இணைப்பைக் கொண்ட ஃபைலைப் பகிர்கிறது}other{இணைப்பைக் கொண்ட # ஃபைல்களைப் பகிர்கிறது}}"</string>
-    <!-- no translation found for sharing_images_only (7762589767189955438) -->
+    <string name="sharing_images_only" msgid="7762589767189955438">"{count,plural, =1{படம் மட்டும்}other{படங்கள் மட்டும்}}"</string>
+    <string name="sharing_videos_only" msgid="5549729252364968606">"{count,plural, =1{வீடியோ மட்டும்}other{வீடியோக்கள் மட்டும்}}"</string>
+    <string name="sharing_files_only" msgid="6603666533766964768">"{count,plural, =1{ஃபைல் மட்டும்}other{ஃபைல்கள் மட்டும்}}"</string>
+    <!-- no translation found for image_preview_a11y_description (297102643932491797) -->
     <skip />
-    <!-- no translation found for sharing_videos_only (5549729252364968606) -->
+    <!-- no translation found for video_preview_a11y_description (683440858811095990) -->
     <skip />
-    <!-- no translation found for sharing_files_only (6603666533766964768) -->
+    <!-- no translation found for file_preview_a11y_description (7397224827802410602) -->
     <skip />
     <string name="chooser_no_direct_share_targets" msgid="4233416657754261844">"பகிர்வதற்கு எவரும் பரிந்துரைக்கப்படவில்லை"</string>
     <string name="chooser_all_apps_button_label" msgid="5655027129615750712">"ஆப்ஸ் பட்டியல்"</string>
