@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 The Android Open Source Project
+ * Copyright (C) 2023 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,13 +14,18 @@
  * limitations under the License.
  */
 
-package com.android.intentresolver
+package com.android.intentresolver.contentpreview
 
-import android.graphics.Bitmap
-import android.net.Uri
-import java.util.function.Consumer
+import androidx.annotation.MainThread
+import androidx.lifecycle.ViewModel
+import com.android.intentresolver.ChooserRequestParameters
 
-interface ImageLoader : suspend (Uri) -> Bitmap? {
-    fun loadImage(uri: Uri, callback: Consumer<Bitmap?>)
-    fun prePopulate(uris: List<Uri>)
+/** A contract for the preview view model. Added for testing. */
+abstract class BasePreviewViewModel : ViewModel() {
+    @MainThread
+    abstract fun createOrReuseProvider(
+        chooserRequest: ChooserRequestParameters
+    ): PreviewDataProvider
+
+    @MainThread abstract fun createOrReuseImageLoader(): ImageLoader
 }
