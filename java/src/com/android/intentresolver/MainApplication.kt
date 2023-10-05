@@ -16,8 +16,7 @@
 
 package com.android.intentresolver
 
-/**
- * Specifies expected feature flag values for a test.
- */
-@Target(AnnotationTarget.FUNCTION)
-annotation class RequireFeatureFlags(val flags: Array<String>, val values: BooleanArray)
+import android.app.Application
+import dagger.hilt.android.HiltAndroidApp
+
+@HiltAndroidApp(Application::class) open class MainApplication : Hilt_MainApplication()

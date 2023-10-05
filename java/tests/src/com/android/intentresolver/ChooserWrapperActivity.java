@@ -37,10 +37,8 @@ import androidx.lifecycle.ViewModelProvider;
 import com.android.intentresolver.AbstractMultiProfilePagerAdapter.CrossProfileIntentsChecker;
 import com.android.intentresolver.chooser.DisplayResolveInfo;
 import com.android.intentresolver.chooser.TargetInfo;
-import com.android.intentresolver.flags.FeatureFlagRepository;
 import com.android.intentresolver.grid.ChooserGridAdapter;
 import com.android.intentresolver.icons.TargetDataLoader;
-import com.android.intentresolver.logging.EventLog;
 import com.android.intentresolver.shortcuts.ShortcutLoader;
 import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
 
@@ -51,8 +49,7 @@ import java.util.function.Consumer;
  * Simple wrapper around chooser activity to be able to initiate it under test. For more
  * information, see {@code com.android.internal.app.ChooserWrapperActivity}.
  */
-public class ChooserWrapperActivity
-        extends com.android.intentresolver.ChooserActivity implements IChooserWrapper {
+public class ChooserWrapperActivity extends ChooserActivity implements IChooserWrapper {
     static final ChooserActivityOverrideData sOverrides = ChooserActivityOverrideData.getInstance();
     private UsageStatsManager mUsm;
 
@@ -206,11 +203,6 @@ public class ChooserWrapperActivity
     }
 
     @Override
-    public EventLog getEventLog() {
-        return sOverrides.mEventLog;
-    }
-
-    @Override
     public Cursor queryResolver(ContentResolver resolver, Uri uri) {
         if (sOverrides.resolverCursor != null) {
             return sOverrides.resolverCursor;
@@ -245,8 +237,8 @@ public class ChooserWrapperActivity
     }
 
     @Override
-    protected UserHandle getWorkProfileUserHandle() {
-        return sOverrides.workProfileUserHandle;
+    protected AnnotatedUserHandles computeAnnotatedUserHandles() {
+        return sOverrides.annotatedUserHandles;
     }
 
     @Override
@@ -255,17 +247,9 @@ public class ChooserWrapperActivity
     }
 
     @Override
-    protected UserHandle getTabOwnerUserHandleForLaunch() {
-        if (sOverrides.tabOwnerUserHandleForLaunch == null) {
-            return super.getTabOwnerUserHandleForLaunch();
-        }
-        return sOverrides.tabOwnerUserHandleForLaunch;
-    }
-
-    @Override
     public Context createContextAsUser(UserHandle user, int flags) {
         // return the current context as a work profile doesn't really exist in these tests
-        return getApplicationContext();
+        return this;
     }
 
     @Override
@@ -282,13 +266,5 @@ public class ChooserWrapperActivity
         }
         return super.createShortcutLoader(
                 context, appPredictor, userHandle, targetIntentFilter, callback);
-    }
-
-    @Override
-    protected FeatureFlagRepository createFeatureFlagRepository() {
-        if (sOverrides.featureFlagRepository != null) {
-            return sOverrides.featureFlagRepository;
-        }
-        return super.createFeatureFlagRepository();
     }
 }

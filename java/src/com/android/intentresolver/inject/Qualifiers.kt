@@ -14,18 +14,19 @@
  * limitations under the License.
  */
 
-package com.android.intentresolver
+package com.android.intentresolver.inject
 
-import com.android.intentresolver.flags.FeatureFlagRepository
-import com.android.systemui.flags.BooleanFlag
-import com.android.systemui.flags.ReleasedFlag
-import com.android.systemui.flags.UnreleasedFlag
+import javax.inject.Qualifier
 
-class TestFeatureFlagRepository(
-    private val overrides: Map<BooleanFlag, Boolean>
-) : FeatureFlagRepository {
-    override fun isEnabled(flag: UnreleasedFlag): Boolean = getValue(flag)
-    override fun isEnabled(flag: ReleasedFlag): Boolean = getValue(flag)
+@Qualifier @MustBeDocumented @Retention(AnnotationRetention.RUNTIME) annotation class ActivityOwned
 
-    private fun getValue(flag: BooleanFlag) = overrides.getOrDefault(flag, flag.default)
-}
+@Qualifier
+@MustBeDocumented
+@Retention(AnnotationRetention.RUNTIME)
+annotation class ApplicationOwned
+
+@Qualifier @MustBeDocumented @Retention(AnnotationRetention.RUNTIME) annotation class Background
+
+@Qualifier @MustBeDocumented @Retention(AnnotationRetention.RUNTIME) annotation class Default
+
+@Qualifier @MustBeDocumented @Retention(AnnotationRetention.RUNTIME) annotation class Main
