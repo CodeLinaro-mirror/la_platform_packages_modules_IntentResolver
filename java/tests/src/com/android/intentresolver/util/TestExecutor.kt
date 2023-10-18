@@ -14,24 +14,27 @@
  * limitations under the License.
  */
 
-package com.android.intentresolver.contentpreview
+package com.android.intentresolver.util
 
-import android.content.res.Resources
-import android.util.Log
-import android.view.LayoutInflater
-import android.view.View
-import android.view.ViewGroup
+import java.util.concurrent.Executor
 
-internal class NoContextPreviewUi(private val type: Int) : ContentPreviewUi() {
-    override fun getType(): Int = type
+class TestExecutor(private val immediate: Boolean = false) : Executor {
+    private var pendingCommands = ArrayDeque<Runnable>()
 
-    override fun display(
-        resources: Resources?,
-        layoutInflater: LayoutInflater?,
-        parent: ViewGroup?,
-        headlineViewParent: View?,
-    ): ViewGroup? {
-        Log.e(TAG, "Unexpected content preview type: $type")
-        return null
+    val pendingCommandCount: Int
+        get() = pendingCommands.size
+
+    override fun execute(command: Runnable) {
+        if (immediate) {
+            command.run()
+        } else {
+            pendingCommands.add(command)
+        }
+    }
+
+    fun runUntilIdle() {
+        while (pendingCommands.isNotEmpty()) {
+            pendingCommands.removeFirst().run()
+        }
     }
 }
