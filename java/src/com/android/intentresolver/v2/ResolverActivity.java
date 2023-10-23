@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.android.intentresolver;
+package com.android.intentresolver.v2;
 
 import static android.Manifest.permission.INTERACT_ACROSS_PROFILES;
 import static android.app.admin.DevicePolicyResources.Strings.Core.FORWARD_INTENT_TO_PERSONAL;
@@ -99,9 +99,11 @@ import android.widget.Toast;
 import androidx.fragment.app.FragmentActivity;
 import androidx.viewpager.widget.ViewPager;
 
-import com.android.intentresolver.MultiProfilePagerAdapter.MyUserIdProvider;
-import com.android.intentresolver.MultiProfilePagerAdapter.OnSwitchOnWorkSelectedListener;
-import com.android.intentresolver.MultiProfilePagerAdapter.Profile;
+import com.android.intentresolver.AnnotatedUserHandles;
+import com.android.intentresolver.R;
+import com.android.intentresolver.ResolverListAdapter;
+import com.android.intentresolver.ResolverListController;
+import com.android.intentresolver.WorkProfileAvailabilityManager;
 import com.android.intentresolver.chooser.DisplayResolveInfo;
 import com.android.intentresolver.chooser.TargetInfo;
 import com.android.intentresolver.emptystate.CompositeEmptyStateProvider;
@@ -115,6 +117,9 @@ import com.android.intentresolver.emptystate.WorkProfilePausedEmptyStateProvider
 import com.android.intentresolver.icons.DefaultTargetDataLoader;
 import com.android.intentresolver.icons.TargetDataLoader;
 import com.android.intentresolver.model.ResolverRankerServiceResolverComparator;
+import com.android.intentresolver.v2.MultiProfilePagerAdapter.MyUserIdProvider;
+import com.android.intentresolver.v2.MultiProfilePagerAdapter.OnSwitchOnWorkSelectedListener;
+import com.android.intentresolver.v2.MultiProfilePagerAdapter.Profile;
 import com.android.intentresolver.widget.ResolverDrawerLayout;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.content.PackageMonitor;
@@ -1615,7 +1620,7 @@ public class ResolverActivity extends FragmentActivity implements
             boolean hasRecordPermission =
                     mPm.checkPermission(android.Manifest.permission.RECORD_AUDIO,
                             activityInfo.packageName)
-                            == android.content.pm.PackageManager.PERMISSION_GRANTED;
+                            == PackageManager.PERMISSION_GRANTED;
 
             if (!hasRecordPermission) {
                 // OK, we know the record permission, is this a capture device

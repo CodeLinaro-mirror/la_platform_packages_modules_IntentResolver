@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.android.intentresolver;
+package com.android.intentresolver.v2;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -26,6 +26,8 @@ import android.content.res.Resources;
 import android.database.Cursor;
 import android.os.UserHandle;
 
+import com.android.intentresolver.AnnotatedUserHandles;
+import com.android.intentresolver.WorkProfileAvailabilityManager;
 import com.android.intentresolver.chooser.TargetInfo;
 import com.android.intentresolver.contentpreview.ImageLoader;
 import com.android.intentresolver.emptystate.CrossProfileIntentsChecker;

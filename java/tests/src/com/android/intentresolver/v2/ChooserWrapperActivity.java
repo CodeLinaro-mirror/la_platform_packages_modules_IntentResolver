@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.android.intentresolver;
+package com.android.intentresolver.v2;
 
 import android.annotation.Nullable;
 import android.app.prediction.AppPredictor;
@@ -34,6 +34,14 @@ import android.os.UserHandle;
 
 import androidx.lifecycle.ViewModelProvider;
 
+import com.android.intentresolver.AnnotatedUserHandles;
+import com.android.intentresolver.ChooserIntegratedDeviceComponents;
+import com.android.intentresolver.ChooserListAdapter;
+import com.android.intentresolver.ChooserRequestParameters;
+import com.android.intentresolver.IChooserWrapper;
+import com.android.intentresolver.ResolverListController;
+import com.android.intentresolver.TestContentPreviewViewModel;
+import com.android.intentresolver.WorkProfileAvailabilityManager;
 import com.android.intentresolver.chooser.DisplayResolveInfo;
 import com.android.intentresolver.chooser.TargetInfo;
 import com.android.intentresolver.emptystate.CrossProfileIntentsChecker;

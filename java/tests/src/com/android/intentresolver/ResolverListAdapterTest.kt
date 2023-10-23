@@ -19,20 +19,16 @@ package com.android.intentresolver
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.content.pm.ActivityInfo
-import android.content.pm.ApplicationInfo
+import android.content.pm.PackageManager
 import android.content.pm.ResolveInfo
-import android.os.Handler
-import android.os.Looper
 import android.os.UserHandle
+import android.os.UserManager
 import android.view.LayoutInflater
+import com.android.intentresolver.ResolverDataProvider.createActivityInfo
 import com.android.intentresolver.ResolverListAdapter.ResolverListCommunicator
 import com.android.intentresolver.icons.TargetDataLoader
 import com.android.intentresolver.util.TestExecutor
-import com.android.intentresolver.util.TestImmediateHandler
 import com.google.common.truth.Truth.assertThat
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.atomic.AtomicInteger
 import org.junit.Test
 import org.mockito.Mockito.anyBoolean
 import org.mockito.Mockito.inOrder
@@ -40,16 +36,19 @@ import org.mockito.Mockito.never
 import org.mockito.Mockito.verify
 
 private const val PKG_NAME = "org.pkg.app"
-private const val PKG_NAME_TWO = "org.pkgtwo.app"
+private const val PKG_NAME_TWO = "org.pkg.two.app"
+private const val PKG_NAME_THREE = "org.pkg.three.app"
 private const val CLASS_NAME = "org.pkg.app.TheClass"
 
 class ResolverListAdapterTest {
-    private val testHandler = TestImmediateHandler()
     private val layoutInflater = mock<LayoutInflater>()
+    private val packageManager = mock<PackageManager>()
+    private val userManager = mock<UserManager> { whenever(isManagedProfile).thenReturn(false) }
     private val context =
         mock<Context> {
             whenever(getSystemService(Context.LAYOUT_INFLATER_SERVICE)).thenReturn(layoutInflater)
-            whenever(mainThreadHandler).thenReturn(testHandler)
+            whenever(getSystemService(Context.USER_SERVICE)).thenReturn(userManager)
+            whenever(packageManager).thenReturn(this@ResolverListAdapterTest.packageManager)
         }
     private val targetIntent = Intent(Intent.ACTION_SEND)
     private val payloadIntents = listOf(targetIntent)
@@ -59,9 +58,10 @@ class ResolverListAdapterTest {
             whenever(filterLowPriority(any(), anyBoolean())).thenReturn(null)
         }
     private val resolverListCommunicator = FakeResolverListCommunicator()
-    private val userHandle = UserHandle.of(0)
+    private val userHandle = UserHandle.of(UserHandle.USER_CURRENT)
     private val targetDataLoader = mock<TargetDataLoader>()
-    private val executor = TestExecutor()
+    private val backgroundExecutor = TestExecutor()
+    private val immediateExecutor = TestExecutor(immediate = true)
 
     @Test
     fun test_oneTargetNoLastChosen_oneTargetInAdapter() {
@@ -89,8 +89,8 @@ class ResolverListAdapterTest {
                 resolverListCommunicator,
                 /*initialIntentsUserSpace=*/ userHandle,
                 targetDataLoader,
-                executor,
-                testHandler,
+                backgroundExecutor,
+                immediateExecutor,
             )
         val doPostProcessing = true
 
@@ -104,7 +104,7 @@ class ResolverListAdapterTest {
         assertThat(testSubject.filteredPosition).isLessThan(0)
         assertThat(testSubject.unfilteredResolveList).containsExactlyElementsIn(resolvedTargets)
         assertThat(testSubject.isTabLoaded).isTrue()
-        assertThat(executor.pendingCommandCount).isEqualTo(0)
+        assertThat(backgroundExecutor.pendingCommandCount).isEqualTo(0)
         assertThat(resolverListCommunicator.updateProfileViewButtonCount).isEqualTo(0)
         assertThat(resolverListCommunicator.sendVoiceCommandCount).isEqualTo(1)
     }
@@ -137,8 +137,8 @@ class ResolverListAdapterTest {
                 resolverListCommunicator,
                 /*initialIntentsUserSpace=*/ userHandle,
                 targetDataLoader,
-                executor,
-                testHandler,
+                backgroundExecutor,
+                immediateExecutor,
             )
         val doPostProcessing = true
 
@@ -152,7 +152,7 @@ class ResolverListAdapterTest {
         assertThat(testSubject.filteredPosition).isEqualTo(0)
         assertThat(testSubject.unfilteredResolveList).containsExactlyElementsIn(resolvedTargets)
         assertThat(testSubject.isTabLoaded).isTrue()
-        assertThat(executor.pendingCommandCount).isEqualTo(0)
+        assertThat(backgroundExecutor.pendingCommandCount).isEqualTo(0)
     }
 
     @Test
@@ -183,8 +183,8 @@ class ResolverListAdapterTest {
                 resolverListCommunicator,
                 /*initialIntentsUserSpace=*/ userHandle,
                 targetDataLoader,
-                executor,
-                testHandler,
+                backgroundExecutor,
+                immediateExecutor,
             )
         val doPostProcessing = true
 
@@ -198,7 +198,7 @@ class ResolverListAdapterTest {
         assertThat(testSubject.filteredPosition).isLessThan(0)
         assertThat(testSubject.unfilteredResolveList).containsExactlyElementsIn(resolvedTargets)
         assertThat(testSubject.isTabLoaded).isTrue()
-        assertThat(executor.pendingCommandCount).isEqualTo(0)
+        assertThat(backgroundExecutor.pendingCommandCount).isEqualTo(0)
     }
 
     @Test
@@ -229,8 +229,8 @@ class ResolverListAdapterTest {
                 resolverListCommunicator,
                 /*initialIntentsUserSpace=*/ userHandle,
                 targetDataLoader,
-                executor,
-                testHandler,
+                backgroundExecutor,
+                immediateExecutor,
             )
         val doPostProcessing = true
 
@@ -301,8 +301,8 @@ class ResolverListAdapterTest {
                 resolverListCommunicator,
                 /*initialIntentsUserSpace=*/ userHandle,
                 targetDataLoader,
-                executor,
-                testHandler,
+                backgroundExecutor,
+                immediateExecutor,
             )
         val doPostProcessing = true
 
@@ -317,11 +317,11 @@ class ResolverListAdapterTest {
         assertThat(testSubject.filteredPosition).isLessThan(0)
         assertThat(testSubject.unfilteredResolveList).containsExactlyElementsIn(resolvedTargets)
         assertThat(testSubject.isTabLoaded).isFalse()
-        assertThat(executor.pendingCommandCount).isEqualTo(1)
+        assertThat(backgroundExecutor.pendingCommandCount).isEqualTo(1)
         assertThat(resolverListCommunicator.updateProfileViewButtonCount).isEqualTo(0)
         assertThat(resolverListCommunicator.sendVoiceCommandCount).isEqualTo(0)
 
-        executor.runUntilIdle()
+        backgroundExecutor.runUntilIdle()
 
         // we don't reset placeholder count (legacy logic, likely an oversight?)
         assertThat(testSubject.placeholderCount).isEqualTo(placeholderCount)
@@ -339,7 +339,7 @@ class ResolverListAdapterTest {
         assertThat(testSubject.isTabLoaded).isTrue()
         assertThat(resolverListCommunicator.updateProfileViewButtonCount).isEqualTo(1)
         assertThat(resolverListCommunicator.sendVoiceCommandCount).isEqualTo(1)
-        assertThat(executor.pendingCommandCount).isEqualTo(0)
+        assertThat(backgroundExecutor.pendingCommandCount).isEqualTo(0)
     }
 
     @Test
@@ -374,8 +374,8 @@ class ResolverListAdapterTest {
                 resolverListCommunicator,
                 /*initialIntentsUserSpace=*/ userHandle,
                 targetDataLoader,
-                executor,
-                testHandler,
+                backgroundExecutor,
+                immediateExecutor,
             )
         val doPostProcessing = false
 
@@ -390,10 +390,10 @@ class ResolverListAdapterTest {
         assertThat(testSubject.filteredPosition).isLessThan(0)
         assertThat(testSubject.unfilteredResolveList).containsExactlyElementsIn(resolvedTargets)
         assertThat(testSubject.isTabLoaded).isFalse()
-        assertThat(executor.pendingCommandCount).isEqualTo(1)
+        assertThat(backgroundExecutor.pendingCommandCount).isEqualTo(1)
         assertThat(resolverListCommunicator.updateProfileViewButtonCount).isEqualTo(0)
 
-        executor.runUntilIdle()
+        backgroundExecutor.runUntilIdle()
 
         // we don't reset placeholder count (legacy logic, likely an oversight?)
         assertThat(testSubject.placeholderCount).isEqualTo(placeholderCount)
@@ -404,7 +404,7 @@ class ResolverListAdapterTest {
         assertThat(testSubject.unfilteredResolveList).containsExactlyElementsIn(resolvedTargets)
         assertThat(testSubject.isTabLoaded).isTrue()
         assertThat(resolverListCommunicator.updateProfileViewButtonCount).isEqualTo(0)
-        assertThat(executor.pendingCommandCount).isEqualTo(0)
+        assertThat(backgroundExecutor.pendingCommandCount).isEqualTo(0)
     }
 
     @Test
@@ -441,8 +441,8 @@ class ResolverListAdapterTest {
                 resolverListCommunicator,
                 /*initialIntentsUserSpace=*/ userHandle,
                 targetDataLoader,
-                executor,
-                testHandler,
+                backgroundExecutor,
+                immediateExecutor,
             )
         val doPostProcessing = true
 
@@ -457,7 +457,7 @@ class ResolverListAdapterTest {
         assertThat(testSubject.filteredPosition).isLessThan(0)
         assertThat(testSubject.unfilteredResolveList).containsExactlyElementsIn(resolvedTargets)
         assertThat(testSubject.isTabLoaded).isTrue()
-        assertThat(executor.pendingCommandCount).isEqualTo(0)
+        assertThat(backgroundExecutor.pendingCommandCount).isEqualTo(0)
     }
 
     @Suppress("UNCHECKED_CAST")
@@ -496,14 +496,14 @@ class ResolverListAdapterTest {
                 resolverListCommunicator,
                 /*initialIntentsUserSpace=*/ userHandle,
                 targetDataLoader,
-                executor,
-                testHandler,
+                backgroundExecutor,
+                immediateExecutor,
             )
         val doPostProcessing = true
 
         testSubject.rebuildList(doPostProcessing)
 
-        executor.runUntilIdle()
+        backgroundExecutor.runUntilIdle()
 
         // we don't reset placeholder count (legacy logic, likely an oversight?)
         assertThat(testSubject.count).isEqualTo(resolvedTargets.size)
@@ -551,14 +551,14 @@ class ResolverListAdapterTest {
                 resolverListCommunicator,
                 /*initialIntentsUserSpace=*/ userHandle,
                 targetDataLoader,
-                executor,
-                testHandler,
+                backgroundExecutor,
+                immediateExecutor,
             )
         val doPostProcessing = true
 
         testSubject.rebuildList(doPostProcessing)
 
-        executor.runUntilIdle()
+        backgroundExecutor.runUntilIdle()
 
         // we don't reset placeholder count (legacy logic, likely an oversight?)
         assertThat(testSubject.count).isEqualTo(1)
@@ -602,14 +602,14 @@ class ResolverListAdapterTest {
                 resolverListCommunicator,
                 /*initialIntentsUserSpace=*/ userHandle,
                 targetDataLoader,
-                executor,
-                testHandler,
+                backgroundExecutor,
+                immediateExecutor,
             )
         val doPostProcessing = true
 
         testSubject.rebuildList(doPostProcessing)
 
-        executor.runUntilIdle()
+        backgroundExecutor.runUntilIdle()
 
         // we don't reset placeholder count (legacy logic, likely an oversight?)
         assertThat(testSubject.count).isEqualTo(2)
@@ -654,20 +654,164 @@ class ResolverListAdapterTest {
                 resolverListCommunicator,
                 /*initialIntentsUserSpace=*/ userHandle,
                 targetDataLoader,
-                executor,
-                testHandler,
+                backgroundExecutor,
+                immediateExecutor,
             )
         val doPostProcessing = true
 
         testSubject.rebuildList(doPostProcessing)
 
-        executor.runUntilIdle()
+        backgroundExecutor.runUntilIdle()
 
         // we don't reset placeholder count (legacy logic, likely an oversight?)
         assertThat(testSubject.count).isEqualTo(1)
         assertThat(testSubject.getItem(0)?.resolveInfo)
             .isEqualTo(resolvedTargets[0].getResolveInfoAt(0))
         assertThat(testSubject.unfilteredResolveList).hasSize(2)
+    }
+
+    @Test
+    fun test_twoTargetsWithNonOverlappingInitialIntent_threeTargetsInAdapter() {
+        val resolvedTargets =
+            createResolvedComponents(
+                ComponentName(PKG_NAME, CLASS_NAME),
+                ComponentName(PKG_NAME_TWO, CLASS_NAME),
+            )
+        whenever(
+                resolverListController.getResolversForIntentAsUser(
+                    true,
+                    resolverListCommunicator.shouldGetActivityMetadata(),
+                    resolverListCommunicator.shouldGetOnlyDefaultActivities(),
+                    payloadIntents,
+                    userHandle
+                )
+            )
+            .thenReturn(resolvedTargets)
+        val initialComponent = ComponentName(PKG_NAME_THREE, CLASS_NAME)
+        val initialIntents =
+            arrayOf(Intent(Intent.ACTION_SEND).apply { component = initialComponent })
+        whenever(packageManager.getActivityInfo(eq(initialComponent), eq(0)))
+            .thenReturn(createActivityInfo(initialComponent))
+        val testSubject =
+            ResolverListAdapter(
+                context,
+                payloadIntents,
+                initialIntents,
+                /*rList=*/ null,
+                /*filterLastUsed=*/ true,
+                resolverListController,
+                userHandle,
+                targetIntent,
+                resolverListCommunicator,
+                /*initialIntentsUserSpace=*/ userHandle,
+                targetDataLoader,
+                backgroundExecutor,
+                immediateExecutor,
+            )
+        val doPostProcessing = true
+
+        val isLoaded = testSubject.rebuildList(doPostProcessing)
+
+        assertThat(isLoaded).isFalse()
+        val placeholderCount = resolvedTargets.size - 1
+        assertThat(testSubject.count).isEqualTo(placeholderCount)
+        assertThat(testSubject.placeholderCount).isEqualTo(placeholderCount)
+        assertThat(testSubject.hasFilteredItem()).isFalse()
+        assertThat(testSubject.filteredItem).isNull()
+        assertThat(testSubject.filteredPosition).isLessThan(0)
+        assertThat(testSubject.unfilteredResolveList).containsExactlyElementsIn(resolvedTargets)
+        assertThat(testSubject.isTabLoaded).isFalse()
+        assertThat(backgroundExecutor.pendingCommandCount).isEqualTo(1)
+        assertThat(resolverListCommunicator.updateProfileViewButtonCount).isEqualTo(0)
+        assertThat(resolverListCommunicator.sendVoiceCommandCount).isEqualTo(0)
+
+        backgroundExecutor.runUntilIdle()
+
+        // we don't reset placeholder count (legacy logic, likely an oversight?)
+        assertThat(testSubject.placeholderCount).isEqualTo(placeholderCount)
+        assertThat(testSubject.hasFilteredItem()).isFalse()
+        assertThat(testSubject.count).isEqualTo(resolvedTargets.size + initialIntents.size)
+        assertThat(testSubject.getItem(0)?.targetIntent?.component)
+            .isEqualTo(initialIntents[0].component)
+        assertThat(testSubject.filteredItem).isNull()
+        assertThat(testSubject.filteredPosition).isLessThan(0)
+        assertThat(testSubject.unfilteredResolveList).containsExactlyElementsIn(resolvedTargets)
+        assertThat(testSubject.isTabLoaded).isTrue()
+        assertThat(resolverListCommunicator.updateProfileViewButtonCount).isEqualTo(1)
+        assertThat(resolverListCommunicator.sendVoiceCommandCount).isEqualTo(1)
+        assertThat(backgroundExecutor.pendingCommandCount).isEqualTo(0)
+    }
+
+    @Test
+    fun test_twoTargetsWithOverlappingInitialIntent_twoTargetsInAdapter() {
+        val resolvedTargets =
+            createResolvedComponents(
+                ComponentName(PKG_NAME, CLASS_NAME),
+                ComponentName(PKG_NAME_TWO, CLASS_NAME),
+            )
+        whenever(
+                resolverListController.getResolversForIntentAsUser(
+                    true,
+                    resolverListCommunicator.shouldGetActivityMetadata(),
+                    resolverListCommunicator.shouldGetOnlyDefaultActivities(),
+                    payloadIntents,
+                    userHandle
+                )
+            )
+            .thenReturn(resolvedTargets)
+        val initialComponent = ComponentName(PKG_NAME_TWO, CLASS_NAME)
+        val initialIntents =
+            arrayOf(Intent(Intent.ACTION_SEND).apply { component = initialComponent })
+        whenever(packageManager.getActivityInfo(eq(initialComponent), eq(0)))
+            .thenReturn(createActivityInfo(initialComponent))
+        val testSubject =
+            ResolverListAdapter(
+                context,
+                payloadIntents,
+                initialIntents,
+                /*rList=*/ null,
+                /*filterLastUsed=*/ true,
+                resolverListController,
+                userHandle,
+                targetIntent,
+                resolverListCommunicator,
+                /*initialIntentsUserSpace=*/ userHandle,
+                targetDataLoader,
+                backgroundExecutor,
+                immediateExecutor,
+            )
+        val doPostProcessing = true
+
+        val isLoaded = testSubject.rebuildList(doPostProcessing)
+
+        assertThat(isLoaded).isFalse()
+        val placeholderCount = resolvedTargets.size - 1
+        assertThat(testSubject.count).isEqualTo(placeholderCount)
+        assertThat(testSubject.placeholderCount).isEqualTo(placeholderCount)
+        assertThat(testSubject.hasFilteredItem()).isFalse()
+        assertThat(testSubject.filteredItem).isNull()
+        assertThat(testSubject.filteredPosition).isLessThan(0)
+        assertThat(testSubject.unfilteredResolveList).containsExactlyElementsIn(resolvedTargets)
+        assertThat(testSubject.isTabLoaded).isFalse()
+        assertThat(backgroundExecutor.pendingCommandCount).isEqualTo(1)
+        assertThat(resolverListCommunicator.updateProfileViewButtonCount).isEqualTo(0)
+        assertThat(resolverListCommunicator.sendVoiceCommandCount).isEqualTo(0)
+
+        backgroundExecutor.runUntilIdle()
+
+        // we don't reset placeholder count (legacy logic, likely an oversight?)
+        assertThat(testSubject.placeholderCount).isEqualTo(placeholderCount)
+        assertThat(testSubject.hasFilteredItem()).isFalse()
+        assertThat(testSubject.count).isEqualTo(resolvedTargets.size)
+        assertThat(testSubject.getItem(0)?.targetIntent?.component)
+            .isEqualTo(initialIntents[0].component)
+        assertThat(testSubject.filteredItem).isNull()
+        assertThat(testSubject.filteredPosition).isLessThan(0)
+        assertThat(testSubject.unfilteredResolveList).containsExactlyElementsIn(resolvedTargets)
+        assertThat(testSubject.isTabLoaded).isTrue()
+        assertThat(resolverListCommunicator.updateProfileViewButtonCount).isEqualTo(1)
+        assertThat(resolverListCommunicator.sendVoiceCommandCount).isEqualTo(1)
+        assertThat(backgroundExecutor.pendingCommandCount).isEqualTo(0)
     }
 
     @Test
@@ -686,14 +830,13 @@ class ResolverListAdapterTest {
                 communicator,
                 /*initialIntentsUserSpace=*/ userHandle,
                 targetDataLoader,
-                executor,
-                testHandler,
+                backgroundExecutor,
+                immediateExecutor,
             )
         val doPostProcessing = false
 
-        executor.runUntilIdle()
-
         testSubject.rebuildList(doPostProcessing)
+
         verify(communicator).onPostListReady(testSubject, doPostProcessing, true)
     }
 
@@ -739,14 +882,14 @@ class ResolverListAdapterTest {
                 communicator,
                 /*initialIntentsUserSpace=*/ userHandle,
                 targetDataLoader,
-                executor,
-                testHandler,
+                backgroundExecutor,
+                immediateExecutor,
             )
         val doPostProcessing = false
 
         testSubject.rebuildList(doPostProcessing)
 
-        executor.runUntilIdle()
+        backgroundExecutor.runUntilIdle()
 
         val inOrder = inOrder(communicator)
         inOrder.verify(communicator).onPostListReady(testSubject, doPostProcessing, false)
@@ -755,16 +898,7 @@ class ResolverListAdapterTest {
 
     @Test
     fun testPostListReadyAtEndOfRebuild_queued() {
-        // Set up a runnable that blocks the callback handler until we're ready to start
-        // processing queued messages. This is to test against a legacy bug where subsequent
-        // list-ready notifications could be dropped if the older one wasn't yet dequeued, even if
-        // the newer ones had different parameters.
-        // TODO: after removing the logic responsible for this "dropping" we could migrate off the
-        // `Handler` API (to `Executor` or similar) and use a simpler mechanism to test.
-        val callbackHandler = Handler(Looper.getMainLooper())
-        val unblockCallbacksSignal = CountDownLatch(1)
-        val countdownBlockingRunnable = Runnable { unblockCallbacksSignal.await() }
-        callbackHandler.post(countdownBlockingRunnable)
+        val queuedCallbacksExecutor = TestExecutor()
 
         // We need at least two targets to trigger asynchronous sorting/"staged" progress callbacks.
         val resolvedTargets =
@@ -806,28 +940,16 @@ class ResolverListAdapterTest {
                 communicator,
                 /*initialIntentsUserSpace=*/ userHandle,
                 targetDataLoader,
-                executor,
-                callbackHandler
+                backgroundExecutor,
+                queuedCallbacksExecutor
             )
         val doPostProcessing = false
         testSubject.rebuildList(doPostProcessing)
 
         // Finish all the background work (enqueueing both the "partial" and "complete" progress
         // callbacks) before dequeueing either callback.
-        executor.runUntilIdle()
-
-        // Allow the handler to flush out and process both callbacks.
-        unblockCallbacksSignal.countDown()
-
-        // Finally, force a synchronization in the other direction to ensure that we've finished
-        // processing any callbacks before we start making assertions about them.
-        // TODO: there are less "ad-hoc" ways to write this (e.g. with a special `Handler` subclass
-        // for tests), but we should switch off using `Handler` altogether (in favor of `Executor`
-        // or otherwise), and then it'll be much simpler to clean up this boilerplate.
-        val unblockAssertionsSignal = CountDownLatch(1)
-        val countdownAssertionsRunnable = Runnable { unblockAssertionsSignal.countDown() }
-        callbackHandler.post(countdownAssertionsRunnable)
-        unblockAssertionsSignal.await()
+        backgroundExecutor.runUntilIdle()
+        queuedCallbacksExecutor.runUntilIdle()
 
         // TODO: we may not necessarily care to assert that there's a "partial progress" callback in
         // this case, since there won't be a chance to reflect the "partial" state in the UI before
@@ -841,14 +963,7 @@ class ResolverListAdapterTest {
 
     @Test
     fun testPostListReadyAtEndOfRebuild_skippedIfStillQueuedOnDestroy() {
-        // Set up a runnable that blocks the callback handler until we're ready to start
-        // processing queued messages.
-        // TODO: after removing the logic responsible for this "dropping" we could migrate off the
-        // `Handler` API (to `Executor` or similar) and use a simpler mechanism to test.
-        val callbackHandler = Handler(Looper.getMainLooper())
-        val unblockCallbacksSignal = CountDownLatch(1)
-        val countdownBlockingRunnable = Runnable { unblockCallbacksSignal.await() }
-        callbackHandler.post(countdownBlockingRunnable)
+        val queuedCallbacksExecutor = TestExecutor()
 
         // We need at least two targets to trigger asynchronous sorting/"staged" progress callbacks.
         val resolvedTargets =
@@ -890,31 +1005,20 @@ class ResolverListAdapterTest {
                 communicator,
                 /*initialIntentsUserSpace=*/ userHandle,
                 targetDataLoader,
-                executor,
-                callbackHandler
+                backgroundExecutor,
+                queuedCallbacksExecutor
             )
         val doPostProcessing = false
         testSubject.rebuildList(doPostProcessing)
 
         // Finish all the background work (enqueueing both the "partial" and "complete" progress
         // callbacks) before dequeueing either callback.
-        executor.runUntilIdle()
+        backgroundExecutor.runUntilIdle()
 
         // Notify that our activity is being destroyed while the callbacks are still queued.
         testSubject.onDestroy()
 
-        // Allow the handler to flush out, but now the callbacks are gone.
-        unblockCallbacksSignal.countDown()
-
-        // Finally, force a synchronization in the other direction to ensure that we've finished
-        // processing any callbacks before we start making assertions about them.
-        // TODO: there are less "ad-hoc" ways to write this (e.g. with a special `Handler` subclass
-        // for tests), but we should switch off using `Handler` altogether (in favor of `Executor`
-        // or otherwise), and then it'll be much simpler to clean up this boilerplate.
-        val unblockAssertionsSignal = CountDownLatch(1)
-        val countdownAssertionsRunnable = Runnable { unblockAssertionsSignal.countDown() }
-        callbackHandler.post(countdownAssertionsRunnable)
-        unblockAssertionsSignal.await()
+        queuedCallbacksExecutor.runUntilIdle()
 
         verify(communicator, never()).onPostListReady(eq(testSubject), eq(doPostProcessing), any())
     }
@@ -937,47 +1041,8 @@ class ResolverListAdapterTest {
 
     private fun createResolveInfo(packageName: String, className: String): ResolveInfo =
         mock<ResolveInfo> {
-            activityInfo =
-                ActivityInfo().apply {
-                    name = className
-                    this.packageName = packageName
-                    applicationInfo = ApplicationInfo().apply { this.packageName = packageName }
-                }
-            targetUserId = UserHandle.USER_CURRENT
+            activityInfo = createActivityInfo(ComponentName(packageName, className))
+            targetUserId = this@ResolverListAdapterTest.userHandle.identifier
+            userHandle = this@ResolverListAdapterTest.userHandle
         }
-}
-
-private class FakeResolverListCommunicator(private val layoutWithDefaults: Boolean = true) :
-    ResolverListAdapter.ResolverListCommunicator {
-    private val sendVoiceCounter = AtomicInteger()
-    private val updateProfileViewButtonCounter = AtomicInteger()
-
-    val sendVoiceCommandCount
-        get() = sendVoiceCounter.get()
-    val updateProfileViewButtonCount
-        get() = updateProfileViewButtonCounter.get()
-
-    override fun getReplacementIntent(activityInfo: ActivityInfo?, defIntent: Intent): Intent {
-        return defIntent
-    }
-
-    override fun onPostListReady(
-        listAdapter: ResolverListAdapter?,
-        updateUi: Boolean,
-        rebuildCompleted: Boolean,
-    ) = Unit
-
-    override fun sendVoiceChoicesIfNeeded() {
-        sendVoiceCounter.incrementAndGet()
-    }
-
-    override fun updateProfileViewButton() {
-        updateProfileViewButtonCounter.incrementAndGet()
-    }
-
-    override fun useLayoutWithDefault(): Boolean = layoutWithDefaults
-
-    override fun shouldGetActivityMetadata(): Boolean = true
-
-    override fun onHandlePackagesChanged(listAdapter: ResolverListAdapter?) {}
 }

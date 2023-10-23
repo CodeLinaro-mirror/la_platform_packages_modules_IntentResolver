@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.android.intentresolver;
+package com.android.intentresolver.v2;
 
 import android.content.Context;
 import android.os.UserHandle;
@@ -25,6 +25,10 @@ import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.viewpager.widget.PagerAdapter;
 
+import com.android.intentresolver.ChooserListAdapter;
+import com.android.intentresolver.ChooserRecyclerViewAccessibilityDelegate;
+import com.android.intentresolver.FeatureFlags;
+import com.android.intentresolver.R;
 import com.android.intentresolver.emptystate.EmptyStateProvider;
 import com.android.intentresolver.grid.ChooserGridAdapter;
 import com.android.intentresolver.measurements.Tracer;

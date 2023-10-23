@@ -28,7 +28,6 @@ import android.graphics.ColorMatrix;
 import android.graphics.ColorMatrixColorFilter;
 import android.graphics.drawable.Drawable;
 import android.os.AsyncTask;
-import android.os.Handler;
 import android.os.RemoteException;
 import android.os.Trace;
 import android.os.UserHandle;
@@ -69,7 +68,7 @@ public class ResolverListAdapter extends BaseAdapter {
     protected final Context mContext;
     protected final LayoutInflater mInflater;
     protected final ResolverListCommunicator mResolverListCommunicator;
-    protected final ResolverListController mResolverListController;
+    public final ResolverListController mResolverListController;
 
     private final List<Intent> mIntents;
     private final Intent[] mInitialIntents;
@@ -82,7 +81,7 @@ public class ResolverListAdapter extends BaseAdapter {
     private final Set<DisplayResolveInfo> mRequestedIcons = new HashSet<>();
     private final Set<DisplayResolveInfo> mRequestedLabels = new HashSet<>();
     private final Executor mBgExecutor;
-    private final Handler mMainHandler;
+    private final Executor mCallbackExecutor;
     private final AtomicBoolean mDestroyed = new AtomicBoolean();
 
     private ResolveInfo mLastChosen;
@@ -124,7 +123,7 @@ public class ResolverListAdapter extends BaseAdapter {
                 initialIntentsUserSpace,
                 targetDataLoader,
                 AsyncTask.SERIAL_EXECUTOR,
-                context.getMainThreadHandler());
+                runnable -> context.getMainThreadHandler().post(runnable));
     }
 
     @VisibleForTesting
@@ -141,7 +140,7 @@ public class ResolverListAdapter extends BaseAdapter {
             UserHandle initialIntentsUserSpace,
             TargetDataLoader targetDataLoader,
             Executor bgExecutor,
-            Handler mainHandler) {
+            Executor callbackExecutor) {
         mContext = context;
         mIntents = payloadIntents;
         mInitialIntents = initialIntents;
@@ -157,7 +156,7 @@ public class ResolverListAdapter extends BaseAdapter {
         mResolverListCommunicator = resolverListCommunicator;
         mInitialIntentsUserSpace = initialIntentsUserSpace;
         mBgExecutor = bgExecutor;
-        mMainHandler = mainHandler;
+        mCallbackExecutor = callbackExecutor;
     }
 
     public final DisplayResolveInfo getFirstDisplayResolveInfo() {
@@ -230,18 +229,18 @@ public class ResolverListAdapter extends BaseAdapter {
                 packageName, userHandle, action);
     }
 
-    List<ResolvedComponentInfo> getUnfilteredResolveList() {
+    public List<ResolvedComponentInfo> getUnfilteredResolveList() {
         return mUnfilteredResolveList;
     }
 
     /**
      * Rebuild the list of resolvers. When rebuilding is complete, queue the {@code onPostListReady}
-     * callback on the main handler with {@code rebuildCompleted} true.
+     * callback on the callback executor with {@code rebuildCompleted} true.
      *
      * In some cases some parts will need some asynchronous work to complete. Then this will first
-     * immediately queue {@code onPostListReady} (on the main handler) with {@code rebuildCompleted}
-     * false; only when the asynchronous work completes will this then go on to queue another
-     * {@code onPostListReady} callback with {@code rebuildCompleted} true.
+     * immediately queue {@code onPostListReady} (on the callback executor) with
+     * {@code rebuildCompleted} false; only when the asynchronous work completes will this then go
+     * on to queue another {@code onPostListReady} callback with {@code rebuildCompleted} true.
      *
      * The {@code doPostProcessing} parameter is used to specify whether to update the UI and
      * load additional targets (e.g. direct share) after the list has been rebuilt. We may choose
@@ -253,7 +252,7 @@ public class ResolverListAdapter extends BaseAdapter {
      * with {@code rebuildCompleted} true at the end of some newly-launched asynchronous work.
      * Otherwise the callback is only queued once, with {@code rebuildCompleted} true.
      */
-    protected boolean rebuildList(boolean doPostProcessing) {
+    public boolean rebuildList(boolean doPostProcessing) {
         Trace.beginSection("ResolverListAdapter#rebuildList");
         mDisplayList.clear();
         mIsTabLoaded = false;
@@ -456,7 +455,7 @@ public class ResolverListAdapter extends BaseAdapter {
                 throw t;
             } finally {
                 final List<ResolvedComponentInfo> result = sortedComponents;
-                mMainHandler.post(() -> onComponentsSorted(result, doPostProcessing));
+                mCallbackExecutor.execute(() -> onComponentsSorted(result, doPostProcessing));
             }
         });
         return false;
@@ -541,12 +540,12 @@ public class ResolverListAdapter extends BaseAdapter {
     /**
      * Some necessary methods for creating the list are initiated in onCreate and will also
      * determine the layout known. We therefore can't update the UI inline and post to the
-     * handler thread to update after the current task is finished.
+     * callback executor to update after the current task is finished.
      * @param doPostProcessing Whether to update the UI and load additional direct share targets
      *                         after the list has been rebuilt
      * @param rebuildCompleted Whether the list has been completely rebuilt
      */
-    void postListReadyRunnable(boolean doPostProcessing, boolean rebuildCompleted) {
+    public void postListReadyRunnable(boolean doPostProcessing, boolean rebuildCompleted) {
         Runnable listReadyRunnable = new Runnable() {
             @Override
             public void run() {
@@ -557,7 +556,7 @@ public class ResolverListAdapter extends BaseAdapter {
                         doPostProcessing, rebuildCompleted);
             }
         };
-        mMainHandler.post(listReadyRunnable);
+        mCallbackExecutor.execute(listReadyRunnable);
     }
 
     private void addResolveInfoWithAlternates(ResolvedComponentInfo rci) {
@@ -809,7 +808,7 @@ public class ResolverListAdapter extends BaseAdapter {
         return mContext.getDrawable(R.drawable.resolver_icon_placeholder);
     }
 
-    void loadFilteredItemIconTaskAsync(@NonNull ImageView iconView) {
+    public void loadFilteredItemIconTaskAsync(@NonNull ImageView iconView) {
         final DisplayResolveInfo iconInfo = getFilteredItem();
         if (iconInfo != null) {
             mTargetDataLoader.loadAppTargetIcon(
@@ -821,7 +820,7 @@ public class ResolverListAdapter extends BaseAdapter {
         return mUserHandle;
     }
 
-    protected List<ResolvedComponentInfo> getResolversForUser(UserHandle userHandle) {
+    public final List<ResolvedComponentInfo> getResolversForUser(UserHandle userHandle) {
         return mResolverListController.getResolversForIntentAsUser(
                 /* shouldGetResolvedFilter= */ true,
                 mResolverListCommunicator.shouldGetActivityMetadata(),
@@ -830,15 +829,16 @@ public class ResolverListAdapter extends BaseAdapter {
                 userHandle);
     }
 
-    protected List<Intent> getIntents() {
+    public final List<Intent> getIntents() {
+        // TODO: immutable copy?
         return mIntents;
     }
 
-    protected boolean isTabLoaded() {
+    public boolean isTabLoaded() {
         return mIsTabLoaded;
     }
 
-    protected void markTabLoaded() {
+    public void markTabLoaded() {
         mIsTabLoaded = true;
     }
 
@@ -893,7 +893,7 @@ public class ResolverListAdapter extends BaseAdapter {
      * Necessary methods to communicate between {@link ResolverListAdapter}
      * and {@link ResolverActivity}.
      */
-    interface ResolverListCommunicator {
+    public interface ResolverListCommunicator {
 
         Intent getReplacementIntent(ActivityInfo activityInfo, Intent defIntent);
 

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.android.intentresolver;
+package com.android.intentresolver.v2;
 
 import android.content.Context;
 import android.os.UserHandle;
@@ -24,6 +24,8 @@ import android.widget.ListView;
 
 import androidx.viewpager.widget.PagerAdapter;
 
+import com.android.intentresolver.R;
+import com.android.intentresolver.ResolverListAdapter;
 import com.android.intentresolver.emptystate.EmptyStateProvider;
 import com.android.internal.annotations.VisibleForTesting;
 
