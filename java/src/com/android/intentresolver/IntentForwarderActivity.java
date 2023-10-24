@@ -57,8 +57,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import javax.inject.Inject;
-
 /**
  * This is used in conjunction with
  * {@link DevicePolicyManager#addCrossProfileIntentFilter} to enable intents to
@@ -85,11 +83,6 @@ public class IntentForwarderActivity extends Activity  {
 
     private MetricsLogger mMetricsLogger;
     protected ExecutorService mExecutorService;
-
-    @Inject
-    public IntentForwarderActivity() {
-        super();
-    }
 
     @Override
     protected void onDestroy() {
@@ -316,7 +309,7 @@ public class IntentForwarderActivity extends Activity  {
      * Check whether the intent can be forwarded to target user. Return the intent used for
      * forwarding if it can be forwarded, {@code null} otherwise.
      */
-    static Intent canForward(Intent incomingIntent, int sourceUserId, int targetUserId,
+    public static Intent canForward(Intent incomingIntent, int sourceUserId, int targetUserId,
             IPackageManager packageManager, ContentResolver contentResolver)  {
         Intent forwardIntent = new Intent(incomingIntent);
         forwardIntent.addFlags(
