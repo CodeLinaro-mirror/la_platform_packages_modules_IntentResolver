@@ -26,8 +26,6 @@ import static android.stats.devicepolicy.nano.DevicePolicyEnums.RESOLVER_EMPTY_S
 
 import static androidx.lifecycle.LifecycleKt.getCoroutineScope;
 
-import static com.android.intentresolver.v2.ResolverActivity.PROFILE_PERSONAL;
-import static com.android.intentresolver.v2.ResolverActivity.PROFILE_WORK;
 import static com.android.internal.util.LatencyTracker.ACTION_LOAD_SHARE_SHEET;
 
 import android.annotation.IntDef;
@@ -76,9 +74,7 @@ import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.viewpager.widget.ViewPager;
 
-import com.android.intentresolver.ChooserActionFactory;
 import com.android.intentresolver.ChooserGridLayoutManager;
-import com.android.intentresolver.ChooserIntegratedDeviceComponents;
 import com.android.intentresolver.ChooserListAdapter;
 import com.android.intentresolver.ChooserRefinementManager;
 import com.android.intentresolver.ChooserRequestParameters;
@@ -91,7 +87,6 @@ import com.android.intentresolver.R;
 import com.android.intentresolver.ResolverListAdapter;
 import com.android.intentresolver.ResolverListController;
 import com.android.intentresolver.ResolverViewPager;
-import com.android.intentresolver.SecureSettings;
 import com.android.intentresolver.chooser.DisplayResolveInfo;
 import com.android.intentresolver.chooser.MultiDisplayResolveInfo;
 import com.android.intentresolver.chooser.TargetInfo;
@@ -113,11 +108,14 @@ import com.android.intentresolver.model.AppPredictionServiceResolverComparator;
 import com.android.intentresolver.model.ResolverRankerServiceResolverComparator;
 import com.android.intentresolver.shortcuts.AppPredictorFactory;
 import com.android.intentresolver.shortcuts.ShortcutLoader;
-import com.android.intentresolver.v2.Hilt_ChooserActivity;
+import com.android.intentresolver.v2.platform.ImageEditor;
+import com.android.intentresolver.v2.platform.NearbyShare;
 import com.android.intentresolver.widget.ImagePreviewView;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.content.PackageMonitor;
 import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
+
+import dagger.hilt.android.AndroidEntryPoint;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -129,13 +127,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 
 import javax.inject.Inject;
-
-import dagger.hilt.android.AndroidEntryPoint;
 
 /**
  * The Chooser Activity handles intent resolution specifically for sharing intents -
@@ -195,8 +192,8 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
 
     @Inject public FeatureFlags mFeatureFlags;
     @Inject public EventLog mEventLog;
-
-    private ChooserIntegratedDeviceComponents mIntegratedDeviceComponents;
+    @Inject @ImageEditor public Optional<ComponentName> mImageEditor;
+    @Inject @NearbyShare public Optional<ComponentName> mNearbyShare;
 
     /* TODO: this is `nullable` because we have to defer the assignment til onCreate(). We make the
      * only assignment there, and expect it to be ready by the time we ever use it --
@@ -254,6 +251,8 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         Tracer.INSTANCE.markLaunched();
+        super.onCreate(savedInstanceState);
+
         final long intentReceivedTime = System.currentTimeMillis();
         mLatencyTracker.onActionStart(ACTION_LOAD_SHARE_SHEET);
 
@@ -265,7 +264,6 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         } catch (IllegalArgumentException e) {
             Log.e(TAG, "Caller provided invalid Chooser request parameters", e);
             finish();
-            super_onCreate(null);
             return;
         }
         mPinnedSharedPrefs = getPinnedSharedPrefs(this);
@@ -281,9 +279,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                         mChooserRequest.getTargetIntentFilter()),
                 mChooserRequest.getTargetIntentFilter());
 
-
-        super.onCreate(
-                savedInstanceState,
+        init(
                 mChooserRequest.getTargetIntent(),
                 mChooserRequest.getAdditionalTargets(),
                 mChooserRequest.getTitle(),
@@ -295,8 +291,6 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                 /* safeForwardingMode= */ true);
 
         getEventLog().logSharesheetTriggered();
-
-        mIntegratedDeviceComponents = getIntegratedDeviceComponents();
 
         mRefinementManager = new ViewModelProvider(this).get(ChooserRefinementManager.class);
 
@@ -371,11 +365,6 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         );
 
         mEnterTransitionAnimationDelegate.postponeTransition();
-    }
-
-    @VisibleForTesting
-    protected ChooserIntegratedDeviceComponents getIntegratedDeviceComponents() {
-        return ChooserIntegratedDeviceComponents.get(this, new SecureSettings());
     }
 
     @Override
@@ -1291,7 +1280,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         if (appPredictor != null) {
             resolverComparator = new AppPredictionServiceResolverComparator(this, getTargetIntent(),
                     getReferrerPackageName(), appPredictor, userHandle, getEventLog(),
-                    getIntegratedDeviceComponents().getNearbySharingComponent());
+                    mNearbyShare.orElse(null));
         } else {
             resolverComparator =
                     new ResolverRankerServiceResolverComparator(
@@ -1301,7 +1290,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                             null,
                             getEventLog(),
                             getResolverRankerServiceUserHandleList(userHandle),
-                            getIntegratedDeviceComponents().getNearbySharingComponent());
+                            mNearbyShare.orElse(null));
         }
 
         return new ChooserListController(
@@ -1323,7 +1312,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         return new ChooserActionFactory(
                 this,
                 mChooserRequest,
-                mIntegratedDeviceComponents,
+                mImageEditor,
                 getEventLog(),
                 (isExcluded) -> mExcludeSharedText = isExcluded,
                 this::getFirstVisibleImgPreviewView,
@@ -1473,7 +1462,8 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                 rowsToShow--;
             }
         } else {
-            ViewGroup currentEmptyStateView = getActiveEmptyStateView();
+            ViewGroup currentEmptyStateView =
+                    mChooserMultiProfilePagerAdapter.getActiveEmptyStateView();
             if (currentEmptyStateView.getVisibility() == View.VISIBLE) {
                 offset += currentEmptyStateView.getHeight();
             }
@@ -1505,11 +1495,6 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         // We return personal profile, as it is the default when there is no work profile, personal
         // profile represents rootUser, clonedUser & secondaryUser, covering all use cases.
         return PROFILE_PERSONAL;
-    }
-
-    private ViewGroup getActiveEmptyStateView() {
-        int currentPage = mChooserMultiProfilePagerAdapter.getCurrentPage();
-        return mChooserMultiProfilePagerAdapter.getEmptyStateView(currentPage);
     }
 
     @Override // ResolverListCommunicator
@@ -1782,8 +1767,6 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         if (shouldShowTabs()) {
             mChooserMultiProfilePagerAdapter
                     .setEmptyStateBottomOffset(insets.getSystemWindowInsetBottom());
-            mChooserMultiProfilePagerAdapter.setupContainerPadding(
-                    getActiveEmptyStateView().findViewById(com.android.internal.R.id.resolver_empty_state_container));
         }
 
         WindowInsets result = super.onApplyWindowInsets(v, insets);

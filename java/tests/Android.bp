@@ -22,7 +22,10 @@ android_test {
     name: "IntentResolverUnitTests",
     manifest: "AndroidManifest.xml",
     // Include all test java files.
-    srcs: ["src/**/*.java", "src/**/*.kt"],
+    srcs: [
+        "src/**/*.java",
+        "src/**/*.kt",
+    ],
 
     libs: [
         "android.test.runner",
@@ -50,7 +53,8 @@ android_test {
         "kotlinx_coroutines_test",
         "mockito-target-minus-junit4",
         "testables",
-        "truth-prebuilt",
+        "truth",
+        "truth-java8-extension",
         "flag-junit",
         "platform-test-annotations",
     ],
