@@ -57,15 +57,13 @@ public class ChooserWrapperActivity extends ChooserActivity implements IChooserW
     private UsageStatsManager mUsm;
 
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setLogic(new TestChooserActivityLogic(
+    protected final ActivityLogic createActivityLogic() {
+        return new TestChooserActivityLogic(
                         "ChooserWrapper",
-                        () -> this,
+                        /* activity = */ this,
                         this::onWorkProfileStatusUpdated,
-                        () -> mTargetDataLoader,
-                        this::onPreinitialization,
-                        sOverrides));
+                        mTargetDataLoader,
+                        sOverrides);
     }
 
     // ResolverActivity (the base class of ChooserActivity) inspects the launched-from UID at
@@ -107,7 +105,8 @@ public class ChooserWrapperActivity extends ChooserActivity implements IChooserW
                 maxTargetsPerRow,
                 userHandle,
                 targetDataLoader,
-                null);
+                null,
+                mFeatureFlags);
     }
 
     @Override
@@ -117,17 +116,12 @@ public class ChooserWrapperActivity extends ChooserActivity implements IChooserW
 
     @Override
     public ChooserListAdapter getPersonalListAdapter() {
-        return ((ChooserGridAdapter) mMultiProfilePagerAdapter.getAdapterForIndex(0))
-                .getListAdapter();
+        return mChooserMultiProfilePagerAdapter.getPersonalListAdapter();
     }
 
     @Override
     public ChooserListAdapter getWorkListAdapter() {
-        if (mMultiProfilePagerAdapter.getInactiveListAdapter() == null) {
-            return null;
-        }
-        return ((ChooserGridAdapter) mMultiProfilePagerAdapter.getAdapterForIndex(1))
-                .getListAdapter();
+        return mChooserMultiProfilePagerAdapter.getWorkListAdapter();
     }
 
     @Override
@@ -238,7 +232,7 @@ public class ChooserWrapperActivity extends ChooserActivity implements IChooserW
 
     @Override
     public UserHandle getCurrentUserHandle() {
-        return mMultiProfilePagerAdapter.getCurrentUserHandle();
+        return mChooserMultiProfilePagerAdapter.getCurrentUserHandle();
     }
 
     @Override
