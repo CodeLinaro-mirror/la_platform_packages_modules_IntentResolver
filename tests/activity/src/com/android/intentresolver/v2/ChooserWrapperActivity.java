@@ -34,7 +34,6 @@ import android.os.UserHandle;
 import androidx.lifecycle.ViewModelProvider;
 
 import com.android.intentresolver.ChooserListAdapter;
-import com.android.intentresolver.ChooserRequestParameters;
 import com.android.intentresolver.IChooserWrapper;
 import com.android.intentresolver.ResolverListController;
 import com.android.intentresolver.TestContentPreviewViewModel;
@@ -57,16 +56,16 @@ public class ChooserWrapperActivity extends ChooserActivity implements IChooserW
     static final ChooserActivityOverrideData sOverrides = ChooserActivityOverrideData.getInstance();
     private UsageStatsManager mUsm;
 
-    public ChooserWrapperActivity() {
-        super();
-        mLogic = new TestChooserActivityLogic(
-                "ChooserWrapper",
-                () -> this,
-                this::onWorkProfileStatusUpdated,
-                () -> mTargetDataLoader,
-                this::onPreinitialization,
-                sOverrides
-        );
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setLogic(new TestChooserActivityLogic(
+                        "ChooserWrapper",
+                        () -> this,
+                        this::onWorkProfileStatusUpdated,
+                        () -> mTargetDataLoader,
+                        this::onPreinitialization,
+                        sOverrides));
     }
 
     // ResolverActivity (the base class of ChooserActivity) inspects the launched-from UID at
@@ -107,7 +106,8 @@ public class ChooserWrapperActivity extends ChooserActivity implements IChooserW
                 getEventLog(),
                 maxTargetsPerRow,
                 userHandle,
-                targetDataLoader);
+                targetDataLoader,
+                null);
     }
 
     @Override
