@@ -204,6 +204,14 @@ public class MultiProfilePagerAdapter<
         return mCurrentPage;
     }
 
+    public final @Profile int getActiveProfile() {
+        // TODO: here and elsewhere in this class, distinguish between a "profile ID" integer and
+        // its mapped "page index." When we support more than two profiles, this won't be a "stable
+        // mapping" -- some particular profile may not be represented by a "page," but the ones that
+        // are will be assigned contiguous page numbers that skip over the holes.
+        return getCurrentPage();
+    }
+
     @VisibleForTesting
     public UserHandle getCurrentUserHandle() {
         return getActiveListAdapter().getUserHandle();
@@ -329,6 +337,15 @@ public class MultiProfilePagerAdapter<
         return mListAdapterExtractor.apply(getAdapterForIndex(PROFILE_PERSONAL));
     }
 
+    /** @return whether our tab data contains a page for the specified {@code profile} ID. */
+    public final boolean hasPageForProfile(@Profile int profile) {
+        // TODO: here and elsewhere in this class, distinguish between a "profile ID" integer and
+        // its mapped "page index." When we support more than two profiles, this won't be a "stable
+        // mapping" -- some particular profile may not be represented by a "page," but the ones that
+        // are will be assigned contiguous page numbers that skip over the holes.
+        return hasAdapterForIndex(profile);
+    }
+
     @Nullable
     public final ListAdapterT getWorkListAdapter() {
         if (!hasAdapterForIndex(PROFILE_WORK)) {
@@ -353,6 +370,88 @@ public class MultiProfilePagerAdapter<
         return getListViewForIndex(1 - getCurrentPage());
     }
 
+    private boolean anyAdapterHasItems() {
+        for (int i = 0; i < mItems.size(); ++i) {
+            ListAdapterT listAdapter = mListAdapterExtractor.apply(getAdapterForIndex(i));
+            if (listAdapter.getCount() > 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public void refreshPackagesInAllTabs() {
+        // TODO: handle all inactive profiles; for now we can only have at most one. It's unclear if
+        // this legacy logic really requires the active tab to be rebuilt first, or if we could just
+        // iterate over the tabs in arbitrary order.
+        getActiveListAdapter().handlePackagesChanged();
+        if (getCount() > 1) {
+            getInactiveListAdapter().handlePackagesChanged();
+        }
+    }
+
+    /**
+     * Notify that there has been a package change which could potentially modify the set of targets
+     * that should be shown in the specified {@code listAdapter}. This <em>may</em> result in
+     * "rebuilding" the target list for that adapter.
+     *
+     * @param listAdapter an adapter that may need to be updated after the package-change event.
+     * @param waitingToEnableWorkProfile whether we've turned on the work profile, but haven't yet
+     * seen an {@code ACTION_USER_UNLOCKED} broadcast. In this case we skip the rebuild of any
+     * work-profile adapter because we wouldn't expect meaningful results -- but another rebuild
+     * will be prompted when we eventually get the broadcast.
+     *
+     * @return whether we're able to proceed with a Sharesheet session after processing this
+     * package-change event. If false, we were able to rebuild the targets but determined that there
+     * aren't any we could present in the UI without the app looking broken, so we should just quit.
+     */
+    public boolean onHandlePackagesChanged(
+            ListAdapterT listAdapter, boolean waitingToEnableWorkProfile) {
+        if (listAdapter == getActiveListAdapter()) {
+            if (listAdapter.getUserHandle().equals(mWorkProfileUserHandle)
+                    && waitingToEnableWorkProfile) {
+                // We have just turned on the work profile and entered the passcode to start it,
+                // now we are waiting to receive the ACTION_USER_UNLOCKED broadcast. There is no
+                // point in reloading the list now, since the work profile user is still turning on.
+                return true;
+            }
+
+            boolean listRebuilt = rebuildActiveTab(true);
+            if (listRebuilt) {
+                listAdapter.notifyDataSetChanged();
+            }
+
+            // TODO: shouldn't we check that the inactive tabs are built before declaring that we
+            // have to quit for lack of items?
+            return anyAdapterHasItems();
+        } else {
+            clearInactiveProfileCache();
+            return true;
+        }
+    }
+
+    /**
+     * Fully-rebuild the active tab and, if specified, partially-rebuild any other inactive tabs.
+     */
+    public boolean rebuildTabs(boolean includePartialRebuildOfInactiveTabs) {
+        // TODO: we may be able to determine `includePartialRebuildOfInactiveTabs` ourselves as
+        // a function of our own instance state. OTOH the purpose of this "partial rebuild" is to
+        // be able to evaluate the intermediate state of one particular profile tab (i.e. work
+        // profile) that may not generalize well when we have other "inactive tabs." I.e., either we
+        // rebuild *all* the inactive tabs just to evaluate some auto-launch conditions that only
+        // depend on personal and/or work tabs, or we have to explicitly specify the ones we care
+        // about. It's not the pager-adapter's business to know "which ones we care about," so maybe
+        // they should be rebuilt lazily when-and-if it comes up (e.g. during the evaluation of
+        // autolaunch conditions).
+        boolean rebuildCompleted = rebuildActiveTab(true) || getActiveListAdapter().isTabLoaded();
+        if (includePartialRebuildOfInactiveTabs) {
+            boolean rebuildInactiveCompleted =
+                    rebuildInactiveTab(false) || getInactiveListAdapter().isTabLoaded();
+            rebuildCompleted = rebuildCompleted && rebuildInactiveCompleted;
+        }
+        return rebuildCompleted;
+    }
+
     /**
      * Rebuilds the tab that is currently visible to the user.
      * <p>Returns {@code true} if rebuild has completed.
@@ -368,7 +467,7 @@ public class MultiProfilePagerAdapter<
      * Rebuilds the tab that is not currently visible to the user, if such one exists.
      * <p>Returns {@code true} if rebuild has completed.
      */
-    public final boolean rebuildInactiveTab(boolean doPostProcessing) {
+    private boolean rebuildInactiveTab(boolean doPostProcessing) {
         Trace.beginSection("MultiProfilePagerAdapter#rebuildInactiveTab");
         if (getItemCount() == 1) {
             Trace.endSection();
@@ -475,6 +574,18 @@ public class MultiProfilePagerAdapter<
         ProfileDescriptor<PageViewT, SinglePageAdapterT> descriptor = getItem(
                 userHandleToPageIndex(activeListAdapter.getUserHandle()));
         descriptor.mEmptyStateUi.hide();
+    }
+
+    /**
+     * @return whether any "inactive" tab's adapter would show an empty-state screen in our current
+     * application state.
+     */
+    public final boolean shouldShowEmptyStateScreenInAnyInactiveAdapter() {
+        if (getCount() < 2) {
+            return false;
+        }
+        // TODO: check against *any* inactive adapter; for now we only have one.
+        return shouldShowEmptyStateScreen(getInactiveListAdapter());
     }
 
     public boolean shouldShowEmptyStateScreen(ListAdapterT listAdapter) {

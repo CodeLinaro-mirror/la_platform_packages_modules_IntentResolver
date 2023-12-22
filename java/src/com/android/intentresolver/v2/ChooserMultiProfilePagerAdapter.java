@@ -154,11 +154,26 @@ public class ChooserMultiProfilePagerAdapter extends MultiProfilePagerAdapter<
     }
 
     @Override
+    public boolean onHandlePackagesChanged(
+            ChooserListAdapter listAdapter, boolean waitingToEnableWorkProfile) {
+        // TODO: why do we need to do the extra `notifyDataSetChanged()` in (only) the Chooser case?
+        getActiveListAdapter().notifyDataSetChanged();
+        return super.onHandlePackagesChanged(listAdapter, waitingToEnableWorkProfile);
+    }
+
+    @Override
     protected final boolean rebuildTab(ChooserListAdapter listAdapter, boolean doPostProcessing) {
         if (doPostProcessing) {
             Tracer.INSTANCE.beginAppTargetLoadingSection(listAdapter.getUserHandle());
         }
         return super.rebuildTab(listAdapter, doPostProcessing);
+    }
+
+    /** Apply the specified {@code height} as the footer in each tab's adapter. */
+    public void setFooterHeightInEveryAdapter(int height) {
+        for (int i = 0; i < getItemCount(); ++i) {
+            getAdapterForIndex(i).setFooterHeight(height);
+        }
     }
 
     private static class BottomPaddingOverrideSupplier implements Supplier<Optional<Integer>> {
