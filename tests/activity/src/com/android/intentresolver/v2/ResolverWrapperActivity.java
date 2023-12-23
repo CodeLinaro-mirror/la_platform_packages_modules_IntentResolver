@@ -60,22 +60,17 @@ public class ResolverWrapperActivity extends ResolverActivity {
     private final CountingIdlingResource mLabelIdlingResource =
             new CountingIdlingResource("LoadLabelTask");
 
-    public ResolverWrapperActivity() {
-        super(/* isIntentPicker= */ true);
-    }
-
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setLogic(new TestResolverActivityLogic(
+    protected final ActivityLogic createActivityLogic() {
+        return new TestResolverActivityLogic(
                 "ResolverWrapper",
-                () -> this,
+                this,
                 () -> {
                     onWorkProfileStatusUpdated();
                     return Unit.INSTANCE;
                 },
                 sOverrides
-        ));
+        );
     }
 
     public CountingIdlingResource getLabelIdlingResource() {
@@ -118,14 +113,11 @@ public class ResolverWrapperActivity extends ResolverActivity {
     }
 
     ResolverListAdapter getPersonalListAdapter() {
-        return ((ResolverListAdapter) mMultiProfilePagerAdapter.getAdapterForIndex(0));
+        return mMultiProfilePagerAdapter.getPersonalListAdapter();
     }
 
     ResolverListAdapter getWorkListAdapter() {
-        if (mMultiProfilePagerAdapter.getInactiveListAdapter() == null) {
-            return null;
-        }
-        return ((ResolverListAdapter) mMultiProfilePagerAdapter.getAdapterForIndex(1));
+        return mMultiProfilePagerAdapter.getWorkListAdapter();
     }
 
     @Override
