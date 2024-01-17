@@ -32,7 +32,6 @@ import com.android.intentresolver.R;
 import com.android.intentresolver.emptystate.EmptyStateProvider;
 import com.android.intentresolver.grid.ChooserGridAdapter;
 import com.android.intentresolver.measurements.Tracer;
-import com.android.internal.annotations.VisibleForTesting;
 
 import com.google.common.collect.ImmutableList;
 
@@ -42,7 +41,6 @@ import java.util.function.Supplier;
 /**
  * A {@link PagerAdapter} which describes the work and personal profile share sheet screens.
  */
-@VisibleForTesting
 public class ChooserMultiProfilePagerAdapter extends MultiProfilePagerAdapter<
         RecyclerView, ChooserGridAdapter, ChooserListAdapter> {
     private static final int SINGLE_CELL_SPAN_SIZE = 1;
@@ -154,19 +152,26 @@ public class ChooserMultiProfilePagerAdapter extends MultiProfilePagerAdapter<
     }
 
     @Override
-    public boolean rebuildActiveTab(boolean doPostProcessing) {
-        if (doPostProcessing) {
-            Tracer.INSTANCE.beginAppTargetLoadingSection(getActiveListAdapter().getUserHandle());
-        }
-        return super.rebuildActiveTab(doPostProcessing);
+    public boolean onHandlePackagesChanged(
+            ChooserListAdapter listAdapter, boolean waitingToEnableWorkProfile) {
+        // TODO: why do we need to do the extra `notifyDataSetChanged()` in (only) the Chooser case?
+        getActiveListAdapter().notifyDataSetChanged();
+        return super.onHandlePackagesChanged(listAdapter, waitingToEnableWorkProfile);
     }
 
     @Override
-    public boolean rebuildInactiveTab(boolean doPostProcessing) {
-        if (getItemCount() != 1 && doPostProcessing) {
-            Tracer.INSTANCE.beginAppTargetLoadingSection(getInactiveListAdapter().getUserHandle());
+    protected final boolean rebuildTab(ChooserListAdapter listAdapter, boolean doPostProcessing) {
+        if (doPostProcessing) {
+            Tracer.INSTANCE.beginAppTargetLoadingSection(listAdapter.getUserHandle());
         }
-        return super.rebuildInactiveTab(doPostProcessing);
+        return super.rebuildTab(listAdapter, doPostProcessing);
+    }
+
+    /** Apply the specified {@code height} as the footer in each tab's adapter. */
+    public void setFooterHeightInEveryAdapter(int height) {
+        for (int i = 0; i < getItemCount(); ++i) {
+            getAdapterForIndex(i).setFooterHeight(height);
+        }
     }
 
     private static class BottomPaddingOverrideSupplier implements Supplier<Optional<Integer>> {
@@ -181,6 +186,7 @@ public class ChooserMultiProfilePagerAdapter extends MultiProfilePagerAdapter<
             mBottomOffset = bottomOffset;
         }
 
+        @Override
         public Optional<Integer> get() {
             int initialBottomPadding = mContext.getResources().getDimensionPixelSize(
                     R.dimen.resolver_empty_state_container_padding_bottom);

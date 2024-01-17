@@ -16,7 +16,6 @@
 
 package com.android.intentresolver.v2;
 
-import android.annotation.Nullable;
 import android.app.Activity;
 import android.app.ActivityOptions;
 import android.app.PendingIntent;
@@ -34,7 +33,8 @@ import android.text.TextUtils;
 import android.util.Log;
 import android.view.View;
 
-import com.android.intentresolver.ChooserRequestParameters;
+import androidx.annotation.Nullable;
+
 import com.android.intentresolver.R;
 import com.android.intentresolver.chooser.DisplayResolveInfo;
 import com.android.intentresolver.chooser.TargetInfo;
@@ -55,6 +55,7 @@ import java.util.function.Consumer;
  * Implementation of {@link ChooserContentPreviewUi.ActionFactory} specialized to the application
  * requirements of Sharesheet / {@link ChooserActivity}.
  */
+@SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public final class ChooserActionFactory implements ChooserContentPreviewUi.ActionFactory {
     /**
      * Delegate interface to launch activities when the actions are selected.
@@ -107,7 +108,6 @@ public final class ChooserActionFactory implements ChooserContentPreviewUi.Actio
 
     /**
      * @param context
-     * @param chooserRequest data about the invocation of the current Sharesheet session.
      * @param imageEditor an explicit Activity to launch for editing images
      * @param onUpdateSharedTextIsExcluded a delegate to be invoked when the "exclude shared text"
      * setting is updated. The argument is whether the shared text is to be excluded.
@@ -119,7 +119,10 @@ public final class ChooserActionFactory implements ChooserContentPreviewUi.Actio
      */
     public ChooserActionFactory(
             Context context,
-            ChooserRequestParameters chooserRequest,
+            Intent targetIntent,
+            String referrerPackageName,
+            List<ChooserAction> chooserActions,
+            ChooserAction modifyShareAction,
             Optional<ComponentName> imageEditor,
             EventLog log,
             Consumer<Boolean> onUpdateSharedTextIsExcluded,
@@ -130,20 +133,20 @@ public final class ChooserActionFactory implements ChooserContentPreviewUi.Actio
                 context,
                 makeCopyButtonRunnable(
                         context,
-                        chooserRequest.getTargetIntent(),
-                        chooserRequest.getReferrerPackageName(),
+                        targetIntent,
+                        referrerPackageName,
                         finishCallback,
                         log),
                 makeEditButtonRunnable(
                         getEditSharingTarget(
                                 context,
-                                chooserRequest.getTargetIntent(),
+                                targetIntent,
                                 imageEditor),
                         firstVisibleImageQuery,
                         activityStarter,
                         log),
-                chooserRequest.getChooserActions(),
-                chooserRequest.getModifyShareAction(),
+                chooserActions,
+                modifyShareAction,
                 onUpdateSharedTextIsExcluded,
                 log,
                 finishCallback);

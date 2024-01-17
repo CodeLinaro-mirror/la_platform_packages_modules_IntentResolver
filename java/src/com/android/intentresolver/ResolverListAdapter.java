@@ -16,8 +16,6 @@
 
 package com.android.intentresolver;
 
-import android.annotation.NonNull;
-import android.annotation.Nullable;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
@@ -43,6 +41,8 @@ import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.annotation.MainThread;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.annotation.WorkerThread;
 
 import com.android.intentresolver.chooser.DisplayResolveInfo;
@@ -158,6 +158,10 @@ public class ResolverListAdapter extends BaseAdapter {
         mInitialIntentsUserSpace = initialIntentsUserSpace;
         mBgExecutor = bgExecutor;
         mCallbackExecutor = callbackExecutor;
+    }
+
+    protected Intent getTargetIntent() {
+        return mTargetIntent;
     }
 
     public final DisplayResolveInfo getFirstDisplayResolveInfo() {
@@ -472,9 +476,6 @@ public class ResolverListAdapter extends BaseAdapter {
             @Nullable List<ResolvedComponentInfo> sortedComponents, boolean doPostProcessing) {
         processSortedList(sortedComponents, doPostProcessing);
         notifyDataSetChanged();
-        if (doPostProcessing) {
-            mResolverListCommunicator.updateProfileViewButton();
-        }
     }
 
     protected void processSortedList(
@@ -646,6 +647,7 @@ public class ResolverListAdapter extends BaseAdapter {
         return null;
     }
 
+    @Override
     public int getCount() {
         int totalSize = mDisplayList == null || mDisplayList.isEmpty() ? mPlaceholderCount :
                 mDisplayList.size();
@@ -659,6 +661,7 @@ public class ResolverListAdapter extends BaseAdapter {
         return mDisplayList.size();
     }
 
+    @Override
     @Nullable
     public TargetInfo getItem(int position) {
         if (mFilterLastUsed && mLastChosenPosition >= 0 && position >= mLastChosenPosition) {
@@ -671,6 +674,7 @@ public class ResolverListAdapter extends BaseAdapter {
         }
     }
 
+    @Override
     public long getItemId(int position) {
         return position;
     }
@@ -688,6 +692,7 @@ public class ResolverListAdapter extends BaseAdapter {
         return mDisplayList.get(index);
     }
 
+    @Override
     public final View getView(int position, View convertView, ViewGroup parent) {
         View view = convertView;
         if (view == null) {
@@ -748,9 +753,7 @@ public class ResolverListAdapter extends BaseAdapter {
     }
 
     private void onIconLoaded(DisplayResolveInfo displayResolveInfo, Drawable drawable) {
-        if (getOtherProfile() == displayResolveInfo) {
-            mResolverListCommunicator.updateProfileViewButton();
-        } else if (!displayResolveInfo.hasDisplayIcon()) {
+        if (!displayResolveInfo.hasDisplayIcon()) {
             displayResolveInfo.getDisplayIconHolder().setDisplayIcon(drawable);
             notifyDataSetChanged();
         }
@@ -898,14 +901,18 @@ public class ResolverListAdapter extends BaseAdapter {
 
         Intent getReplacementIntent(ActivityInfo activityInfo, Intent defIntent);
 
+        // ResolverListCommunicator
+        default void updateProfileViewButton() {
+        }
+
         void onPostListReady(ResolverListAdapter listAdapter, boolean updateUi,
                 boolean rebuildCompleted);
 
         void sendVoiceChoicesIfNeeded();
 
-        void updateProfileViewButton();
-
-        boolean useLayoutWithDefault();
+        default boolean useLayoutWithDefault() {
+            return false;
+        }
 
         boolean shouldGetActivityMetadata();
 
@@ -913,7 +920,9 @@ public class ResolverListAdapter extends BaseAdapter {
          * @return true to filter only apps that can handle
          *     {@link android.content.Intent#CATEGORY_DEFAULT} intents
          */
-        default boolean shouldGetOnlyDefaultActivities() { return true; };
+        default boolean shouldGetOnlyDefaultActivities() {
+            return true;
+        }
 
         void onHandlePackagesChanged(ResolverListAdapter listAdapter);
     }
@@ -925,7 +934,7 @@ public class ResolverListAdapter extends BaseAdapter {
     @VisibleForTesting
     public static class ViewHolder {
         public View itemView;
-        public Drawable defaultItemViewBackground;
+        public final Drawable defaultItemViewBackground;
 
         public TextView text;
         public TextView text2;
@@ -935,8 +944,6 @@ public class ResolverListAdapter extends BaseAdapter {
             text.setText("");
             text.setMaxLines(2);
             text.setMaxWidth(Integer.MAX_VALUE);
-            text.setBackground(null);
-            text.setPaddingRelative(0, 0, 0, 0);
 
             text2.setVisibility(View.GONE);
             text2.setText("");
@@ -977,10 +984,6 @@ public class ResolverListAdapter extends BaseAdapter {
             itemView.setContentDescription(null);
         }
 
-        public void updateContentDescription(String description) {
-            itemView.setContentDescription(description);
-        }
-
         /**
          * Bind view holder to a TargetInfo.
          */
@@ -992,20 +995,6 @@ public class ResolverListAdapter extends BaseAdapter {
             } else {
                 icon.setColorFilter(null);
             }
-        }
-
-        public void bindPlaceholder() {
-            itemView.setBackground(null);
-        }
-
-        public void bindGroupIndicator(Drawable indicator) {
-            text.setPaddingRelative(0, 0, /*end = */indicator.getIntrinsicWidth(), 0);
-            text.setBackground(indicator);
-        }
-
-        public void bindPinnedIndicator(Drawable indicator) {
-            text.setPaddingRelative(/*start = */indicator.getIntrinsicWidth(), 0, 0, 0);
-            text.setBackground(indicator);
         }
     }
 }

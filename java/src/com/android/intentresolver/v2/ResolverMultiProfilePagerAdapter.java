@@ -37,7 +37,6 @@ import java.util.function.Supplier;
 /**
  * A {@link PagerAdapter} which describes the work and personal profile intent resolver screens.
  */
-@VisibleForTesting
 public class ResolverMultiProfilePagerAdapter extends
         MultiProfilePagerAdapter<ListView, ResolverListAdapter, ResolverListAdapter> {
     private final BottomPaddingOverrideSupplier mBottomPaddingOverrideSupplier;
@@ -105,6 +104,17 @@ public class ResolverMultiProfilePagerAdapter extends
 
     public void setUseLayoutWithDefault(boolean useLayoutWithDefault) {
         mBottomPaddingOverrideSupplier.setUseLayoutWithDefault(useLayoutWithDefault);
+    }
+
+    /** Un-check any item(s) that may be checked in any of our inactive adapter(s). */
+    public void clearCheckedItemsInInactiveProfiles() {
+        // TODO: The "inactive" condition is legacy logic. Could we simplify and clear-all?
+        forEachInactivePage(pageNumber -> {
+            ListView inactiveListView = getListViewForIndex(pageNumber);
+            if (inactiveListView.getCheckedItemCount() > 0) {
+                inactiveListView.setItemChecked(inactiveListView.getCheckedItemPosition(), false);
+            }
+        });
     }
 
     private static class BottomPaddingOverrideSupplier implements Supplier<Optional<Integer>> {
