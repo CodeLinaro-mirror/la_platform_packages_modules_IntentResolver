@@ -16,7 +16,6 @@
 
 package com.android.intentresolver.v2;
 
-import static android.Manifest.permission.INTERACT_ACROSS_PROFILES;
 import static android.app.VoiceInteractor.PickOptionRequest.Option;
 import static android.app.admin.DevicePolicyResources.Strings.Core.RESOLVER_CANT_ACCESS_PERSONAL;
 import static android.app.admin.DevicePolicyResources.Strings.Core.RESOLVER_CANT_ACCESS_WORK;
@@ -24,7 +23,6 @@ import static android.app.admin.DevicePolicyResources.Strings.Core.RESOLVER_CANT
 import static android.app.admin.DevicePolicyResources.Strings.Core.RESOLVER_CANT_SHARE_WITH_WORK;
 import static android.app.admin.DevicePolicyResources.Strings.Core.RESOLVER_CROSS_PROFILE_BLOCKED_TITLE;
 import static android.content.Intent.FLAG_ACTIVITY_NEW_TASK;
-import static android.content.PermissionChecker.PID_UNKNOWN;
 import static android.stats.devicepolicy.nano.DevicePolicyEnums.RESOLVER_EMPTY_STATE_NO_SHARING_TO_PERSONAL;
 import static android.stats.devicepolicy.nano.DevicePolicyEnums.RESOLVER_EMPTY_STATE_NO_SHARING_TO_WORK;
 import static android.view.WindowManager.LayoutParams.SYSTEM_FLAG_HIDE_NON_SYSTEM_OVERLAY_WINDOWS;
@@ -54,7 +52,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.IntentSender;
-import android.content.PermissionChecker;
 import android.content.SharedPreferences;
 import android.content.pm.ActivityInfo;
 import android.content.pm.ApplicationInfo;
@@ -113,10 +110,12 @@ import com.android.intentresolver.ChooserTargetActionsDialogFragment;
 import com.android.intentresolver.EnterTransitionAnimationDelegate;
 import com.android.intentresolver.FeatureFlags;
 import com.android.intentresolver.IntentForwarderActivity;
+import com.android.intentresolver.PackagesChangedListener;
 import com.android.intentresolver.R;
 import com.android.intentresolver.ResolverListAdapter;
 import com.android.intentresolver.ResolverListController;
 import com.android.intentresolver.ResolverViewPager;
+import com.android.intentresolver.StartsSelectedItem;
 import com.android.intentresolver.WorkProfileAvailabilityManager;
 import com.android.intentresolver.chooser.DisplayResolveInfo;
 import com.android.intentresolver.chooser.MultiDisplayResolveInfo;
@@ -184,7 +183,7 @@ import javax.inject.Inject;
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @AndroidEntryPoint(FragmentActivity.class)
 public class ChooserActivity extends Hilt_ChooserActivity implements
-        ResolverListAdapter.ResolverListCommunicator {
+        ResolverListAdapter.ResolverListCommunicator, PackagesChangedListener, StartsSelectedItem {
     private static final String TAG = "ChooserActivity";
 
     /**
@@ -266,6 +265,8 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
     @Inject @NearbyShare public Optional<ComponentName> mNearbyShare;
     @Inject public TargetDataLoader mTargetDataLoader;
     @Inject public DevicePolicyResources mDevicePolicyResources;
+    @Inject public PackageManager mPackageManager;
+    @Inject public IntentForwarding mIntentForwarding;
 
     private ChooserRefinementManager mRefinementManager;
 
@@ -316,8 +317,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         return new ChooserActivityLogic(
                 TAG,
                 /* activity = */ this,
-                this::onWorkProfileStatusUpdated,
-                mTargetDataLoader);
+                this::onWorkProfileStatusUpdated);
     }
 
     @Override
@@ -364,7 +364,6 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
 
         Intent intent = mLogic.getTargetIntent();
         List<Intent> initialIntents = mLogic.getInitialIntents();
-        TargetDataLoader targetDataLoader = mLogic.getTargetDataLoader();
 
         // Calling UID did not have valid permissions
         if (mLogic.getAnnotatedUserHandles() == null) {
@@ -375,10 +374,9 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         mChooserMultiProfilePagerAdapter = createMultiProfilePagerAdapter(
                 requireNonNullElse(initialIntents, emptyList()).toArray(new Intent[0]),
                 /* resolutionList = */ null,
-                false,
-                targetDataLoader
+                false
         );
-        if (!configureContentView(targetDataLoader)) {
+        if (!configureContentView(mTargetDataLoader)) {
             mPersonalPackageMonitor = createPackageMonitor(
                     mChooserMultiProfilePagerAdapter.getPersonalListAdapter());
             mPersonalPackageMonitor.register(
@@ -408,7 +406,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                     }
                 });
 
-                boolean hasTouchScreen = getPackageManager()
+                boolean hasTouchScreen = mPackageManager
                         .hasSystemFeature(PackageManager.FEATURE_TOUCHSCREEN);
 
                 if (isVoiceInteraction() || !hasTouchScreen) {
@@ -550,51 +548,6 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         return false;
     }
 
-    private int isPermissionGranted(String permission, int uid) {
-        return ActivityManager.checkComponentPermission(permission, uid,
-                /* owningUid= */-1, /* exported= */ true);
-    }
-
-    /**
-     * Returns whether the package has the necessary permissions to interact across profiles on
-     * behalf of a given user.
-     *
-     * <p>This means meeting the following condition:
-     * <ul>
-     *     <li>The app's {@link ApplicationInfo#crossProfile} flag must be true, and at least
-     *     one of the following conditions must be fulfilled</li>
-     *     <li>{@code Manifest.permission.INTERACT_ACROSS_USERS_FULL} granted.</li>
-     *     <li>{@code Manifest.permission.INTERACT_ACROSS_USERS} granted.</li>
-     *     <li>{@code Manifest.permission.INTERACT_ACROSS_PROFILES} granted, or the corresponding
-     *     AppOps {@code android:interact_across_profiles} is set to "allow".</li>
-     * </ul>
-     *
-     */
-    private boolean canAppInteractCrossProfiles(String packageName) {
-        ApplicationInfo applicationInfo;
-        try {
-            applicationInfo = getPackageManager().getApplicationInfo(packageName, 0);
-        } catch (PackageManager.NameNotFoundException e) {
-            Log.e(TAG, "Package " + packageName + " does not exist on current user.");
-            return false;
-        }
-        if (!applicationInfo.crossProfile) {
-            return false;
-        }
-
-        int packageUid = applicationInfo.uid;
-
-        if (isPermissionGranted(android.Manifest.permission.INTERACT_ACROSS_USERS_FULL,
-                packageUid) == PackageManager.PERMISSION_GRANTED) {
-            return true;
-        }
-        if (isPermissionGranted(android.Manifest.permission.INTERACT_ACROSS_USERS, packageUid)
-                == PackageManager.PERMISSION_GRANTED) {
-            return true;
-        }
-        return PermissionChecker.checkPermissionForPreflight(this, INTERACT_ACROSS_PROFILES,
-                PID_UNKNOWN, packageUid, packageName) == PackageManager.PERMISSION_GRANTED;
-    }
 
     private boolean isTwoPagePersonalAndWorkConfiguration() {
         return (mChooserMultiProfilePagerAdapter.getCount() == 2)
@@ -646,7 +599,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         }
 
         String packageName = activeProfileTarget.getResolvedComponentName().getPackageName();
-        if (!canAppInteractCrossProfiles(packageName)) {
+        if (!mIntentForwarding.canAppInteractAcrossProfiles(this, packageName)) {
             return false;
         }
 
@@ -703,7 +656,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
 
     private CharSequence getOrLoadDisplayLabel(TargetInfo info) {
         if (info.isDisplayResolveInfo()) {
-            mLogic.getTargetDataLoader().getOrLoadLabel((DisplayResolveInfo) info);
+            mTargetDataLoader.getOrLoadLabel((DisplayResolveInfo) info);
         }
         CharSequence displayLabel = info.getDisplayLabel();
         return displayLabel == null ? "" : displayLabel;
@@ -846,7 +799,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         }
         // If needed, show that intent is forwarded
         // from managed profile to owner or other way around.
-        String profileSwitchMessage = mLogic.forwardMessageFor(mLogic.getTargetIntent());
+        String profileSwitchMessage = mIntentForwarding.forwardMessageFor(mLogic.getTargetIntent());
         if (profileSwitchMessage != null) {
             Toast.makeText(this, profileSwitchMessage, Toast.LENGTH_LONG).show();
         }
@@ -931,7 +884,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
 
     private boolean supportsManagedProfiles(ResolveInfo resolveInfo) {
         try {
-            ApplicationInfo appInfo = getPackageManager().getApplicationInfo(
+            ApplicationInfo appInfo = mPackageManager.getApplicationInfo(
                     resolveInfo.activityInfo.packageName, 0 /* default flags */);
             return appInfo.targetSdkVersion >= Build.VERSION_CODES.LOLLIPOP;
         } catch (PackageManager.NameNotFoundException e) {
@@ -1165,12 +1118,6 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                 viewPager,
                 R.layout.resolver_profile_tab_button,
                 com.android.internal.R.id.profile_pager,
-                mDevicePolicyResources.getPersonalTabLabel(),
-                mDevicePolicyResources.getPersonalTabAccessibilityLabel(),
-                TAB_TAG_PERSONAL,
-                mDevicePolicyResources.getWorkTabLabel(),
-                mDevicePolicyResources.getWorkTabAccessibilityLabel(),
-                TAB_TAG_WORK,
                 () -> onProfileTabSelected(viewPager.getCurrentItem()),
                 new MultiProfilePagerAdapter.OnProfileSelectedListener() {
                     @Override
@@ -1275,14 +1222,13 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
     protected ChooserMultiProfilePagerAdapter createMultiProfilePagerAdapter(
             Intent[] initialIntents,
             List<ResolveInfo> rList,
-            boolean filterLastUsed,
-            TargetDataLoader targetDataLoader) {
+            boolean filterLastUsed) {
         if (hasWorkProfile()) {
             mChooserMultiProfilePagerAdapter = createChooserMultiProfilePagerAdapterForTwoProfiles(
-                    initialIntents, rList, filterLastUsed, targetDataLoader);
+                    initialIntents, rList, filterLastUsed);
         } else {
             mChooserMultiProfilePagerAdapter = createChooserMultiProfilePagerAdapterForOneProfile(
-                    initialIntents, rList, filterLastUsed, targetDataLoader);
+                    initialIntents, rList, filterLastUsed);
         }
         return mChooserMultiProfilePagerAdapter;
     }
@@ -1327,18 +1273,20 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
     private ChooserMultiProfilePagerAdapter createChooserMultiProfilePagerAdapterForOneProfile(
             Intent[] initialIntents,
             List<ResolveInfo> rList,
-            boolean filterLastUsed,
-            TargetDataLoader targetDataLoader) {
+            boolean filterLastUsed) {
         ChooserGridAdapter adapter = createChooserGridAdapter(
                 /* context */ this,
                 mLogic.getPayloadIntents(),
                 initialIntents,
                 rList,
                 filterLastUsed,
-                /* userHandle */ requireAnnotatedUserHandles().personalProfileUserHandle,
-                targetDataLoader);
+                /* userHandle */ requireAnnotatedUserHandles().personalProfileUserHandle
+        );
         return new ChooserMultiProfilePagerAdapter(
                 /* context */ this,
+                mDevicePolicyResources.getPersonalTabLabel(),
+                mDevicePolicyResources.getPersonalTabAccessibilityLabel(),
+                TAB_TAG_PERSONAL,
                 adapter,
                 createEmptyStateProvider(/* workProfileUserHandle= */ null),
                 /* workProfileQuietModeChecker= */ () -> false,
@@ -1351,8 +1299,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
     private ChooserMultiProfilePagerAdapter createChooserMultiProfilePagerAdapterForTwoProfiles(
             Intent[] initialIntents,
             List<ResolveInfo> rList,
-            boolean filterLastUsed,
-            TargetDataLoader targetDataLoader) {
+            boolean filterLastUsed) {
         int selectedProfile = findSelectedProfile();
         ChooserGridAdapter personalAdapter = createChooserGridAdapter(
                 /* context */ this,
@@ -1360,19 +1307,25 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                 selectedProfile == PROFILE_PERSONAL ? initialIntents : null,
                 rList,
                 filterLastUsed,
-                /* userHandle */ requireAnnotatedUserHandles().personalProfileUserHandle,
-                targetDataLoader);
+                /* userHandle */ requireAnnotatedUserHandles().personalProfileUserHandle
+        );
         ChooserGridAdapter workAdapter = createChooserGridAdapter(
                 /* context */ this,
                 mLogic.getPayloadIntents(),
                 selectedProfile == PROFILE_WORK ? initialIntents : null,
                 rList,
                 filterLastUsed,
-                /* userHandle */ requireAnnotatedUserHandles().workProfileUserHandle,
-                targetDataLoader);
+                /* userHandle */ requireAnnotatedUserHandles().workProfileUserHandle
+        );
         return new ChooserMultiProfilePagerAdapter(
                 /* context */ this,
+                mDevicePolicyResources.getPersonalTabLabel(),
+                mDevicePolicyResources.getPersonalTabAccessibilityLabel(),
+                TAB_TAG_PERSONAL,
                 personalAdapter,
+                mDevicePolicyResources.getWorkTabLabel(),
+                mDevicePolicyResources.getWorkTabAccessibilityLabel(),
+                TAB_TAG_WORK,
                 workAdapter,
                 createEmptyStateProvider(requireAnnotatedUserHandles().workProfileUserHandle),
                 () -> mLogic.getWorkProfileAvailabilityManager().isQuietModeEnabled(),
@@ -1410,6 +1363,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
     /**
      * Update UI to reflect changes in data.
      */
+    @Override
     public void handlePackagesChanged() {
         handlePackagesChanged(/* listAdapter */ null);
     }
@@ -1718,7 +1672,8 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         return !target.isSuspended();
     }
 
-    public void startSelected(int which, boolean filtered) {
+    @Override
+    public void startSelected(int which, /* unused */ boolean always, boolean filtered) {
         ChooserListAdapter currentListAdapter =
                 mChooserMultiProfilePagerAdapter.getActiveListAdapter();
         TargetInfo targetInfo = currentListAdapter
@@ -1999,8 +1954,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
             Intent[] initialIntents,
             List<ResolveInfo> rList,
             boolean filterLastUsed,
-            UserHandle userHandle,
-            TargetDataLoader targetDataLoader) {
+            UserHandle userHandle) {
         ChooserRequestParameters parameters = requireChooserRequest();
         ChooserListAdapter chooserListAdapter = createChooserListAdapter(
                 context,
@@ -2012,8 +1966,8 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                 userHandle,
                 mLogic.getTargetIntent(),
                 parameters.getReferrerFillInIntent(),
-                mMaxTargetsPerRow,
-                targetDataLoader);
+                mMaxTargetsPerRow
+        );
 
         return new ChooserGridAdapter(
                 context,
@@ -2030,7 +1984,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
 
                     @Override
                     public void onTargetSelected(int itemIndex) {
-                        startSelected(itemIndex, true);
+                        startSelected(itemIndex, false, true);
                     }
 
                     @Override
@@ -2064,8 +2018,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
             UserHandle userHandle,
             Intent targetIntent,
             Intent referrerFillInIntent,
-            int maxTargetsPerRow,
-            TargetDataLoader targetDataLoader) {
+            int maxTargetsPerRow) {
         UserHandle initialIntentsUserSpace = isLaunchedAsCloneProfile()
                 && userHandle.equals(requireAnnotatedUserHandles().personalProfileUserHandle)
                 ? requireAnnotatedUserHandles().cloneProfileUserHandle : userHandle;
@@ -2080,11 +2033,11 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                 targetIntent,
                 referrerFillInIntent,
                 this,
-                context.getPackageManager(),
+                mPackageManager,
                 getEventLog(),
                 maxTargetsPerRow,
                 initialIntentsUserSpace,
-                targetDataLoader,
+                mTargetDataLoader,
                 () -> {
                     ProfileRecord record = getProfileRecord(userHandle);
                     if (record != null && record.shortcutLoader != null) {
@@ -2137,7 +2090,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
 
         return new ChooserListController(
                 this,
-                getPackageManager(),
+                mPackageManager,
                 mLogic.getTargetIntent(),
                 mLogic.getReferrerPackageName(),
                 requireAnnotatedUserHandles().userIdOfCallingApp,

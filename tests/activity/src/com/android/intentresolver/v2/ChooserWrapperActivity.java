@@ -23,7 +23,6 @@ import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.content.res.Resources;
 import android.database.Cursor;
@@ -40,8 +39,6 @@ import com.android.intentresolver.TestContentPreviewViewModel;
 import com.android.intentresolver.chooser.DisplayResolveInfo;
 import com.android.intentresolver.chooser.TargetInfo;
 import com.android.intentresolver.emptystate.CrossProfileIntentsChecker;
-import com.android.intentresolver.grid.ChooserGridAdapter;
-import com.android.intentresolver.icons.TargetDataLoader;
 import com.android.intentresolver.shortcuts.ShortcutLoader;
 import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
 
@@ -62,7 +59,6 @@ public class ChooserWrapperActivity extends ChooserActivity implements IChooserW
                         "ChooserWrapper",
                         /* activity = */ this,
                         this::onWorkProfileStatusUpdated,
-                        mTargetDataLoader,
                         sOverrides);
     }
 
@@ -84,11 +80,8 @@ public class ChooserWrapperActivity extends ChooserActivity implements IChooserW
             UserHandle userHandle,
             Intent targetIntent,
             Intent referrerFillInIntent,
-            int maxTargetsPerRow,
-            TargetDataLoader targetDataLoader) {
-        PackageManager packageManager =
-                sOverrides.packageManager == null ? context.getPackageManager()
-                        : sOverrides.packageManager;
+            int maxTargetsPerRow) {
+
         return new ChooserListAdapter(
                 context,
                 payloadIntents,
@@ -100,11 +93,11 @@ public class ChooserWrapperActivity extends ChooserActivity implements IChooserW
                 targetIntent,
                 referrerFillInIntent,
                 this,
-                packageManager,
+                mPackageManager,
                 getEventLog(),
                 maxTargetsPerRow,
                 userHandle,
-                targetDataLoader,
+                mTargetDataLoader,
                 null,
                 mFeatureFlags);
     }
