@@ -16,12 +16,10 @@
 
 package com.android.intentresolver.v2;
 
-import static android.Manifest.permission.INTERACT_ACROSS_PROFILES;
 import static android.app.admin.DevicePolicyResources.Strings.Core.RESOLVER_CANT_ACCESS_PERSONAL;
 import static android.app.admin.DevicePolicyResources.Strings.Core.RESOLVER_CANT_ACCESS_WORK;
 import static android.app.admin.DevicePolicyResources.Strings.Core.RESOLVER_CROSS_PROFILE_BLOCKED_TITLE;
 import static android.content.Intent.FLAG_ACTIVITY_NEW_TASK;
-import static android.content.PermissionChecker.PID_UNKNOWN;
 import static android.stats.devicepolicy.nano.DevicePolicyEnums.RESOLVER_EMPTY_STATE_NO_SHARING_TO_PERSONAL;
 import static android.stats.devicepolicy.nano.DevicePolicyEnums.RESOLVER_EMPTY_STATE_NO_SHARING_TO_WORK;
 import static android.view.WindowManager.LayoutParams.SYSTEM_FLAG_HIDE_NON_SYSTEM_OVERLAY_WINDOWS;
@@ -32,7 +30,6 @@ import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
 
-import android.app.ActivityManager;
 import android.app.ActivityThread;
 import android.app.VoiceInteractor.PickOptionRequest;
 import android.app.VoiceInteractor.PickOptionRequest.Option;
@@ -42,7 +39,6 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.PermissionChecker;
 import android.content.pm.ActivityInfo;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
@@ -100,6 +96,7 @@ import com.android.intentresolver.emptystate.CompositeEmptyStateProvider;
 import com.android.intentresolver.emptystate.CrossProfileIntentsChecker;
 import com.android.intentresolver.emptystate.EmptyState;
 import com.android.intentresolver.emptystate.EmptyStateProvider;
+import com.android.intentresolver.icons.DefaultTargetDataLoader;
 import com.android.intentresolver.icons.TargetDataLoader;
 import com.android.intentresolver.model.ResolverRankerServiceResolverComparator;
 import com.android.intentresolver.v2.MultiProfilePagerAdapter.OnSwitchOnWorkSelectedListener;
@@ -138,9 +135,12 @@ import javax.inject.Inject;
 @AndroidEntryPoint(FragmentActivity.class)
 public class ResolverActivity extends Hilt_ResolverActivity implements
         ResolverListAdapter.ResolverListCommunicator {
+
     @Inject public DevicePolicyResources mDevicePolicyResources;
+    @Inject public IntentForwarding mIntentForwarding;
 
     protected ActivityLogic mLogic;
+    protected TargetDataLoader mTargetDataLoader;
 
     private Button mAlwaysButton;
     private Button mOnceButton;
@@ -166,8 +166,8 @@ public class ResolverActivity extends Hilt_ResolverActivity implements
     /** Tracks if we should ignore future broadcasts telling us the work profile is enabled */
     private final boolean mWorkProfileHasBeenEnabled = false;
 
-    private static final String TAB_TAG_PERSONAL = "personal";
-    private static final String TAB_TAG_WORK = "work";
+    protected static final String TAB_TAG_PERSONAL = "personal";
+    protected static final String TAB_TAG_WORK = "work";
 
     private PackageMonitor mPersonalPackageMonitor;
     private PackageMonitor mWorkPackageMonitor;
@@ -235,6 +235,13 @@ public class ResolverActivity extends Hilt_ResolverActivity implements
         super.onCreate(savedInstanceState);
         setTheme(R.style.Theme_DeviceDefault_Resolver);
         mLogic = createActivityLogic();
+        mTargetDataLoader = new DefaultTargetDataLoader(
+                this,
+                getLifecycle(),
+                getIntent().getBooleanExtra(
+                        ResolverActivity.EXTRA_IS_AUDIO_CAPTURE_DEVICE,
+                        /* defaultValue = */ false)
+                );
     }
 
     @Override
@@ -247,7 +254,6 @@ public class ResolverActivity extends Hilt_ResolverActivity implements
     private void init() {
         Intent intent = mLogic.getTargetIntent();
         List<Intent> initialIntents = mLogic.getInitialIntents();
-        TargetDataLoader targetDataLoader = mLogic.getTargetDataLoader();
 
         // Calling UID did not have valid permissions
         if (mLogic.getAnnotatedUserHandles() == null) {
@@ -269,10 +275,9 @@ public class ResolverActivity extends Hilt_ResolverActivity implements
         mMultiProfilePagerAdapter = createMultiProfilePagerAdapter(
                 requireNonNullElse(initialIntents, emptyList()).toArray(new Intent[0]),
                 /* resolutionList = */ null,
-                filterLastUsed,
-                targetDataLoader
+                filterLastUsed
         );
-        if (configureContentView(targetDataLoader)) {
+        if (configureContentView(mTargetDataLoader)) {
             return;
         }
 
@@ -344,16 +349,15 @@ public class ResolverActivity extends Hilt_ResolverActivity implements
     protected ResolverMultiProfilePagerAdapter createMultiProfilePagerAdapter(
             Intent[] initialIntents,
             List<ResolveInfo> resolutionList,
-            boolean filterLastUsed,
-            TargetDataLoader targetDataLoader) {
+            boolean filterLastUsed) {
         ResolverMultiProfilePagerAdapter resolverMultiProfilePagerAdapter = null;
         if (hasWorkProfile()) {
             resolverMultiProfilePagerAdapter =
                     createResolverMultiProfilePagerAdapterForTwoProfiles(
-                            initialIntents, resolutionList, filterLastUsed, targetDataLoader);
+                            initialIntents, resolutionList, filterLastUsed);
         } else {
             resolverMultiProfilePagerAdapter = createResolverMultiProfilePagerAdapterForOneProfile(
-                    initialIntents, resolutionList, filterLastUsed, targetDataLoader);
+                    initialIntents, resolutionList, filterLastUsed);
         }
         return resolverMultiProfilePagerAdapter;
     }
@@ -888,8 +892,7 @@ public class ResolverActivity extends Hilt_ResolverActivity implements
             Intent[] initialIntents,
             List<ResolveInfo> resolutionList,
             boolean filterLastUsed,
-            UserHandle userHandle,
-            TargetDataLoader targetDataLoader) {
+            UserHandle userHandle) {
         UserHandle initialIntentsUserSpace = isLaunchedAsCloneProfile()
                 && userHandle.equals(requireAnnotatedUserHandles().personalProfileUserHandle)
                 ? requireAnnotatedUserHandles().cloneProfileUserHandle : userHandle;
@@ -904,7 +907,7 @@ public class ResolverActivity extends Hilt_ResolverActivity implements
                 mLogic.getTargetIntent(),
                 this,
                 initialIntentsUserSpace,
-                targetDataLoader);
+                mTargetDataLoader);
     }
 
     protected final EmptyStateProvider createEmptyStateProvider(
@@ -942,19 +945,21 @@ public class ResolverActivity extends Hilt_ResolverActivity implements
             createResolverMultiProfilePagerAdapterForOneProfile(
                     Intent[] initialIntents,
                     List<ResolveInfo> resolutionList,
-                    boolean filterLastUsed,
-                    TargetDataLoader targetDataLoader) {
-        ResolverListAdapter adapter = createResolverListAdapter(
+                    boolean filterLastUsed) {
+        ResolverListAdapter personalAdapter = createResolverListAdapter(
                 /* context */ this,
                 mLogic.getPayloadIntents(),
                 initialIntents,
                 resolutionList,
                 filterLastUsed,
-                /* userHandle */ requireAnnotatedUserHandles().personalProfileUserHandle,
-                targetDataLoader);
+                /* userHandle */ requireAnnotatedUserHandles().personalProfileUserHandle
+        );
         return new ResolverMultiProfilePagerAdapter(
                 /* context */ this,
-                adapter,
+                mDevicePolicyResources.getPersonalTabLabel(),
+                mDevicePolicyResources.getPersonalTabAccessibilityLabel(),
+                TAB_TAG_PERSONAL,
+                personalAdapter,
                 createEmptyStateProvider(/* workProfileUserHandle= */ null),
                 /* workProfileQuietModeChecker= */ () -> false,
                 /* workProfileUserHandle= */ null,
@@ -970,8 +975,7 @@ public class ResolverActivity extends Hilt_ResolverActivity implements
     private ResolverMultiProfilePagerAdapter createResolverMultiProfilePagerAdapterForTwoProfiles(
             Intent[] initialIntents,
             List<ResolveInfo> resolutionList,
-            boolean filterLastUsed,
-            TargetDataLoader targetDataLoader) {
+            boolean filterLastUsed) {
         // In the edge case when we have 0 apps in the current profile and >1 apps in the other,
         // the intent resolver is started in the other profile. Since this is the only case when
         // this happens, we check for it here and set the current profile's tab.
@@ -999,8 +1003,8 @@ public class ResolverActivity extends Hilt_ResolverActivity implements
                 resolutionList,
                 (filterLastUsed && UserHandle.myUserId()
                         == requireAnnotatedUserHandles().personalProfileUserHandle.getIdentifier()),
-                /* userHandle */ requireAnnotatedUserHandles().personalProfileUserHandle,
-                targetDataLoader);
+                /* userHandle */ requireAnnotatedUserHandles().personalProfileUserHandle
+        );
         UserHandle workProfileUserHandle = requireAnnotatedUserHandles().workProfileUserHandle;
         ResolverListAdapter workAdapter = createResolverListAdapter(
                 /* context */ this,
@@ -1009,11 +1013,17 @@ public class ResolverActivity extends Hilt_ResolverActivity implements
                 resolutionList,
                 (filterLastUsed && UserHandle.myUserId()
                         == workProfileUserHandle.getIdentifier()),
-                /* userHandle */ workProfileUserHandle,
-                targetDataLoader);
+                /* userHandle */ workProfileUserHandle
+        );
         return new ResolverMultiProfilePagerAdapter(
                 /* context */ this,
+                mDevicePolicyResources.getPersonalTabLabel(),
+                mDevicePolicyResources.getPersonalTabAccessibilityLabel(),
+                TAB_TAG_PERSONAL,
                 personalAdapter,
+                mDevicePolicyResources.getWorkTabLabel(),
+                mDevicePolicyResources.getWorkTabAccessibilityLabel(),
+                TAB_TAG_WORK,
                 workAdapter,
                 createEmptyStateProvider(workProfileUserHandle),
                 () -> mLogic.getWorkProfileAvailabilityManager().isQuietModeEnabled(),
@@ -1457,7 +1467,7 @@ public class ResolverActivity extends Hilt_ResolverActivity implements
         }
         // If needed, show that intent is forwarded
         // from managed profile to owner or other way around.
-        String profileSwitchMessage = mLogic.forwardMessageFor(mLogic.getTargetIntent());
+        String profileSwitchMessage = mIntentForwarding.forwardMessageFor(mLogic.getTargetIntent());
         if (profileSwitchMessage != null) {
             Toast.makeText(this, profileSwitchMessage, Toast.LENGTH_LONG).show();
         }
@@ -1494,11 +1504,6 @@ public class ResolverActivity extends Hilt_ResolverActivity implements
         }
 
         return false;
-    }
-
-    private int isPermissionGranted(String permission, int uid) {
-        return ActivityManager.checkComponentPermission(permission, uid,
-                /* owningUid= */-1, /* exported= */ true);
     }
 
     /**
@@ -1610,7 +1615,7 @@ public class ResolverActivity extends Hilt_ResolverActivity implements
         }
 
         String packageName = activeProfileTarget.getResolvedComponentName().getPackageName();
-        if (!canAppInteractCrossProfiles(packageName)) {
+        if (!mIntentForwarding.canAppInteractAcrossProfiles(this, packageName)) {
             return false;
         }
 
@@ -1623,47 +1628,6 @@ public class ResolverActivity extends Hilt_ResolverActivity implements
         safelyStartActivity(activeProfileTarget);
         finish();
         return true;
-    }
-
-    /**
-     * Returns whether the package has the necessary permissions to interact across profiles on
-     * behalf of a given user.
-     *
-     * <p>This means meeting the following condition:
-     * <ul>
-     *     <li>The app's {@link ApplicationInfo#crossProfile} flag must be true, and at least
-     *     one of the following conditions must be fulfilled</li>
-     *     <li>{@code Manifest.permission.INTERACT_ACROSS_USERS_FULL} granted.</li>
-     *     <li>{@code Manifest.permission.INTERACT_ACROSS_USERS} granted.</li>
-     *     <li>{@code Manifest.permission.INTERACT_ACROSS_PROFILES} granted, or the corresponding
-     *     AppOps {@code android:interact_across_profiles} is set to "allow".</li>
-     * </ul>
-     *
-     */
-    private boolean canAppInteractCrossProfiles(String packageName) {
-        ApplicationInfo applicationInfo;
-        try {
-            applicationInfo = getPackageManager().getApplicationInfo(packageName, 0);
-        } catch (NameNotFoundException e) {
-            Log.e(TAG, "Package " + packageName + " does not exist on current user.");
-            return false;
-        }
-        if (!applicationInfo.crossProfile) {
-            return false;
-        }
-
-        int packageUid = applicationInfo.uid;
-
-        if (isPermissionGranted(android.Manifest.permission.INTERACT_ACROSS_USERS_FULL,
-                packageUid) == PackageManager.PERMISSION_GRANTED) {
-            return true;
-        }
-        if (isPermissionGranted(android.Manifest.permission.INTERACT_ACROSS_USERS, packageUid)
-                == PackageManager.PERMISSION_GRANTED) {
-            return true;
-        }
-        return PermissionChecker.checkPermissionForPreflight(this, INTERACT_ACROSS_PROFILES,
-                PID_UNKNOWN, packageUid, packageName) == PackageManager.PERMISSION_GRANTED;
     }
 
     private boolean isAutolaunching() {
@@ -1710,7 +1674,7 @@ public class ResolverActivity extends Hilt_ResolverActivity implements
         }
 
         String packageName = activeProfileTarget.getResolvedComponentName().getPackageName();
-        if (!canAppInteractCrossProfiles(packageName)) {
+        if (!mIntentForwarding.canAppInteractAcrossProfiles(this, packageName)) {
             return false;
         }
 
@@ -1902,12 +1866,6 @@ public class ResolverActivity extends Hilt_ResolverActivity implements
                 viewPager,
                 R.layout.resolver_profile_tab_button,
                 com.android.internal.R.id.profile_pager,
-                mDevicePolicyResources.getPersonalTabLabel(),
-                mDevicePolicyResources.getPersonalTabAccessibilityLabel(),
-                TAB_TAG_PERSONAL,
-                mDevicePolicyResources.getWorkTabLabel(),
-                mDevicePolicyResources.getWorkTabAccessibilityLabel(),
-                TAB_TAG_WORK,
                 () -> onProfileTabSelected(viewPager.getCurrentItem()),
                 new MultiProfilePagerAdapter.OnProfileSelectedListener() {
                     @Override
@@ -1999,7 +1957,7 @@ public class ResolverActivity extends Hilt_ResolverActivity implements
 
     private CharSequence getOrLoadDisplayLabel(TargetInfo info) {
         if (info.isDisplayResolveInfo()) {
-            mLogic.getTargetDataLoader().getOrLoadLabel((DisplayResolveInfo) info);
+            mTargetDataLoader.getOrLoadLabel((DisplayResolveInfo) info);
         }
         CharSequence displayLabel = info.getDisplayLabel();
         return displayLabel == null ? "" : displayLabel;
