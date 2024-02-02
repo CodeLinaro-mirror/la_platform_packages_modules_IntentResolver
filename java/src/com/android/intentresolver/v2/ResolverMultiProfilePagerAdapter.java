@@ -40,62 +40,16 @@ public class ResolverMultiProfilePagerAdapter extends
         MultiProfilePagerAdapter<ListView, ResolverListAdapter, ResolverListAdapter> {
     private final BottomPaddingOverrideSupplier mBottomPaddingOverrideSupplier;
 
-    public ResolverMultiProfilePagerAdapter(
-            Context context,
-            String personalTabLabel,
-            String personalTabAccessibilityLabel,
-            String personalTabTag,
-            ResolverListAdapter personalAdapter,
-            EmptyStateProvider emptyStateProvider,
-            Supplier<Boolean> workProfileQuietModeChecker,
-            UserHandle workProfileUserHandle,
-            UserHandle cloneProfileUserHandle) {
-        this(
-                context,
-                ImmutableList.of(
-                        new TabConfig<>(
-                                PROFILE_PERSONAL,
-                                personalTabLabel,
-                                personalTabAccessibilityLabel,
-                                personalTabTag,
-                                personalAdapter)),
-                emptyStateProvider,
-                workProfileQuietModeChecker,
-                /* defaultProfile= */ 0,
-                workProfileUserHandle,
-                cloneProfileUserHandle,
-                new BottomPaddingOverrideSupplier());
-    }
-
     public ResolverMultiProfilePagerAdapter(Context context,
-                                            String personalTabLabel,
-                                            String personalTabAccessibilityLabel,
-                                            String personalTabTag,
-                                            ResolverListAdapter personalAdapter,
-                                            String workTabLabel,
-                                            String workTabAccessibilityLabel,
-                                            String workTabTag,
-                                            ResolverListAdapter workAdapter,
+                                            ImmutableList<TabConfig<ResolverListAdapter>> tabs,
                                             EmptyStateProvider emptyStateProvider,
                                             Supplier<Boolean> workProfileQuietModeChecker,
-                                            @Profile int defaultProfile,
+                                            @ProfileType int defaultProfile,
                                             UserHandle workProfileUserHandle,
                                             UserHandle cloneProfileUserHandle) {
         this(
                 context,
-                ImmutableList.of(
-                        new TabConfig<>(
-                                PROFILE_PERSONAL,
-                                personalTabLabel,
-                                personalTabAccessibilityLabel,
-                                personalTabTag,
-                                personalAdapter),
-                        new TabConfig<>(
-                                PROFILE_WORK,
-                                workTabLabel,
-                                workTabAccessibilityLabel,
-                                workTabTag,
-                                workAdapter)),
+                tabs,
                 emptyStateProvider,
                 workProfileQuietModeChecker,
                 defaultProfile,
@@ -109,7 +63,7 @@ public class ResolverMultiProfilePagerAdapter extends
             ImmutableList<TabConfig<ResolverListAdapter>> tabs,
             EmptyStateProvider emptyStateProvider,
             Supplier<Boolean> workProfileQuietModeChecker,
-            @Profile int defaultProfile,
+            @ProfileType int defaultProfile,
             UserHandle workProfileUserHandle,
             UserHandle cloneProfileUserHandle,
             BottomPaddingOverrideSupplier bottomPaddingOverrideSupplier) {
