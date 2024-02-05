@@ -50,12 +50,10 @@ public class ChooserMultiProfilePagerAdapter extends MultiProfilePagerAdapter<
 
     public ChooserMultiProfilePagerAdapter(
             Context context,
-            String personalTabLabel,
-            String personalTabAccessibilityLabel,
-            String personalTabTag,
-            ChooserGridAdapter personalAdapter,
+            ImmutableList<TabConfig<ChooserGridAdapter>> tabs,
             EmptyStateProvider emptyStateProvider,
             Supplier<Boolean> workProfileQuietModeChecker,
+            @ProfileType int defaultProfile,
             UserHandle workProfileUserHandle,
             UserHandle cloneProfileUserHandle,
             int maxTargetsPerRow,
@@ -63,55 +61,7 @@ public class ChooserMultiProfilePagerAdapter extends MultiProfilePagerAdapter<
         this(
                 context,
                 new ChooserProfileAdapterBinder(maxTargetsPerRow),
-                ImmutableList.of(
-                       new TabConfig<>(
-                                PROFILE_PERSONAL,
-                                personalTabLabel,
-                                personalTabAccessibilityLabel,
-                                personalTabTag,
-                                personalAdapter)),
-                emptyStateProvider,
-                workProfileQuietModeChecker,
-                /* defaultProfile= */ 0,
-                workProfileUserHandle,
-                cloneProfileUserHandle,
-                new BottomPaddingOverrideSupplier(context),
-                featureFlags);
-    }
-
-    public ChooserMultiProfilePagerAdapter(
-            Context context,
-            String personalTabLabel,
-            String personalTabAccessibilityLabel,
-            String personalTabTag,
-            ChooserGridAdapter personalAdapter,
-            String workTabLabel,
-            String workTabAccessibilityLabel,
-            String workTabTag,
-            ChooserGridAdapter workAdapter,
-            EmptyStateProvider emptyStateProvider,
-            Supplier<Boolean> workProfileQuietModeChecker,
-            @Profile int defaultProfile,
-            UserHandle workProfileUserHandle,
-            UserHandle cloneProfileUserHandle,
-            int maxTargetsPerRow,
-            FeatureFlags featureFlags) {
-        this(
-                context,
-                new ChooserProfileAdapterBinder(maxTargetsPerRow),
-                ImmutableList.of(
-                       new TabConfig<>(
-                                PROFILE_PERSONAL,
-                                personalTabLabel,
-                                personalTabAccessibilityLabel,
-                                personalTabTag,
-                                personalAdapter),
-                       new TabConfig<>(
-                                PROFILE_WORK,
-                                workTabLabel,
-                                workTabAccessibilityLabel,
-                                workTabTag,
-                                workAdapter)),
+                tabs,
                 emptyStateProvider,
                 workProfileQuietModeChecker,
                 defaultProfile,
@@ -127,7 +77,7 @@ public class ChooserMultiProfilePagerAdapter extends MultiProfilePagerAdapter<
             ImmutableList<TabConfig<ChooserGridAdapter>> tabs,
             EmptyStateProvider emptyStateProvider,
             Supplier<Boolean> workProfileQuietModeChecker,
-            @Profile int defaultProfile,
+            @ProfileType int defaultProfile,
             UserHandle workProfileUserHandle,
             UserHandle cloneProfileUserHandle,
             BottomPaddingOverrideSupplier bottomPaddingOverrideSupplier,

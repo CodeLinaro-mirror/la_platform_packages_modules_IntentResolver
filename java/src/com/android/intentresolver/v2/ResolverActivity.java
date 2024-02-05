@@ -100,18 +100,22 @@ import com.android.intentresolver.icons.DefaultTargetDataLoader;
 import com.android.intentresolver.icons.TargetDataLoader;
 import com.android.intentresolver.model.ResolverRankerServiceResolverComparator;
 import com.android.intentresolver.v2.MultiProfilePagerAdapter.OnSwitchOnWorkSelectedListener;
-import com.android.intentresolver.v2.MultiProfilePagerAdapter.Profile;
+import com.android.intentresolver.v2.MultiProfilePagerAdapter.ProfileType;
+import com.android.intentresolver.v2.MultiProfilePagerAdapter.TabConfig;
 import com.android.intentresolver.v2.data.repository.DevicePolicyResources;
 import com.android.intentresolver.v2.emptystate.NoAppsAvailableEmptyStateProvider;
 import com.android.intentresolver.v2.emptystate.NoCrossProfileEmptyStateProvider;
 import com.android.intentresolver.v2.emptystate.NoCrossProfileEmptyStateProvider.DevicePolicyBlockerEmptyState;
 import com.android.intentresolver.v2.emptystate.WorkProfilePausedEmptyStateProvider;
+import com.android.intentresolver.v2.ext.IntentExtKt;
 import com.android.intentresolver.v2.ui.ActionTitle;
 import com.android.intentresolver.widget.ResolverDrawerLayout;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.content.PackageMonitor;
 import com.android.internal.logging.MetricsLogger;
 import com.android.internal.logging.nano.MetricsProto;
+
+import com.google.common.collect.ImmutableList;
 
 import dagger.hilt.android.AndroidEntryPoint;
 
@@ -141,6 +145,7 @@ public class ResolverActivity extends Hilt_ResolverActivity implements
 
     protected ActivityLogic mLogic;
     protected TargetDataLoader mTargetDataLoader;
+    private boolean mResolvingHome;
 
     private Button mAlwaysButton;
     private Button mOnceButton;
@@ -223,7 +228,7 @@ public class ResolverActivity extends Hilt_ResolverActivity implements
     }
 
     @VisibleForTesting
-    protected ActivityLogic createActivityLogic() {
+    protected ResolverActivityLogic createActivityLogic() {
         return  new ResolverActivityLogic(
                 TAG,
                 /* activity = */ this,
@@ -235,6 +240,7 @@ public class ResolverActivity extends Hilt_ResolverActivity implements
         super.onCreate(savedInstanceState);
         setTheme(R.style.Theme_DeviceDefault_Resolver);
         mLogic = createActivityLogic();
+        mResolvingHome = IntentExtKt.isHomeIntent(getIntent());
         mTargetDataLoader = new DefaultTargetDataLoader(
                 this,
                 getLifecycle(),
@@ -242,11 +248,6 @@ public class ResolverActivity extends Hilt_ResolverActivity implements
                         ResolverActivity.EXTRA_IS_AUDIO_CAPTURE_DEVICE,
                         /* defaultValue = */ false)
                 );
-    }
-
-    @Override
-    protected final void onPostCreate(@Nullable Bundle savedInstanceState) {
-        super.onPostCreate(savedInstanceState);
         init();
         restore(savedInstanceState);
     }
@@ -486,7 +487,7 @@ public class ResolverActivity extends Hilt_ResolverActivity implements
         }
         final Intent intent = getIntent();
         if ((intent.getFlags() & FLAG_ACTIVITY_NEW_TASK) != 0 && !isVoiceInteraction()
-                && !mLogic.getResolvingHome()) {
+                && !mResolvingHome) {
             // This resolver is in the unusual situation where it has been
             // launched at the top of a new task.  We don't let it be added
             // to the recent tasks shown to the user, and we need to make sure
@@ -532,7 +533,7 @@ public class ResolverActivity extends Hilt_ResolverActivity implements
         }
         ResolveInfo ri = mMultiProfilePagerAdapter.getActiveListAdapter()
                 .resolveInfoForPosition(which, hasIndexBeenFiltered);
-        if (mLogic.getResolvingHome() && hasManagedProfile() && !supportsManagedProfiles(ri)) {
+        if (mResolvingHome && hasManagedProfile() && !supportsManagedProfiles(ri)) {
             String launcherName = ri.activityInfo.loadLabel(getPackageManager()).toString();
             Toast.makeText(this,
                     mDevicePolicyResources.getWorkProfileNotSupportedMessage(launcherName),
@@ -956,12 +957,16 @@ public class ResolverActivity extends Hilt_ResolverActivity implements
         );
         return new ResolverMultiProfilePagerAdapter(
                 /* context */ this,
-                mDevicePolicyResources.getPersonalTabLabel(),
-                mDevicePolicyResources.getPersonalTabAccessibilityLabel(),
-                TAB_TAG_PERSONAL,
-                personalAdapter,
+                ImmutableList.of(
+                        new TabConfig<>(
+                                PROFILE_PERSONAL,
+                                mDevicePolicyResources.getPersonalTabLabel(),
+                                mDevicePolicyResources.getPersonalTabAccessibilityLabel(),
+                                TAB_TAG_PERSONAL,
+                                personalAdapter)),
                 createEmptyStateProvider(/* workProfileUserHandle= */ null),
                 /* workProfileQuietModeChecker= */ () -> false,
+                /* defaultProfile= */ PROFILE_PERSONAL,
                 /* workProfileUserHandle= */ null,
                 requireAnnotatedUserHandles().cloneProfileUserHandle);
     }
@@ -1017,14 +1022,19 @@ public class ResolverActivity extends Hilt_ResolverActivity implements
         );
         return new ResolverMultiProfilePagerAdapter(
                 /* context */ this,
-                mDevicePolicyResources.getPersonalTabLabel(),
-                mDevicePolicyResources.getPersonalTabAccessibilityLabel(),
-                TAB_TAG_PERSONAL,
-                personalAdapter,
-                mDevicePolicyResources.getWorkTabLabel(),
-                mDevicePolicyResources.getWorkTabAccessibilityLabel(),
-                TAB_TAG_WORK,
-                workAdapter,
+                ImmutableList.of(
+                        new TabConfig<>(
+                                PROFILE_PERSONAL,
+                                mDevicePolicyResources.getPersonalTabLabel(),
+                                mDevicePolicyResources.getPersonalTabAccessibilityLabel(),
+                                TAB_TAG_PERSONAL,
+                                personalAdapter),
+                        new TabConfig<>(
+                                PROFILE_WORK,
+                                mDevicePolicyResources.getWorkTabLabel(),
+                                mDevicePolicyResources.getWorkTabAccessibilityLabel(),
+                                TAB_TAG_WORK,
+                                workAdapter)),
                 createEmptyStateProvider(workProfileUserHandle),
                 () -> mLogic.getWorkProfileAvailabilityManager().isQuietModeEnabled(),
                 selectedProfile,
@@ -1051,7 +1061,7 @@ public class ResolverActivity extends Hilt_ResolverActivity implements
         return selectedProfile;
     }
 
-    protected final @Profile int getCurrentProfile() {
+    protected final @ProfileType int getCurrentProfile() {
         UserHandle launchUser = requireAnnotatedUserHandles().tabOwnerUserHandleForLaunch;
         UserHandle personalUser = requireAnnotatedUserHandles().personalProfileUserHandle;
         return launchUser.equals(personalUser) ? PROFILE_PERSONAL : PROFILE_WORK;
@@ -1133,7 +1143,7 @@ public class ResolverActivity extends Hilt_ResolverActivity implements
     }
 
     protected final CharSequence getTitleForAction(Intent intent, int defaultTitleRes) {
-        final ActionTitle title = mLogic.getResolvingHome()
+        final ActionTitle title = mResolvingHome
                 ? ActionTitle.HOME
                 : ActionTitle.forAction(intent.getAction());
 
@@ -1198,7 +1208,6 @@ public class ResolverActivity extends Hilt_ResolverActivity implements
     @Override
     protected final void onStart() {
         super.onStart();
-
         this.getWindow().addSystemFlags(SYSTEM_FLAG_HIDE_NON_SYSTEM_OVERLAY_WINDOWS);
         if (hasWorkProfile()) {
             mLogic.getWorkProfileAvailabilityManager().registerWorkProfileStateReceiver(this);
@@ -1869,7 +1878,7 @@ public class ResolverActivity extends Hilt_ResolverActivity implements
                 () -> onProfileTabSelected(viewPager.getCurrentItem()),
                 new MultiProfilePagerAdapter.OnProfileSelectedListener() {
                     @Override
-                    public void onProfilePageSelected(@Profile int profileId, int pageNumber) {
+                    public void onProfilePageSelected(@ProfileType int profileId, int pageNumber) {
                         resetButtonBar();
                         resetCheckedItem();
                     }
