@@ -44,14 +44,16 @@ import com.android.intentresolver.R
 import com.android.intentresolver.util.hasValidIcon
 import com.android.intentresolver.v2.ext.hasAction
 import com.android.intentresolver.v2.ext.ifMatch
-import com.android.intentresolver.v2.ui.model.CallerInfo
+import com.android.intentresolver.v2.ui.model.ActivityLaunch
 import com.android.intentresolver.v2.ui.model.ChooserRequest
-import com.android.intentresolver.v2.ui.model.MAX_CHOOSER_ACTIONS
-import com.android.intentresolver.v2.ui.model.MAX_INITIAL_INTENTS
+import com.android.intentresolver.v2.validation.ValidationResult
 import com.android.intentresolver.v2.validation.types.IntentOrUri
 import com.android.intentresolver.v2.validation.types.array
 import com.android.intentresolver.v2.validation.types.value
 import com.android.intentresolver.v2.validation.validateFrom
+
+private const val MAX_CHOOSER_ACTIONS = 5
+private const val MAX_INITIAL_INTENTS = 2
 
 private fun Intent.hasSendAction() = hasAction(ACTION_SEND, ACTION_SEND_MULTIPLE)
 
@@ -61,8 +63,10 @@ internal fun Intent.maybeAddSendActionFlags() =
         addFlags(FLAG_ACTIVITY_MULTIPLE_TASK)
     }
 
-fun readChooserRequest(callerInfo: CallerInfo, source: (String) -> Any?) =
-    validateFrom(source) {
+fun readChooserRequest(launch: ActivityLaunch): ValidationResult<ChooserRequest> {
+    val extras = launch.intent.extras ?: Bundle()
+    @Suppress("DEPRECATION")
+    return validateFrom(extras::get) {
         val targetIntent = required(IntentOrUri(EXTRA_INTENT)).maybeAddSendActionFlags()
 
         val isSendAction = targetIntent.hasAction(ACTION_SEND, ACTION_SEND_MULTIPLE)
@@ -118,7 +122,7 @@ fun readChooserRequest(callerInfo: CallerInfo, source: (String) -> Any?) =
 
         val modifyShareAction = optional(value<ChooserAction>(EXTRA_CHOOSER_MODIFY_SHARE_ACTION))
 
-        val referrerFillIn = Intent().putExtra(EXTRA_REFERRER, callerInfo.referrer)
+        val referrerFillIn = Intent().putExtra(EXTRA_REFERRER, launch.referrer)
 
         ChooserRequest(
             targetIntent = targetIntent,
@@ -126,12 +130,12 @@ fun readChooserRequest(callerInfo: CallerInfo, source: (String) -> Any?) =
             isSendActionTarget = isSendAction,
             targetType = targetIntent.type,
             launchedFromPackage =
-                requireNotNull(callerInfo.launchedFomPackage) {
-                    "launchedFromPackage was null, See Activity.getLaunchedFromPackage()"
+                requireNotNull(launch.fromPackage) {
+                    "launch.fromPackage was null, See Activity.getLaunchedFromPackage()"
                 },
             title = customTitle,
             defaultTitleResource = defaultTitleResource,
-            referrerFillInIntent = referrerFillIn,
+            referrer = launch.referrer,
             filteredComponentNames = filteredComponents,
             callerChooserTargets = callerChooserTargets,
             chooserActions = chooserActions,
@@ -146,6 +150,7 @@ fun readChooserRequest(callerInfo: CallerInfo, source: (String) -> Any?) =
             shareTargetFilter = targetIntent.toShareTargetFilter()
         )
     }
+}
 
 private fun Intent.toShareTargetFilter(): IntentFilter? {
     return type?.let {
