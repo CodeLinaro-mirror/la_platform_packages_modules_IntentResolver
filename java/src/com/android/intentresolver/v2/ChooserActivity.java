@@ -47,6 +47,7 @@ import android.app.prediction.AppPredictor;
 import android.app.prediction.AppTarget;
 import android.app.prediction.AppTargetEvent;
 import android.app.prediction.AppTargetId;
+import android.content.ClipboardManager;
 import android.content.ComponentName;
 import android.content.ContentResolver;
 import android.content.Context;
@@ -138,8 +139,6 @@ import com.android.intentresolver.model.AppPredictionServiceResolverComparator;
 import com.android.intentresolver.model.ResolverRankerServiceResolverComparator;
 import com.android.intentresolver.shortcuts.AppPredictorFactory;
 import com.android.intentresolver.shortcuts.ShortcutLoader;
-import com.android.intentresolver.v2.MultiProfilePagerAdapter.ProfileType;
-import com.android.intentresolver.v2.MultiProfilePagerAdapter.TabConfig;
 import com.android.intentresolver.v2.data.repository.DevicePolicyResources;
 import com.android.intentresolver.v2.emptystate.NoAppsAvailableEmptyStateProvider;
 import com.android.intentresolver.v2.emptystate.NoCrossProfileEmptyStateProvider;
@@ -148,6 +147,12 @@ import com.android.intentresolver.v2.emptystate.WorkProfilePausedEmptyStateProvi
 import com.android.intentresolver.v2.platform.AppPredictionAvailable;
 import com.android.intentresolver.v2.platform.ImageEditor;
 import com.android.intentresolver.v2.platform.NearbyShare;
+import com.android.intentresolver.v2.profiles.ChooserMultiProfilePagerAdapter;
+import com.android.intentresolver.v2.profiles.MultiProfilePagerAdapter;
+import com.android.intentresolver.v2.profiles.MultiProfilePagerAdapter.ProfileType;
+import com.android.intentresolver.v2.profiles.OnProfileSelectedListener;
+import com.android.intentresolver.v2.profiles.OnSwitchOnWorkSelectedListener;
+import com.android.intentresolver.v2.profiles.TabConfig;
 import com.android.intentresolver.v2.ui.ActionTitle;
 import com.android.intentresolver.v2.ui.ShareResultSender;
 import com.android.intentresolver.v2.ui.ShareResultSenderFactory;
@@ -245,7 +250,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
     private ResolverActivity.PickTargetOptionRequest mPickOptionRequest;
 
     @Nullable
-    private MultiProfilePagerAdapter.OnSwitchOnWorkSelectedListener mOnSwitchOnWorkSelectedListener;
+    private OnSwitchOnWorkSelectedListener mOnSwitchOnWorkSelectedListener;
 
     //////////////////////////////////////////////////////////////////////////////////////////////
     //////////////////////////////////////////////////////////////////////////////////////////////
@@ -278,6 +283,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
     @Inject public TargetDataLoader mTargetDataLoader;
     @Inject public DevicePolicyResources mDevicePolicyResources;
     @Inject public PackageManager mPackageManager;
+    @Inject public ClipboardManager mClipboardManager;
     @Inject public IntentForwarding mIntentForwarding;
     @Inject public ShareResultSenderFactory mShareResultSenderFactory;
     @Nullable
@@ -1165,7 +1171,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                 R.layout.resolver_profile_tab_button,
                 com.android.internal.R.id.profile_pager,
                 () -> onProfileTabSelected(viewPager.getCurrentItem()),
-                new MultiProfilePagerAdapter.OnProfileSelectedListener() {
+                new OnProfileSelectedListener() {
                     @Override
                     public void onProfilePageSelected(@ProfileType int profileId, int pageNumber) {}
 
@@ -2149,7 +2155,8 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                         setResult(status);
                     }
                     finish();
-                });
+                },
+                mClipboardManager);
     }
 
     /*
