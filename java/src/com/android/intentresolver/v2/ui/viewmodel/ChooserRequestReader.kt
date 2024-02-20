@@ -23,11 +23,13 @@ import android.content.Intent.EXTRA_ALTERNATE_INTENTS
 import android.content.Intent.EXTRA_CHOOSER_CUSTOM_ACTIONS
 import android.content.Intent.EXTRA_CHOOSER_MODIFY_SHARE_ACTION
 import android.content.Intent.EXTRA_CHOOSER_REFINEMENT_INTENT_SENDER
+import android.content.Intent.EXTRA_CHOOSER_RESULT_INTENT_SENDER
 import android.content.Intent.EXTRA_CHOOSER_TARGETS
 import android.content.Intent.EXTRA_CHOSEN_COMPONENT_INTENT_SENDER
 import android.content.Intent.EXTRA_EXCLUDE_COMPONENTS
 import android.content.Intent.EXTRA_INITIAL_INTENTS
 import android.content.Intent.EXTRA_INTENT
+import android.content.Intent.EXTRA_METADATA_TEXT
 import android.content.Intent.EXTRA_REFERRER
 import android.content.Intent.EXTRA_REPLACEMENT_EXTRAS
 import android.content.Intent.EXTRA_TEXT
@@ -36,11 +38,14 @@ import android.content.Intent.FLAG_ACTIVITY_MULTIPLE_TASK
 import android.content.Intent.FLAG_ACTIVITY_NEW_DOCUMENT
 import android.content.IntentFilter
 import android.content.IntentSender
+import android.net.Uri
 import android.os.Bundle
 import android.service.chooser.ChooserAction
 import android.service.chooser.ChooserTarget
 import com.android.intentresolver.ChooserActivity
+import com.android.intentresolver.ContentTypeHint
 import com.android.intentresolver.R
+import com.android.intentresolver.inject.ChooserServiceFlags
 import com.android.intentresolver.util.hasValidIcon
 import com.android.intentresolver.v2.ext.hasAction
 import com.android.intentresolver.v2.ext.ifMatch
@@ -63,7 +68,10 @@ internal fun Intent.maybeAddSendActionFlags() =
         addFlags(FLAG_ACTIVITY_MULTIPLE_TASK)
     }
 
-fun readChooserRequest(launch: ActivityLaunch): ValidationResult<ChooserRequest> {
+fun readChooserRequest(
+    launch: ActivityLaunch,
+    flags: ChooserServiceFlags
+): ValidationResult<ChooserRequest> {
     val extras = launch.intent.extras ?: Bundle()
     @Suppress("DEPRECATION")
     return validateFrom(extras::get) {
@@ -97,7 +105,8 @@ fun readChooserRequest(launch: ActivityLaunch): ValidationResult<ChooserRequest>
                 ?: emptyList()
 
         val chosenComponentSender =
-            optional(value<IntentSender>(EXTRA_CHOSEN_COMPONENT_INTENT_SENDER))
+            optional(value<IntentSender>(EXTRA_CHOOSER_RESULT_INTENT_SENDER))
+                ?: optional(value<IntentSender>(EXTRA_CHOSEN_COMPONENT_INTENT_SENDER))
 
         val refinementIntentSender =
             optional(value<IntentSender>(EXTRA_CHOOSER_REFINEMENT_INTENT_SENDER))
@@ -124,6 +133,33 @@ fun readChooserRequest(launch: ActivityLaunch): ValidationResult<ChooserRequest>
 
         val referrerFillIn = Intent().putExtra(EXTRA_REFERRER, launch.referrer)
 
+        val additionalContentUri: Uri?
+        val focusedItemPos: Int
+        if (isSendAction && flags.chooserPayloadToggling()) {
+            additionalContentUri = optional(value<Uri>(Intent.EXTRA_CHOOSER_ADDITIONAL_CONTENT_URI))
+            focusedItemPos = optional(value<Int>(Intent.EXTRA_CHOOSER_FOCUSED_ITEM_POSITION)) ?: 0
+        } else {
+            additionalContentUri = null
+            focusedItemPos = 0
+        }
+
+        val contentTypeHint =
+            if (flags.chooserAlbumText()) {
+                when (optional(value<Int>(Intent.EXTRA_CHOOSER_CONTENT_TYPE_HINT))) {
+                    Intent.CHOOSER_CONTENT_TYPE_ALBUM -> ContentTypeHint.ALBUM
+                    else -> ContentTypeHint.NONE
+                }
+            } else {
+                ContentTypeHint.NONE
+            }
+
+        val metadataText =
+            if (flags.enableSharesheetMetadataExtra()) {
+                optional(value<CharSequence>(EXTRA_METADATA_TEXT))
+            } else {
+                null
+            }
+
         ChooserRequest(
             targetIntent = targetIntent,
             targetAction = targetIntent.action,
@@ -147,7 +183,11 @@ fun readChooserRequest(launch: ActivityLaunch): ValidationResult<ChooserRequest>
             chosenComponentSender = chosenComponentSender,
             refinementIntentSender = refinementIntentSender,
             sharedText = sharedText,
-            shareTargetFilter = targetIntent.toShareTargetFilter()
+            shareTargetFilter = targetIntent.toShareTargetFilter(),
+            additionalContentUri = additionalContentUri,
+            focusedItemPosition = focusedItemPos,
+            contentTypeHint = contentTypeHint,
+            metadataText = metadataText,
         )
     }
 }
