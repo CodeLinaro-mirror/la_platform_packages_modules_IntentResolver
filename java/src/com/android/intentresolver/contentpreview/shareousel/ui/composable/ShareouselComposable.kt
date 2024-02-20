@@ -15,7 +15,6 @@
  */
 package com.android.intentresolver.contentpreview.shareousel.ui.composable
 
-import android.os.Parcelable
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -48,15 +47,12 @@ import com.android.intentresolver.contentpreview.shareousel.ui.viewmodel.Shareou
 
 @Composable
 fun Shareousel(viewModel: ShareouselViewModel) {
-    val previewKeys by viewModel.previewKeys.collectAsStateWithLifecycle(initialValue = emptyList())
-    val centerIdx by viewModel.centerIndex.collectAsStateWithLifecycle(initialValue = 0)
+    val centerIdx = viewModel.centerIndex.value
+    val carouselState = rememberLazyListState(initialFirstVisibleItemIndex = centerIdx)
+    val previewKeys by viewModel.previewKeys.collectAsStateWithLifecycle()
     Column {
         // TODO: item needs to be centered, check out ScalingLazyColumn impl or see if
         //  HorizontalPager works for our use-case
-        val carouselState =
-            rememberLazyListState(
-                initialFirstVisibleItemIndex = centerIdx,
-            )
         LazyRow(
             state = carouselState,
             horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -64,7 +60,7 @@ fun Shareousel(viewModel: ShareouselViewModel) {
                 Modifier.fillMaxWidth()
                     .height(dimensionResource(R.dimen.chooser_preview_image_height_tall))
         ) {
-            items(previewKeys, key = { (it as? Parcelable) ?: Unit }) { key ->
+            items(previewKeys, key = viewModel.previewRowKey) { key ->
                 ShareouselCard(viewModel.previewForKey(key))
             }
         }
@@ -117,7 +113,6 @@ private fun ShareouselCard(viewModel: ShareouselImageViewModel) {
                 }
         },
         selected = selected,
-        onActionClick = { viewModel.onActionClick() },
         modifier =
             Modifier.thenIf(selected) {
                     Modifier.border(
