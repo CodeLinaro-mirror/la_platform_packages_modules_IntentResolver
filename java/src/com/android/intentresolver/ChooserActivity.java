@@ -303,14 +303,24 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         BasePreviewViewModel previewViewModel =
                 new ViewModelProvider(this, createPreviewViewModelFactory())
                         .get(BasePreviewViewModel.class);
+        previewViewModel.init(
+                mChooserRequest.getTargetIntent(),
+                getIntent(),
+                /*additionalContentUri = */ null,
+                /*focusedItemIdx = */ 0,
+                /*isPayloadTogglingEnabled = */ false);
         mChooserContentPreviewUi = new ChooserContentPreviewUi(
                 getCoroutineScope(getLifecycle()),
-                previewViewModel.createOrReuseProvider(mChooserRequest.getTargetIntent()),
+                previewViewModel.getPreviewDataProvider(),
                 mChooserRequest.getTargetIntent(),
-                previewViewModel.createOrReuseImageLoader(),
+                previewViewModel.getImageLoader(),
                 createChooserActionFactory(),
                 mEnterTransitionAnimationDelegate,
-                new HeadlineGeneratorImpl(this));
+                new HeadlineGeneratorImpl(this),
+                ContentTypeHint.NONE,
+                mChooserRequest.getMetadataText(),
+                /*isPayloadTogglingEnabled =*/ false
+        );
 
         updateStickyContentPreview();
         if (shouldShowStickyContentPreview()
@@ -1652,8 +1662,9 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         if (!shouldShowContentPreview()) {
             return false;
         }
-        boolean isEmpty = mMultiProfilePagerAdapter.getListAdapterForUserHandle(
-                UserHandle.of(UserHandle.myUserId())).getCount() == 0;
+        ResolverListAdapter adapter = mMultiProfilePagerAdapter.getListAdapterForUserHandle(
+                UserHandle.of(UserHandle.myUserId()));
+        boolean isEmpty = adapter == null || adapter.getCount() == 0;
         return (mFeatureFlags.scrollablePreview() || shouldShowTabs())
                 && (!isEmpty || shouldShowContentPreviewWhenEmpty());
     }

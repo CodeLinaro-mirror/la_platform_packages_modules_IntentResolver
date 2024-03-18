@@ -9,19 +9,17 @@ class TestChooserActivityLogic(
     tag: String,
     activity: ComponentActivity,
     onWorkProfileStatusUpdated: () -> Unit,
-    private val overrideData: ChooserActivityOverrideData,
+    private val annotatedUserHandlesOverride: AnnotatedUserHandles?,
+    private val workProfileAvailabilityOverride: WorkProfileAvailabilityManager?,
 ) :
     ChooserActivityLogic(
         tag,
         activity,
         onWorkProfileStatusUpdated,
     ) {
+    override val annotatedUserHandles: AnnotatedUserHandles?
+        get() = annotatedUserHandlesOverride ?: super.annotatedUserHandles
 
-    override val annotatedUserHandles: AnnotatedUserHandles? by lazy {
-        overrideData.annotatedUserHandles
-    }
-
-    override val workProfileAvailabilityManager: WorkProfileAvailabilityManager by lazy {
-        overrideData.mWorkProfileAvailability ?: super.workProfileAvailabilityManager
-    }
+    override val workProfileAvailabilityManager: WorkProfileAvailabilityManager
+        get() = workProfileAvailabilityOverride ?: super.workProfileAvailabilityManager
 }

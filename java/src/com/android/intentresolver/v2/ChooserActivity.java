@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 The Android Open Source Project
+ * Copyright (C) 2024 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,6 +29,8 @@ import static android.view.WindowManager.LayoutParams.SYSTEM_FLAG_HIDE_NON_SYSTE
 
 import static androidx.lifecycle.LifecycleKt.getCoroutineScope;
 
+import static com.android.intentresolver.contentpreview.ContentPreviewType.CONTENT_PREVIEW_PAYLOAD_SELECTION;
+import static com.android.intentresolver.v2.ext.CreationExtrasExtKt.addDefaultArgs;
 import static com.android.internal.annotations.VisibleForTesting.Visibility.PROTECTED;
 import static com.android.internal.util.LatencyTracker.ACTION_LOAD_SHARE_SHEET;
 
@@ -36,7 +38,6 @@ import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
 
-import android.app.Activity;
 import android.app.ActivityManager;
 import android.app.ActivityOptions;
 import android.app.ActivityThread;
@@ -46,6 +47,7 @@ import android.app.prediction.AppPredictor;
 import android.app.prediction.AppTarget;
 import android.app.prediction.AppTargetEvent;
 import android.app.prediction.AppTargetId;
+import android.content.ClipboardManager;
 import android.content.ComponentName;
 import android.content.ContentResolver;
 import android.content.Context;
@@ -75,7 +77,6 @@ import android.stats.devicepolicy.DevicePolicyEnums;
 import android.text.TextUtils;
 import android.util.Log;
 import android.util.Slog;
-import android.util.SparseArray;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -96,6 +97,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.FragmentActivity;
 import androidx.lifecycle.ViewModelProvider;
+import androidx.lifecycle.viewmodel.CreationExtras;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.viewpager.widget.ViewPager;
@@ -104,7 +106,6 @@ import com.android.intentresolver.AnnotatedUserHandles;
 import com.android.intentresolver.ChooserGridLayoutManager;
 import com.android.intentresolver.ChooserListAdapter;
 import com.android.intentresolver.ChooserRefinementManager;
-import com.android.intentresolver.ChooserRequestParameters;
 import com.android.intentresolver.ChooserStackedAppDialogFragment;
 import com.android.intentresolver.ChooserTargetActionsDialogFragment;
 import com.android.intentresolver.EnterTransitionAnimationDelegate;
@@ -123,6 +124,7 @@ import com.android.intentresolver.chooser.TargetInfo;
 import com.android.intentresolver.contentpreview.BasePreviewViewModel;
 import com.android.intentresolver.contentpreview.ChooserContentPreviewUi;
 import com.android.intentresolver.contentpreview.HeadlineGeneratorImpl;
+import com.android.intentresolver.contentpreview.PayloadToggleInteractor;
 import com.android.intentresolver.contentpreview.PreviewViewModel;
 import com.android.intentresolver.emptystate.CompositeEmptyStateProvider;
 import com.android.intentresolver.emptystate.CrossProfileIntentsChecker;
@@ -137,7 +139,6 @@ import com.android.intentresolver.model.AppPredictionServiceResolverComparator;
 import com.android.intentresolver.model.ResolverRankerServiceResolverComparator;
 import com.android.intentresolver.shortcuts.AppPredictorFactory;
 import com.android.intentresolver.shortcuts.ShortcutLoader;
-import com.android.intentresolver.v2.MultiProfilePagerAdapter.Profile;
 import com.android.intentresolver.v2.data.repository.DevicePolicyResources;
 import com.android.intentresolver.v2.emptystate.NoAppsAvailableEmptyStateProvider;
 import com.android.intentresolver.v2.emptystate.NoCrossProfileEmptyStateProvider;
@@ -146,7 +147,18 @@ import com.android.intentresolver.v2.emptystate.WorkProfilePausedEmptyStateProvi
 import com.android.intentresolver.v2.platform.AppPredictionAvailable;
 import com.android.intentresolver.v2.platform.ImageEditor;
 import com.android.intentresolver.v2.platform.NearbyShare;
+import com.android.intentresolver.v2.profiles.ChooserMultiProfilePagerAdapter;
+import com.android.intentresolver.v2.profiles.MultiProfilePagerAdapter;
+import com.android.intentresolver.v2.profiles.MultiProfilePagerAdapter.ProfileType;
+import com.android.intentresolver.v2.profiles.OnProfileSelectedListener;
+import com.android.intentresolver.v2.profiles.OnSwitchOnWorkSelectedListener;
+import com.android.intentresolver.v2.profiles.TabConfig;
 import com.android.intentresolver.v2.ui.ActionTitle;
+import com.android.intentresolver.v2.ui.ShareResultSender;
+import com.android.intentresolver.v2.ui.ShareResultSenderFactory;
+import com.android.intentresolver.v2.ui.model.ActivityModel;
+import com.android.intentresolver.v2.ui.model.ChooserRequest;
+import com.android.intentresolver.v2.ui.viewmodel.ChooserViewModel;
 import com.android.intentresolver.widget.ImagePreviewView;
 import com.android.intentresolver.widget.ResolverDrawerLayout;
 import com.android.internal.annotations.VisibleForTesting;
@@ -155,8 +167,11 @@ import com.android.internal.logging.MetricsLogger;
 import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
 import com.android.internal.util.LatencyTracker;
 
+import com.google.common.collect.ImmutableList;
+
 import dagger.hilt.android.AndroidEntryPoint;
 
+import kotlin.Pair;
 import kotlin.Unit;
 
 import java.util.ArrayList;
@@ -235,7 +250,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
     private ResolverActivity.PickTargetOptionRequest mPickOptionRequest;
 
     @Nullable
-    private MultiProfilePagerAdapter.OnSwitchOnWorkSelectedListener mOnSwitchOnWorkSelectedListener;
+    private OnSwitchOnWorkSelectedListener mOnSwitchOnWorkSelectedListener;
 
     //////////////////////////////////////////////////////////////////////////////////////////////
     //////////////////////////////////////////////////////////////////////////////////////////////
@@ -258,7 +273,9 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
     private static final int SCROLL_STATUS_SCROLLING_VERTICAL = 1;
     private static final int SCROLL_STATUS_SCROLLING_HORIZONTAL = 2;
 
+    @Inject public ActivityModel mActivityModel;
     @Inject public FeatureFlags mFeatureFlags;
+    @Inject public android.service.chooser.FeatureFlags mChooserServiceFeatureFlags;
     @Inject public EventLog mEventLog;
     @Inject @AppPredictionAvailable public boolean mAppPredictionAvailable;
     @Inject @ImageEditor public Optional<ComponentName> mImageEditor;
@@ -266,7 +283,11 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
     @Inject public TargetDataLoader mTargetDataLoader;
     @Inject public DevicePolicyResources mDevicePolicyResources;
     @Inject public PackageManager mPackageManager;
+    @Inject public ClipboardManager mClipboardManager;
     @Inject public IntentForwarding mIntentForwarding;
+    @Inject public ShareResultSenderFactory mShareResultSenderFactory;
+    @Nullable
+    private ShareResultSender mShareResultSender;
 
     private ChooserRefinementManager mRefinementManager;
 
@@ -299,7 +320,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
 
     private final View mContentView = null;
 
-    private final SparseArray<ProfileRecord> mProfileRecords = new SparseArray<>();
+    private final Map<Integer, ProfileRecord> mProfileRecords = new HashMap<>();
 
     private boolean mExcludeSharedText = false;
     /**
@@ -311,31 +332,52 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
     private boolean mFinishWhenStopped = false;
 
     private final AtomicLong mIntentReceivedTime = new AtomicLong(-1);
+    private ChooserViewModel mViewModel;
 
     @VisibleForTesting
-    protected ActivityLogic createActivityLogic() {
+    protected ChooserActivityLogic createActivityLogic() {
         return new ChooserActivityLogic(
                 TAG,
                 /* activity = */ this,
                 this::onWorkProfileStatusUpdated);
     }
 
+    @NonNull
     @Override
-    protected final void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        if (isFinishing()) {
-            // Performing a clean exit:
-            //    Skip initializing any additional resources.
-            return;
-        }
-        setTheme(R.style.Theme_DeviceDefault_Chooser);
-        mLogic = createActivityLogic();
-        Tracer.INSTANCE.markLaunched();
+    public CreationExtras getDefaultViewModelCreationExtras() {
+        return addDefaultArgs(
+                super.getDefaultViewModelCreationExtras(),
+                new Pair<>(ActivityModel.ACTIVITY_MODEL_KEY, mActivityModel));
     }
 
     @Override
-    protected final void onPostCreate(@Nullable Bundle savedInstanceState) {
-        super.onPostCreate(savedInstanceState);
+    protected final void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        Log.i(TAG, "onCreate");
+        Log.i(TAG, "activityLaunch=" + mActivityModel.toString());
+        int callerUid = mActivityModel.getLaunchedFromUid();
+        if (callerUid < 0 || UserHandle.isIsolated(callerUid)) {
+            Log.e(TAG, "Can't start a resolver from uid " + callerUid);
+            finish();
+        }
+        setTheme(R.style.Theme_DeviceDefault_Chooser);
+        Tracer.INSTANCE.markLaunched();
+        mViewModel = new ViewModelProvider(this).get(ChooserViewModel.class);
+        if (!mViewModel.init()) {
+            finish();
+            return;
+        }
+        IntentSender chosenComponentSender =
+                mViewModel.getChooserRequest().getChosenComponentSender();
+        if (chosenComponentSender != null) {
+            mShareResultSender = mShareResultSenderFactory
+                    .create(mActivityModel.getLaunchedFromUid(), chosenComponentSender);
+        }
+        mLogic = createActivityLogic();
+        init();
+    }
+
+    private void init() {
         mIntentReceivedTime.set(System.currentTimeMillis());
         mLatencyTracker.onActionStart(ACTION_LOAD_SHARE_SHEET);
 
@@ -345,31 +387,20 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         mShouldDisplayLandscape =
                 shouldDisplayLandscape(getResources().getConfiguration().orientation);
 
-        ChooserRequestParameters chooserRequest = getChooserRequest();
-        if (chooserRequest == null) {
-            finish();
-            return;
-        }
-
+        ChooserRequest chooserRequest = mViewModel.getChooserRequest();
         setRetainInOnStop(chooserRequest.shouldRetainInOnStop());
         createProfileRecords(
                 new AppPredictorFactory(
                         this,
-                        chooserRequest.getSharedText(),
-                        chooserRequest.getTargetIntentFilter(),
+                        Objects.toString(chooserRequest.getSharedText(), null),
+                        chooserRequest.getShareTargetFilter(),
                         mAppPredictionAvailable
                 ),
-                chooserRequest.getTargetIntentFilter()
+                chooserRequest.getShareTargetFilter()
         );
 
-        Intent intent = mLogic.getTargetIntent();
-        List<Intent> initialIntents = mLogic.getInitialIntents();
-
-        // Calling UID did not have valid permissions
-        if (mLogic.getAnnotatedUserHandles() == null) {
-            finish();
-            return;
-        }
+        Intent intent = mViewModel.getChooserRequest().getTargetIntent();
+        List<Intent> initialIntents = mViewModel.getChooserRequest().getInitialIntents();
 
         mChooserMultiProfilePagerAdapter = createMultiProfilePagerAdapter(
                 requireNonNullElse(initialIntents, emptyList()).toArray(new Intent[0]),
@@ -458,14 +489,40 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         BasePreviewViewModel previewViewModel =
                 new ViewModelProvider(this, createPreviewViewModelFactory())
                         .get(BasePreviewViewModel.class);
+        previewViewModel.init(
+                chooserRequest.getTargetIntent(),
+                mActivityModel.getIntent(),
+                chooserRequest.getAdditionalContentUri(),
+                chooserRequest.getFocusedItemPosition(),
+                mChooserServiceFeatureFlags.chooserPayloadToggling());
+        ChooserActionFactory chooserActionFactory = createChooserActionFactory();
+        ChooserContentPreviewUi.ActionFactory actionFactory = chooserActionFactory;
+        if (previewViewModel.getPreviewDataProvider().getPreviewType()
+                == CONTENT_PREVIEW_PAYLOAD_SELECTION
+                && mChooserServiceFeatureFlags.chooserPayloadToggling()) {
+            PayloadToggleInteractor payloadToggleInteractor =
+                    previewViewModel.getPayloadToggleInteractor();
+            if (payloadToggleInteractor != null) {
+                ChooserMutableActionFactory mutableActionFactory =
+                        new ChooserMutableActionFactory(chooserActionFactory);
+                actionFactory = mutableActionFactory;
+                JavaFlowHelper.collect(
+                        getCoroutineScope(getLifecycle()),
+                        payloadToggleInteractor.getCustomActions(),
+                        mutableActionFactory::updateCustomActions);
+            }
+        }
         mChooserContentPreviewUi = new ChooserContentPreviewUi(
                 getCoroutineScope(getLifecycle()),
-                previewViewModel.createOrReuseProvider(chooserRequest.getTargetIntent()),
+                previewViewModel.getPreviewDataProvider(),
                 chooserRequest.getTargetIntent(),
-                previewViewModel.createOrReuseImageLoader(),
-                createChooserActionFactory(),
+                previewViewModel.getImageLoader(),
+                actionFactory,
                 mEnterTransitionAnimationDelegate,
-                new HeadlineGeneratorImpl(this));
+                new HeadlineGeneratorImpl(this),
+                chooserRequest.getContentTypeHint(),
+                chooserRequest.getMetadataText(),
+                mChooserServiceFeatureFlags.chooserPayloadToggling());
         updateStickyContentPreview();
         if (shouldShowStickyContentPreview()
                 || mChooserMultiProfilePagerAdapter
@@ -490,11 +547,10 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
             Log.d(TAG, "System Time Cost is " + systemCost);
         }
         getEventLog().logShareStarted(
-                mLogic.getReferrerPackageName(),
+                chooserRequest.getReferrerPackage(),
                 chooserRequest.getTargetType(),
                 chooserRequest.getCallerChooserTargets().size(),
-                (chooserRequest.getInitialIntents() == null)
-                        ? 0 : chooserRequest.getInitialIntents().length,
+                chooserRequest.getInitialIntents().size(),
                 isWorkProfile(),
                 mChooserContentPreviewUi.getPreferredContentPreview(),
                 chooserRequest.getTargetAction(),
@@ -502,8 +558,6 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                 chooserRequest.getModifyShareAction() != null
         );
         mEnterTransitionAnimationDelegate.postponeTransition();
-
-        restore(savedInstanceState);
     }
 
     private void restore(@Nullable Bundle savedInstanceState) {
@@ -698,9 +752,10 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
             }
         }
 
-        CharSequence title = mLogic.getTitle() != null
-                ? mLogic.getTitle()
-                : getTitleForAction(mLogic.getTargetIntent(), mLogic.getDefaultTitleResId());
+        CharSequence title = mViewModel.getChooserRequest().getTitle() != null
+                ? mViewModel.getChooserRequest().getTitle()
+                : getTitleForAction(mViewModel.getChooserRequest().getTargetIntent(),
+                        mViewModel.getChooserRequest().getDefaultTitleResource());
 
         if (!TextUtils.isEmpty(title)) {
             final TextView titleView = findViewById(com.android.internal.R.id.title);
@@ -758,10 +813,6 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         mChooserMultiProfilePagerAdapter.getActiveListAdapter().handlePackagesChanged();
     }
 
-    public boolean super_shouldAutoLaunchSingleChoice(TargetInfo target) {
-        return !target.isSuspended();
-    }
-
     /** Start the activity specified by the {@link TargetInfo}.*/
     public final void safelyStartActivity(TargetInfo cti) {
         // In case cloned apps are present, we would want to start those apps in cloned user
@@ -799,20 +850,21 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         }
         // If needed, show that intent is forwarded
         // from managed profile to owner or other way around.
-        String profileSwitchMessage = mIntentForwarding.forwardMessageFor(mLogic.getTargetIntent());
+        String profileSwitchMessage = mIntentForwarding.forwardMessageFor(
+                mViewModel.getChooserRequest().getTargetIntent());
         if (profileSwitchMessage != null) {
             Toast.makeText(this, profileSwitchMessage, Toast.LENGTH_LONG).show();
         }
         try {
             if (cti.startAsCaller(this, options, user.getIdentifier())) {
-                onActivityStarted(cti);
+                maybeSendShareResult(cti);
                 maybeLogCrossProfileTargetLaunch(cti, user);
             }
         } catch (RuntimeException e) {
             Slog.wtf(TAG,
-                    "Unable to launch as uid " + requireAnnotatedUserHandles().userIdOfCallingApp
-                            + " package " + getLaunchedFromPackage() + ", while running in "
-                            + ActivityThread.currentProcessName(), e);
+                    "Unable to launch as uid " + mActivityModel.getLaunchedFromUid()
+                            + " package " + mActivityModel.getLaunchedFromPackage() +
+                            ", while running in " + ActivityThread.currentProcessName(), e);
         }
     }
 
@@ -1119,9 +1171,9 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                 R.layout.resolver_profile_tab_button,
                 com.android.internal.R.id.profile_pager,
                 () -> onProfileTabSelected(viewPager.getCurrentItem()),
-                new MultiProfilePagerAdapter.OnProfileSelectedListener() {
+                new OnProfileSelectedListener() {
                     @Override
-                    public void onProfilePageSelected(@Profile int profileId, int pageNumber) {}
+                    public void onProfilePageSelected(@ProfileType int profileId, int pageNumber) {}
 
                     @Override
                     public void onProfilePageStateChanged(int state) {
@@ -1150,15 +1202,6 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
 
     //////////////////////////////////////////////////////////////////////////////////////////////
     //////////////////////////////////////////////////////////////////////////////////////////////
-
-    @Nullable
-    private ChooserRequestParameters getChooserRequest() {
-        return ((ChooserActivityLogic) mLogic).getChooserRequestParameters();
-    }
-
-    private ChooserRequestParameters requireChooserRequest() {
-        return requireNonNull(getChooserRequest());
-    }
 
     private AnnotatedUserHandles requireAnnotatedUserHandles() {
         return requireNonNull(mLogic.getAnnotatedUserHandles());
@@ -1196,7 +1239,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
 
     @Nullable
     private ProfileRecord getProfileRecord(UserHandle userHandle) {
-        return mProfileRecords.get(userHandle.getIdentifier(), null);
+        return mProfileRecords.get(userHandle.getIdentifier());
     }
 
     @VisibleForTesting
@@ -1234,7 +1277,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
     }
 
     protected EmptyStateProvider createBlockerEmptyStateProvider() {
-        final boolean isSendAction = requireChooserRequest().isSendActionTarget();
+        final boolean isSendAction = mViewModel.getChooserRequest().isSendActionTarget();
 
         final EmptyState noWorkToPersonalEmptyState =
                 new DevicePolicyBlockerEmptyState(
@@ -1276,7 +1319,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
             boolean filterLastUsed) {
         ChooserGridAdapter adapter = createChooserGridAdapter(
                 /* context */ this,
-                mLogic.getPayloadIntents(),
+                mViewModel.getChooserRequest().getPayloadIntents(),
                 initialIntents,
                 rList,
                 filterLastUsed,
@@ -1284,12 +1327,16 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         );
         return new ChooserMultiProfilePagerAdapter(
                 /* context */ this,
-                mDevicePolicyResources.getPersonalTabLabel(),
-                mDevicePolicyResources.getPersonalTabAccessibilityLabel(),
-                TAB_TAG_PERSONAL,
-                adapter,
+                ImmutableList.of(
+                        new TabConfig<>(
+                                PROFILE_PERSONAL,
+                                mDevicePolicyResources.getPersonalTabLabel(),
+                                mDevicePolicyResources.getPersonalTabAccessibilityLabel(),
+                                TAB_TAG_PERSONAL,
+                                adapter)),
                 createEmptyStateProvider(/* workProfileUserHandle= */ null),
                 /* workProfileQuietModeChecker= */ () -> false,
+                /* defaultProfile= */ PROFILE_PERSONAL,
                 /* workProfileUserHandle= */ null,
                 requireAnnotatedUserHandles().cloneProfileUserHandle,
                 mMaxTargetsPerRow,
@@ -1303,7 +1350,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         int selectedProfile = findSelectedProfile();
         ChooserGridAdapter personalAdapter = createChooserGridAdapter(
                 /* context */ this,
-                mLogic.getPayloadIntents(),
+                mViewModel.getChooserRequest().getPayloadIntents(),
                 selectedProfile == PROFILE_PERSONAL ? initialIntents : null,
                 rList,
                 filterLastUsed,
@@ -1311,7 +1358,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         );
         ChooserGridAdapter workAdapter = createChooserGridAdapter(
                 /* context */ this,
-                mLogic.getPayloadIntents(),
+                mViewModel.getChooserRequest().getPayloadIntents(),
                 selectedProfile == PROFILE_WORK ? initialIntents : null,
                 rList,
                 filterLastUsed,
@@ -1319,14 +1366,19 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         );
         return new ChooserMultiProfilePagerAdapter(
                 /* context */ this,
-                mDevicePolicyResources.getPersonalTabLabel(),
-                mDevicePolicyResources.getPersonalTabAccessibilityLabel(),
-                TAB_TAG_PERSONAL,
-                personalAdapter,
-                mDevicePolicyResources.getWorkTabLabel(),
-                mDevicePolicyResources.getWorkTabAccessibilityLabel(),
-                TAB_TAG_WORK,
-                workAdapter,
+                ImmutableList.of(
+                        new TabConfig<>(
+                                PROFILE_PERSONAL,
+                                mDevicePolicyResources.getPersonalTabLabel(),
+                                mDevicePolicyResources.getPersonalTabAccessibilityLabel(),
+                                TAB_TAG_PERSONAL,
+                                personalAdapter),
+                        new TabConfig<>(
+                                PROFILE_WORK,
+                                mDevicePolicyResources.getWorkTabLabel(),
+                                mDevicePolicyResources.getWorkTabAccessibilityLabel(),
+                                TAB_TAG_WORK,
+                                workAdapter)),
                 createEmptyStateProvider(requireAnnotatedUserHandles().workProfileUserHandle),
                 () -> mLogic.getWorkProfileAvailabilityManager().isQuietModeEnabled(),
                 selectedProfile,
@@ -1504,7 +1556,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         }
         final Intent intent = getIntent();
         if ((intent.getFlags() & FLAG_ACTIVITY_NEW_TASK) != 0 && !isVoiceInteraction()
-                && !mLogic.getResolvingHome() && !mRetainInOnStop) {
+                && !mRetainInOnStop) {
             // This resolver is in the unusual situation where it has been
             // launched at the top of a new task.  We don't let it be added
             // to the recent tasks shown to the user, and we need to make sure
@@ -1542,18 +1594,13 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
     }
 
     private void destroyProfileRecords() {
-        for (int i = 0; i < mProfileRecords.size(); ++i) {
-            mProfileRecords.valueAt(i).destroy();
-        }
+        mProfileRecords.values().forEach(ProfileRecord::destroy);
         mProfileRecords.clear();
     }
 
     @Override // ResolverListCommunicator
     public Intent getReplacementIntent(ActivityInfo aInfo, Intent defIntent) {
-        ChooserRequestParameters chooserRequest = getChooserRequest();
-        if (chooserRequest == null) {
-            return defIntent;
-        }
+        ChooserRequest chooserRequest = mViewModel.getChooserRequest();
 
         Intent result = defIntent;
         if (chooserRequest.getReplacementExtras() != null) {
@@ -1577,25 +1624,17 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         return result;
     }
 
-    public void onActivityStarted(TargetInfo cti) {
-        ChooserRequestParameters chooserRequest = requireChooserRequest();
-        if (chooserRequest.getChosenComponentSender() != null) {
+    private void maybeSendShareResult(TargetInfo cti) {
+        if (mShareResultSender != null) {
             final ComponentName target = cti.getResolvedComponentName();
             if (target != null) {
-                final Intent fillIn = new Intent().putExtra(Intent.EXTRA_CHOSEN_COMPONENT, target);
-                try {
-                    chooserRequest.getChosenComponentSender().sendIntent(
-                            this, Activity.RESULT_OK, fillIn, null, null);
-                } catch (IntentSender.SendIntentException e) {
-                    Slog.e(TAG, "Unable to launch supplied IntentSender to report "
-                            + "the chosen component: " + e);
-                }
+                mShareResultSender.onComponentSelected(target, cti.isChooserTargetInfo());
             }
         }
     }
 
     private void addCallerChooserTargets() {
-        ChooserRequestParameters chooserRequest = requireChooserRequest();
+        ChooserRequest chooserRequest = mViewModel.getChooserRequest();
         if (!chooserRequest.getCallerChooserTargets().isEmpty()) {
             // Send the caller's chooser targets only to the default profile.
             if (mChooserMultiProfilePagerAdapter.getActiveProfile() == findSelectedProfile()) {
@@ -1615,14 +1654,12 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
     }
 
     public boolean shouldAutoLaunchSingleChoice(TargetInfo target) {
-        // Note that this is only safe because the Intent handled by the ChooserActivity is
-        // guaranteed to contain no extras unknown to the local ClassLoader. That is why this
-        // method can not be replaced in the ResolverActivity whole hog.
-        if (!super_shouldAutoLaunchSingleChoice(target)) {
+        if (target.isSuspended()) {
             return false;
         }
 
-        return getIntent().getBooleanExtra(Intent.EXTRA_AUTO_LAUNCH_SINGLE_CHOICE, true);
+        return mActivityModel.getIntent().getBooleanExtra(Intent.EXTRA_AUTO_LAUNCH_SINGLE_CHOICE,
+                true);
     }
 
     private void showTargetDetails(TargetInfo targetInfo) {
@@ -1637,8 +1674,9 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         // TODO: implement these type-conditioned behaviors polymorphically, and consider moving
         // the logic into `ChooserTargetActionsDialogFragment.show()`.
         boolean isShortcutPinned = targetInfo.isSelectableTargetInfo() && targetInfo.isPinned();
-        IntentFilter intentFilter = targetInfo.isSelectableTargetInfo()
-                ? requireChooserRequest().getTargetIntentFilter() : null;
+        IntentFilter intentFilter;
+        intentFilter = targetInfo.isSelectableTargetInfo()
+                ? mViewModel.getChooserRequest().getShareTargetFilter() : null;
         String shortcutTitle = targetInfo.isSelectableTargetInfo()
                 ? targetInfo.getDisplayLabel().toString() : null;
         String shortcutIdKey = targetInfo.getDirectShareShortcutId();
@@ -1658,7 +1696,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
     protected boolean onTargetSelected(TargetInfo target) {
         if (mRefinementManager.maybeHandleSelection(
                 target,
-                requireChooserRequest().getRefinementIntentSender(),
+                mViewModel.getChooserRequest().getRefinementIntentSender(),
                 getApplication(),
                 getMainThreadHandler())) {
             return false;
@@ -1732,7 +1770,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                             targetInfo.getResolveInfo().activityInfo.processName,
                             which,
                             /* directTargetAlsoRanked= */ getRankedPosition(targetInfo),
-                            requireChooserRequest().getCallerChooserTargets().size(),
+                            mViewModel.getChooserRequest().getCallerChooserTargets().size(),
                             targetInfo.getHashedTargetIdForMetrics(this),
                             targetInfo.isPinned(),
                             mIsSuccessfullySelected,
@@ -1811,7 +1849,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         if (info != null) {
             sendClickToAppPredictor(info);
             final ResolveInfo ri = info.getResolveInfo();
-            Intent targetIntent = mLogic.getTargetIntent();
+            Intent targetIntent = mViewModel.getChooserRequest().getTargetIntent();
             if (ri != null && ri.activityInfo != null && targetIntent != null) {
                 ChooserListAdapter currentListAdapter =
                         mChooserMultiProfilePagerAdapter.getActiveListAdapter();
@@ -1839,7 +1877,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         if (targetIntent == null) {
             return;
         }
-        Intent originalTargetIntent = new Intent(requireChooserRequest().getTargetIntent());
+        Intent originalTargetIntent = new Intent(mViewModel.getChooserRequest().getTargetIntent());
         // Our TargetInfo implementations add associated component to the intent, let's do the same
         // for the sake of the comparison below.
         if (targetIntent.getComponent() != null) {
@@ -1917,36 +1955,6 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         return mEventLog;
     }
 
-    public class ChooserListController extends ResolverListController {
-        public ChooserListController(
-                Context context,
-                PackageManager pm,
-                Intent targetIntent,
-                String referrerPackageName,
-                int launchedFromUid,
-                AbstractResolverComparator resolverComparator,
-                UserHandle queryIntentsAsUser) {
-            super(
-                    context,
-                    pm,
-                    targetIntent,
-                    referrerPackageName,
-                    launchedFromUid,
-                    resolverComparator,
-                    queryIntentsAsUser);
-        }
-
-        @Override
-        public boolean isComponentFiltered(ComponentName name) {
-            return requireChooserRequest().getFilteredComponentNames().contains(name);
-        }
-
-        @Override
-        public boolean isComponentPinned(ComponentName name) {
-            return mPinnedSharedPrefs.getBoolean(name.flattenToString(), false);
-        }
-    }
-
     @VisibleForTesting
     public ChooserGridAdapter createChooserGridAdapter(
             Context context,
@@ -1955,7 +1963,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
             List<ResolveInfo> rList,
             boolean filterLastUsed,
             UserHandle userHandle) {
-        ChooserRequestParameters parameters = requireChooserRequest();
+        ChooserRequest request = mViewModel.getChooserRequest();
         ChooserListAdapter chooserListAdapter = createChooserListAdapter(
                 context,
                 payloadIntents,
@@ -1964,8 +1972,8 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                 filterLastUsed,
                 createListController(userHandle),
                 userHandle,
-                mLogic.getTargetIntent(),
-                parameters.getReferrerFillInIntent(),
+                request.getTargetIntent(),
+                request.getReferrerFillInIntent(),
                 mMaxTargetsPerRow
         );
 
@@ -2069,8 +2077,8 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         if (appPredictor != null) {
             resolverComparator = new AppPredictionServiceResolverComparator(
                     this,
-                    mLogic.getTargetIntent(),
-                    mLogic.getReferrerPackageName(),
+                    mViewModel.getChooserRequest().getTargetIntent(),
+                    mViewModel.getChooserRequest().getLaunchedFromPackage(),
                     appPredictor,
                     userHandle,
                     getEventLog(),
@@ -2080,8 +2088,8 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
             resolverComparator =
                     new ResolverRankerServiceResolverComparator(
                             this,
-                            mLogic.getTargetIntent(),
-                            mLogic.getReferrerPackageName(),
+                            mViewModel.getChooserRequest().getTargetIntent(),
+                            mViewModel.getChooserRequest().getReferrerPackage(),
                             null,
                             getEventLog(),
                             getResolverRankerServiceUserHandleList(userHandle),
@@ -2091,11 +2099,13 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         return new ChooserListController(
                 this,
                 mPackageManager,
-                mLogic.getTargetIntent(),
-                mLogic.getReferrerPackageName(),
+                mViewModel.getChooserRequest().getTargetIntent(),
+                mViewModel.getChooserRequest().getReferrerPackage(),
                 requireAnnotatedUserHandles().userIdOfCallingApp,
                 resolverComparator,
-                getQueryIntentsUser(userHandle));
+                getQueryIntentsUser(userHandle),
+                mViewModel.getChooserRequest().getFilteredComponentNames(),
+                mPinnedSharedPrefs);
     }
 
     @VisibleForTesting
@@ -2104,11 +2114,11 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
     }
 
     private ChooserActionFactory createChooserActionFactory() {
-        ChooserRequestParameters request = requireChooserRequest();
+        ChooserRequest request = mViewModel.getChooserRequest();
         return new ChooserActionFactory(
                 this,
                 request.getTargetIntent(),
-                request.getReferrerPackageName(),
+                request.getLaunchedFromPackage(),
                 request.getChooserActions(),
                 request.getModifyShareAction(),
                 mImageEditor,
@@ -2139,12 +2149,14 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                         mFinishWhenStopped = true;
                     }
                 },
+                mShareResultSender,
                 (status) -> {
                     if (status != null) {
                         setResult(status);
                     }
                     finish();
-                });
+                },
+                mClipboardManager);
     }
 
     /*
@@ -2473,7 +2485,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
      * @return true if we want to show the content preview area
      */
     protected boolean shouldShowContentPreview() {
-        ChooserRequestParameters chooserRequest = getChooserRequest();
+        ChooserRequest chooserRequest = mViewModel.getChooserRequest();
         return (chooserRequest != null) && chooserRequest.isSendActionTarget();
     }
 

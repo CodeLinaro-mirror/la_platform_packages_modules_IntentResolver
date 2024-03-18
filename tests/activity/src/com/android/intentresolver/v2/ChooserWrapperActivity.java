@@ -54,19 +54,13 @@ public class ChooserWrapperActivity extends ChooserActivity implements IChooserW
     private UsageStatsManager mUsm;
 
     @Override
-    protected final ActivityLogic createActivityLogic() {
+    protected final ChooserActivityLogic createActivityLogic() {
         return new TestChooserActivityLogic(
-                        "ChooserWrapper",
-                        /* activity = */ this,
-                        this::onWorkProfileStatusUpdated,
-                        sOverrides);
-    }
-
-    // ResolverActivity (the base class of ChooserActivity) inspects the launched-from UID at
-    // onCreate and needs to see some non-negative value in the test.
-    @Override
-    public int getLaunchedFromUid() {
-        return 1234;
+                "ChooserWrapper",
+                /* activity = */ this,
+                this::onWorkProfileStatusUpdated,
+                sOverrides.annotatedUserHandles,
+                sOverrides.mWorkProfileAvailability);
     }
 
     @Override

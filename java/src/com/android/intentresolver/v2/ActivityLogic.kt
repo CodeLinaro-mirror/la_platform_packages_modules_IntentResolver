@@ -1,6 +1,20 @@
+/*
+ * Copyright (C) 2024 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package com.android.intentresolver.v2
 
-import android.content.Intent
 import android.os.UserHandle
 import android.os.UserManager
 import android.util.Log
@@ -15,20 +29,7 @@ import com.android.intentresolver.WorkProfileAvailabilityManager
  * activity, including test activities, but all implementations should delegate to a
  * CommonActivityLogic implementation.
  */
-interface ActivityLogic : CommonActivityLogic {
-    /** The intent for the target. This will always come before additional targets, if any. */
-    val targetIntent: Intent
-    /** Whether the intent is for home. */
-    val resolvingHome: Boolean
-    /** Custom title to display. */
-    val title: CharSequence?
-    /** Resource ID for the title to display when there is no custom title. */
-    val defaultTitleResId: Int
-    /** Intents received to be processed. */
-    val initialIntents: List<Intent>?
-    /** The intents for potential actual targets. [targetIntent] must be first. */
-    val payloadIntents: List<Intent>
-}
+interface ActivityLogic : CommonActivityLogic
 
 /**
  * Logic that is common to all IntentResolver activities. Anything that is the same across
@@ -37,14 +38,13 @@ interface ActivityLogic : CommonActivityLogic {
 interface CommonActivityLogic {
     /** The tag to use when logging. */
     val tag: String
+
     /** A reference to the activity owning, and used by, this logic. */
     val activity: ComponentActivity
-    /** The name of the referring package. */
-    val referrerPackageName: String?
-    /** User manager system service. */
-    val userManager: UserManager
+
     /** Current [UserHandle]s retrievable by type. */
     val annotatedUserHandles: AnnotatedUserHandles?
+
     /** Monitors for changes to work profile availability. */
     val workProfileAvailabilityManager: WorkProfileAvailabilityManager
 }
@@ -60,16 +60,7 @@ class CommonActivityLogicImpl(
     onWorkProfileStatusUpdated: () -> Unit,
 ) : CommonActivityLogic {
 
-    override val referrerPackageName: String? =
-        activity.referrer.let {
-            if (ANDROID_APP_URI_SCHEME == it?.scheme) {
-                it.host
-            } else {
-                null
-            }
-        }
-
-    override val userManager: UserManager = activity.getSystemService()!!
+    private val userManager: UserManager = activity.getSystemService()!!
 
     override val annotatedUserHandles: AnnotatedUserHandles? =
         try {
@@ -85,8 +76,4 @@ class CommonActivityLogicImpl(
             annotatedUserHandles?.workProfileUserHandle,
             onWorkProfileStatusUpdated,
         )
-
-    companion object {
-        private const val ANDROID_APP_URI_SCHEME = "android-app"
-    }
 }
