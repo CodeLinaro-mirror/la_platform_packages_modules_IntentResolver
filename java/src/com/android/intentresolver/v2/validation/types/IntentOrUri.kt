@@ -18,7 +18,8 @@ package com.android.intentresolver.v2.validation.types
 import android.content.Intent
 import android.net.Uri
 import com.android.intentresolver.v2.validation.Importance
-import com.android.intentresolver.v2.validation.RequiredValueMissing
+import com.android.intentresolver.v2.validation.Invalid
+import com.android.intentresolver.v2.validation.NoValue
 import com.android.intentresolver.v2.validation.Valid
 import com.android.intentresolver.v2.validation.ValidationResult
 import com.android.intentresolver.v2.validation.Validator
@@ -30,7 +31,6 @@ class IntentOrUri(override val key: String) : Validator<Intent> {
         source: (String) -> Any?,
         importance: Importance
     ): ValidationResult<Intent> {
-
         return when (val value = source(key)) {
             // An intent, return it.
             is Intent -> Valid(value)
@@ -40,12 +40,15 @@ class IntentOrUri(override val key: String) : Validator<Intent> {
             is Uri -> Valid(Intent.parseUri(value.toString(), Intent.URI_INTENT_SCHEME))
 
             // No value present.
-            null -> createResult(importance, RequiredValueMissing(key, Intent::class))
+            null ->
+                when (importance) {
+                    Importance.WARNING -> Invalid() // No warnings if optional, but missing
+                    Importance.CRITICAL -> Invalid(NoValue(key, importance, Intent::class))
+                }
 
             // Some other type.
             else -> {
-                return createResult(
-                    importance,
+                return Invalid(
                     ValueIsWrongType(
                         key,
                         importance,

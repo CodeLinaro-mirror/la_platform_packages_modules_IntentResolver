@@ -16,25 +16,72 @@
 
 package com.android.intentresolver.contentpreview
 
-import android.content.ContentResolver
+import android.content.ContentInterface
+import android.media.MediaMetadata
 import android.net.Uri
+import android.provider.DocumentsContract
+import dagger.Binds
+import dagger.Module
+import dagger.Provides
+import dagger.hilt.InstallIn
+import dagger.hilt.components.SingletonComponent
+import javax.inject.Inject
 
-// TODO: share this logic with PreviewDataProvider
-class UriMetadataReader(
-    private val contentResolver: ContentResolver,
-    private val mimeTypeClassifier: MimeTypeClassifier,
-) : (Uri) -> FileInfo {
-    fun getMetadata(uri: Uri): FileInfo =
-        FileInfo.Builder(uri)
-            .apply {
-                runCatching {
-                    withMimeType(contentResolver.getType(uri))
-                    if (mimeTypeClassifier.isImageType(mimeType)) {
-                        withPreviewUri(uri)
-                    }
-                }
+fun interface UriMetadataReader {
+    fun getMetadata(uri: Uri): FileInfo
+}
+
+class UriMetadataReaderImpl
+@Inject
+constructor(
+    private val contentResolver: ContentInterface,
+    private val typeClassifier: MimeTypeClassifier,
+) : UriMetadataReader {
+    override fun getMetadata(uri: Uri): FileInfo {
+        val builder = FileInfo.Builder(uri)
+        val mimeType = contentResolver.getTypeSafe(uri)
+        builder.withMimeType(mimeType)
+        if (
+            typeClassifier.isImageType(mimeType) ||
+                contentResolver.supportsImageType(uri) ||
+                contentResolver.supportsThumbnail(uri)
+        ) {
+            builder.withPreviewUri(uri)
+            return builder.build()
+        }
+        val previewUri = contentResolver.readPreviewUri(uri)
+        if (previewUri != null) {
+            builder.withPreviewUri(previewUri)
+        }
+        return builder.build()
+    }
+
+    private fun ContentInterface.supportsImageType(uri: Uri): Boolean =
+        getStreamTypesSafe(uri).firstOrNull { typeClassifier.isImageType(it) } != null
+
+    private fun ContentInterface.supportsThumbnail(uri: Uri): Boolean =
+        querySafe(uri, arrayOf(DocumentsContract.Document.COLUMN_FLAGS))?.use { cursor ->
+            cursor.moveToFirst() && cursor.readSupportsThumbnail()
+        }
+            ?: false
+
+    private fun ContentInterface.readPreviewUri(uri: Uri): Uri? =
+        querySafe(uri, arrayOf(MediaMetadata.METADATA_KEY_DISPLAY_ICON_URI))?.use { cursor ->
+            if (cursor.moveToFirst()) {
+                cursor.readPreviewUri()
+            } else {
+                null
             }
-            .build()
+        }
+}
 
-    override fun invoke(uri: Uri): FileInfo = getMetadata(uri)
+@Module
+@InstallIn(SingletonComponent::class)
+interface UriMetadataReaderModule {
+
+    @Binds fun bind(impl: UriMetadataReaderImpl): UriMetadataReader
+
+    companion object {
+        @Provides fun classifier(): MimeTypeClassifier = DefaultMimeTypeClassifier
+    }
 }

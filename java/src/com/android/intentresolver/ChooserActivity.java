@@ -305,16 +305,16 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                         .get(BasePreviewViewModel.class);
         previewViewModel.init(
                 mChooserRequest.getTargetIntent(),
-                getIntent(),
                 /*additionalContentUri = */ null,
-                /*focusedItemIdx = */ 0,
                 /*isPayloadTogglingEnabled = */ false);
+        final ChooserActionFactory chooserActionFactory = createChooserActionFactory();
         mChooserContentPreviewUi = new ChooserContentPreviewUi(
                 getCoroutineScope(getLifecycle()),
                 previewViewModel.getPreviewDataProvider(),
                 mChooserRequest.getTargetIntent(),
                 previewViewModel.getImageLoader(),
-                createChooserActionFactory(),
+                chooserActionFactory,
+                chooserActionFactory::getModifyShareAction,
                 mEnterTransitionAnimationDelegate,
                 new HeadlineGeneratorImpl(this),
                 ContentTypeHint.NONE,
