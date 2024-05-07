@@ -55,7 +55,7 @@
     <string name="screenshot_edit" msgid="3857183660047569146">"編集"</string>
     <string name="other_files" msgid="4501185823517473875">"{count,plural, =1{他 # 件のファイル}other{他 # 件のファイル}}"</string>
     <string name="more_files" msgid="1043875756612339842">"{count,plural, =1{その他 # ファイル}other{その他 # ファイル}}"</string>
-    <string name="sharing_text" msgid="8137537443603304062">"テキストを共有中"</string>
+    <string name="sharing_text" msgid="8137537443603304062">"テキストの共有"</string>
     <string name="sharing_link" msgid="2307694372813942916">"リンクを共有中"</string>
     <string name="sharing_images" msgid="5251443722186962006">"{count,plural, =1{画像を共有しています}other{# 枚の画像を共有しています}}"</string>
     <string name="sharing_videos" msgid="3583423190182877434">"{count,plural, =1{動画を共有中}other{# 個の動画を共有中}}"</string>
@@ -90,6 +90,8 @@
     <string name="resolver_switch_on_work" msgid="8678893259344318807">"一時停止を解除"</string>
     <string name="resolver_no_work_apps_available" msgid="6139818641313189903">"仕事用アプリはありません"</string>
     <string name="resolver_no_personal_apps_available" msgid="8479033344701050767">"個人用アプリはありません"</string>
+    <!-- no translation found for resolver_no_private_apps_available (4164473548027417456) -->
+    <skip />
     <string name="miniresolver_open_in_personal" msgid="8397377137465016575">"個人用プロファイルで <xliff:g id="APP">%s</xliff:g> を開きますか？"</string>
     <string name="miniresolver_open_in_work" msgid="4271638122142624693">"仕事用プロファイルで <xliff:g id="APP">%s</xliff:g> を開きますか？"</string>
     <string name="miniresolver_use_personal_browser" msgid="1428911732509069292">"個人用ブラウザを使用"</string>
