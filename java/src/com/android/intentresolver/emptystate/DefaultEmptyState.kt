@@ -13,10 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package com.android.intentresolver.emptystate
 
-package com.android.intentresolver.contentpreview.payloadtoggle.domain.intent
-
-import com.android.systemui.kosmos.Kosmos
-import org.mockito.kotlin.mock
-
-var Kosmos.pendingIntentSender by Kosmos.Fixture { mock<PendingIntentSender> {} }
+class DefaultEmptyState : EmptyState {
+    override fun useDefaultEmptyView() = true
+}
