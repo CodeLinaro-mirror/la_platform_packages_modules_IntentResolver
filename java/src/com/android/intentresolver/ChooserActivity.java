@@ -17,14 +17,7 @@
 package com.android.intentresolver;
 
 import static android.app.VoiceInteractor.PickOptionRequest.Option;
-import static android.app.admin.DevicePolicyResources.Strings.Core.RESOLVER_CANT_ACCESS_PERSONAL;
-import static android.app.admin.DevicePolicyResources.Strings.Core.RESOLVER_CANT_ACCESS_WORK;
-import static android.app.admin.DevicePolicyResources.Strings.Core.RESOLVER_CANT_SHARE_WITH_PERSONAL;
-import static android.app.admin.DevicePolicyResources.Strings.Core.RESOLVER_CANT_SHARE_WITH_WORK;
-import static android.app.admin.DevicePolicyResources.Strings.Core.RESOLVER_CROSS_PROFILE_BLOCKED_TITLE;
 import static android.content.Intent.FLAG_ACTIVITY_NEW_TASK;
-import static android.stats.devicepolicy.nano.DevicePolicyEnums.RESOLVER_EMPTY_STATE_NO_SHARING_TO_PERSONAL;
-import static android.stats.devicepolicy.nano.DevicePolicyEnums.RESOLVER_EMPTY_STATE_NO_SHARING_TO_WORK;
 import static android.view.WindowManager.LayoutParams.SYSTEM_FLAG_HIDE_NON_SYSTEM_OVERLAY_WINDOWS;
 
 import static androidx.lifecycle.LifecycleKt.getCoroutineScope;
@@ -98,6 +91,7 @@ import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.viewpager.widget.ViewPager;
 
+import com.android.intentresolver.ChooserRefinementManager.RefinementType;
 import com.android.intentresolver.chooser.DisplayResolveInfo;
 import com.android.intentresolver.chooser.MultiDisplayResolveInfo;
 import com.android.intentresolver.chooser.TargetInfo;
@@ -110,13 +104,12 @@ import com.android.intentresolver.data.repository.DevicePolicyResources;
 import com.android.intentresolver.domain.interactor.UserInteractor;
 import com.android.intentresolver.emptystate.CompositeEmptyStateProvider;
 import com.android.intentresolver.emptystate.CrossProfileIntentsChecker;
-import com.android.intentresolver.emptystate.EmptyState;
 import com.android.intentresolver.emptystate.EmptyStateProvider;
 import com.android.intentresolver.emptystate.NoAppsAvailableEmptyStateProvider;
 import com.android.intentresolver.emptystate.NoCrossProfileEmptyStateProvider;
-import com.android.intentresolver.emptystate.NoCrossProfileEmptyStateProvider.DevicePolicyBlockerEmptyState;
 import com.android.intentresolver.emptystate.WorkProfilePausedEmptyStateProvider;
 import com.android.intentresolver.grid.ChooserGridAdapter;
+import com.android.intentresolver.icons.Caching;
 import com.android.intentresolver.icons.TargetDataLoader;
 import com.android.intentresolver.inject.Background;
 import com.android.intentresolver.logging.EventLog;
@@ -174,6 +167,7 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 import javax.inject.Inject;
+import javax.inject.Provider;
 
 /**
  * The Chooser Activity handles intent resolution specifically for sharing intents -
@@ -212,7 +206,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
     private static final String TAB_TAG_WORK = "work";
 
     private static final String LAST_SHOWN_TAB_KEY = "last_shown_tab_key";
-    protected static final String METRICS_CATEGORY_CHOOSER = "intent_chooser";
+    public static final String METRICS_CATEGORY_CHOOSER = "intent_chooser";
 
     private int mLayoutId;
     private UserHandle mHeaderCreatorUser;
@@ -264,7 +258,11 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
     @Inject @AppPredictionAvailable public boolean mAppPredictionAvailable;
     @Inject @ImageEditor public Optional<ComponentName> mImageEditor;
     @Inject @NearbyShare public Optional<ComponentName> mNearbyShare;
-    @Inject public TargetDataLoader mTargetDataLoader;
+    protected TargetDataLoader mTargetDataLoader;
+    @Inject public Provider<TargetDataLoader> mTargetDataLoaderProvider;
+    @Inject
+    @Caching
+    public Provider<TargetDataLoader> mCachingTargetDataLoaderProvider;
     @Inject public DevicePolicyResources mDevicePolicyResources;
     @Inject public ProfilePagerResources mProfilePagerResources;
     @Inject public PackageManager mPackageManager;
@@ -338,6 +336,10 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         Log.i(TAG, "onCreate");
+
+        mTargetDataLoader = mChooserServiceFeatureFlags.chooserPayloadToggling()
+                ? mCachingTargetDataLoaderProvider.get()
+                : mTargetDataLoaderProvider.get();
 
         setTheme(R.style.Theme_DeviceDefault_Chooser);
 
@@ -415,6 +417,15 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
     @Override
     protected final void onRestart() {
         super.onRestart();
+        if (mFeatureFlags.fixPrivateSpaceLockedOnRestart()) {
+            if (mChooserMultiProfilePagerAdapter.hasPageForProfile(Profile.Type.PRIVATE.ordinal())
+                    && !mProfileAvailability.isAvailable(mProfiles.getPrivateProfile())) {
+                Log.d(TAG, "Exiting due to unavailable profile");
+                finish();
+                return;
+            }
+        }
+
         if (!mRegistered) {
             mPersonalPackageMonitor.register(
                     this,
@@ -569,23 +580,52 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         mRefinementManager = new ViewModelProvider(this).get(ChooserRefinementManager.class);
         mRefinementManager.getRefinementCompletion().observe(this, completion -> {
             if (completion.consume()) {
-                TargetInfo targetInfo = completion.getTargetInfo();
-                // targetInfo is non-null if the refinement process was successful.
-                if (targetInfo != null) {
-                    maybeRemoveSharedText(targetInfo);
+                if (completion.getRefinedIntent() == null) {
+                    finish();
+                    return;
+                }
 
-                    // We already block suspended targets from going to refinement, and we probably
-                    // can't recover a Chooser session if that's the reason the refined target fails
-                    // to launch now. Fire-and-forget the refined launch; ignore the return value
-                    // and just make sure the Sharesheet session gets cleaned up regardless.
-                    final ResolveInfo ri = targetInfo.getResolveInfo();
-                    final Intent intent1 = targetInfo.getResolvedIntent();
+                // Prepare to regenerate our "system actions" based on the refined intent.
+                // TODO: optimize if needed. `TARGET_INFO` cases don't require a new action
+                // factory at all. And if we break up `ChooserActionFactory`, we could avoid
+                // resolving a new editor intent unless we're handling an `EDIT_ACTION`.
+                ChooserActionFactory refinedActionFactory =
+                        createChooserActionFactory(completion.getRefinedIntent());
+                switch (completion.getType()) {
+                    case TARGET_INFO: {
+                        TargetInfo refinedTarget = completion
+                                .getOriginalTargetInfo()
+                                .tryToCloneWithAppliedRefinement(
+                                        completion.getRefinedIntent());
+                        if (refinedTarget == null) {
+                            Log.e(TAG, "Failed to apply refinement to any matching source intent");
+                        } else {
+                            maybeRemoveSharedText(refinedTarget);
 
-                    safelyStartActivity(targetInfo);
+                            // We already block suspended targets from going to refinement, and we
+                            // probably can't recover a Chooser session if that's the reason the
+                            // refined target fails to launch now. Fire-and-forget the refined
+                            // launch, and make sure Sharesheet gets cleaned up regardless of the
+                            // outcome of that launch.launch; ignore
 
-                    // Rely on the ActivityManager to pop up a dialog regarding app suspension
-                    // and return false
-                    targetInfo.isSuspended();
+                            safelyStartActivity(refinedTarget);
+                        }
+                    }
+                    break;
+
+                    case COPY_ACTION: {
+                        if (refinedActionFactory.getCopyButtonRunnable() != null) {
+                            refinedActionFactory.getCopyButtonRunnable().run();
+                        }
+                    }
+                    break;
+
+                    case EDIT_ACTION: {
+                        if (refinedActionFactory.getEditButtonRunnable() != null) {
+                            refinedActionFactory.getEditButtonRunnable().run();
+                        }
+                    }
+                    break;
                 }
 
                 finish();
@@ -598,12 +638,15 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                 mRequest.getTargetIntent(),
                 mRequest.getAdditionalContentUri(),
                 mChooserServiceFeatureFlags.chooserPayloadToggling());
+        ChooserContentPreviewUi.ActionFactory actionFactory =
+                decorateActionFactoryWithRefinement(
+                        createChooserActionFactory(mRequest.getTargetIntent()));
         mChooserContentPreviewUi = new ChooserContentPreviewUi(
                 getCoroutineScope(getLifecycle()),
                 previewViewModel.getPreviewDataProvider(),
                 mRequest.getTargetIntent(),
                 previewViewModel.getImageLoader(),
-                createChooserActionFactory(),
+                actionFactory,
                 createModifyShareActionFactory(),
                 mEnterTransitionAnimationDelegate,
                 new HeadlineGeneratorImpl(this),
@@ -743,6 +786,10 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                 mRequest.getInitialIntents(),
                 mMaxTargetsPerRow);
         mChooserMultiProfilePagerAdapter.setCurrentPage(currentPage);
+        for (int i = 0, count = mChooserMultiProfilePagerAdapter.getItemCount(); i < count; i++) {
+            mChooserMultiProfilePagerAdapter.getPageAdapterForIndex(i)
+                    .getListAdapter().setAnimateItems(false);
+        }
         if (mPersonalPackageMonitor != null) {
             mPersonalPackageMonitor.unregister();
         }
@@ -1137,19 +1184,6 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         safelyStartActivityAsUser(cti, user, null);
     }
 
-    protected WindowInsets super_onApplyWindowInsets(View v, WindowInsets insets) {
-        mSystemWindowInsets = insets.getSystemWindowInsets();
-
-        mResolverDrawerLayout.setPadding(mSystemWindowInsets.left, mSystemWindowInsets.top,
-                mSystemWindowInsets.right, 0);
-
-        // Need extra padding so the list can fully scroll up
-        // To accommodate for window insets
-        applyFooterView(mSystemWindowInsets.bottom);
-
-        return insets.consumeSystemWindowInsets();
-    }
-
     @Override // ResolverListCommunicator
     public final void onHandlePackagesChanged(ResolverListAdapter listAdapter) {
         if (!mChooserMultiProfilePagerAdapter.onHandlePackagesChanged(
@@ -1364,17 +1398,6 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         return context.getSharedPreferences(PINNED_SHARED_PREFS_NAME, MODE_PRIVATE);
     }
 
-    protected ChooserMultiProfilePagerAdapter createMultiProfilePagerAdapter() {
-        return createMultiProfilePagerAdapter(
-                /* context = */ this,
-                mProfilePagerResources,
-                mViewModel.getRequest().getValue(),
-                mProfiles,
-                mProfileAvailability,
-                mRequest.getInitialIntents(),
-                mMaxTargetsPerRow);
-    }
-
     private ChooserMultiProfilePagerAdapter createMultiProfilePagerAdapter(
             Context context,
             ProfilePagerResources profilePagerResources,
@@ -1430,39 +1453,11 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
     }
 
     protected EmptyStateProvider createBlockerEmptyStateProvider() {
-        final boolean isSendAction = mRequest.isSendActionTarget();
-
-        final EmptyState noWorkToPersonalEmptyState =
-                new DevicePolicyBlockerEmptyState(
-                        /* context= */ this,
-                        /* devicePolicyStringTitleId= */ RESOLVER_CROSS_PROFILE_BLOCKED_TITLE,
-                        /* defaultTitleResource= */ R.string.resolver_cross_profile_blocked,
-                        /* devicePolicyStringSubtitleId= */
-                        isSendAction ? RESOLVER_CANT_SHARE_WITH_PERSONAL : RESOLVER_CANT_ACCESS_PERSONAL,
-                        /* defaultSubtitleResource= */
-                        isSendAction ? R.string.resolver_cant_share_with_personal_apps_explanation
-                                : R.string.resolver_cant_access_personal_apps_explanation,
-                        /* devicePolicyEventId= */ RESOLVER_EMPTY_STATE_NO_SHARING_TO_PERSONAL,
-                        /* devicePolicyEventCategory= */ ResolverActivity.METRICS_CATEGORY_CHOOSER);
-
-        final EmptyState noPersonalToWorkEmptyState =
-                new DevicePolicyBlockerEmptyState(
-                        /* context= */ this,
-                        /* devicePolicyStringTitleId= */ RESOLVER_CROSS_PROFILE_BLOCKED_TITLE,
-                        /* defaultTitleResource= */ R.string.resolver_cross_profile_blocked,
-                        /* devicePolicyStringSubtitleId= */
-                        isSendAction ? RESOLVER_CANT_SHARE_WITH_WORK : RESOLVER_CANT_ACCESS_WORK,
-                        /* defaultSubtitleResource= */
-                        isSendAction ? R.string.resolver_cant_share_with_work_apps_explanation
-                                : R.string.resolver_cant_access_work_apps_explanation,
-                        /* devicePolicyEventId= */ RESOLVER_EMPTY_STATE_NO_SHARING_TO_WORK,
-                        /* devicePolicyEventCategory= */ ResolverActivity.METRICS_CATEGORY_CHOOSER);
-
         return new NoCrossProfileEmptyStateProvider(
                 mProfiles,
-                noWorkToPersonalEmptyState,
-                noPersonalToWorkEmptyState,
-                createCrossProfileIntentsChecker());
+                mDevicePolicyResources,
+                createCrossProfileIntentsChecker(),
+                mRequest.isSendActionTarget());
     }
 
     private int findSelectedProfile() {
@@ -2110,10 +2105,67 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         return PreviewViewModel.Companion.getFactory();
     }
 
-    private ChooserActionFactory createChooserActionFactory() {
+    private ChooserContentPreviewUi.ActionFactory decorateActionFactoryWithRefinement(
+            ChooserContentPreviewUi.ActionFactory originalFactory) {
+        if (!mFeatureFlags.refineSystemActions()) {
+            return originalFactory;
+        }
+
+        return new ChooserContentPreviewUi.ActionFactory() {
+            @Override
+            @Nullable
+            public Runnable getEditButtonRunnable() {
+                return () -> {
+                    if (!mRefinementManager.maybeHandleSelection(
+                            RefinementType.EDIT_ACTION,
+                            List.of(mRequest.getTargetIntent()),
+                            null,
+                            mRequest.getRefinementIntentSender(),
+                            getApplication(),
+                            getMainThreadHandler())) {
+                        originalFactory.getEditButtonRunnable().run();
+                    }
+                };
+            }
+
+            @Override
+            @Nullable
+            public Runnable getCopyButtonRunnable() {
+                return () -> {
+                    if (!mRefinementManager.maybeHandleSelection(
+                            RefinementType.COPY_ACTION,
+                            List.of(mRequest.getTargetIntent()),
+                            null,
+                            mRequest.getRefinementIntentSender(),
+                            getApplication(),
+                            getMainThreadHandler())) {
+                        originalFactory.getCopyButtonRunnable().run();
+                    }
+                };
+            }
+
+            @Override
+            public List<ActionRow.Action> createCustomActions() {
+                return originalFactory.createCustomActions();
+            }
+
+            @Override
+            @Nullable
+            public ActionRow.Action getModifyShareAction() {
+                return originalFactory.getModifyShareAction();
+            }
+
+            @Override
+            public Consumer<Boolean> getExcludeSharedTextAction() {
+                return originalFactory.getExcludeSharedTextAction();
+            }
+        };
+    }
+
+    private ChooserActionFactory createChooserActionFactory(Intent targetIntent) {
         return new ChooserActionFactory(
                 this,
-                mRequest.getTargetIntent(),
+                targetIntent,
                 mRequest.getLaunchedFromPackage(),
                 mRequest.getChooserActions(),
                 mImageEditor,
@@ -2559,16 +2611,23 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
     }
 
     protected WindowInsets onApplyWindowInsets(View v, WindowInsets insets) {
-        if (mProfiles.getWorkProfilePresent()) {
+        mSystemWindowInsets = insets.getInsets(WindowInsets.Type.systemBars());
+        if (mFeatureFlags.fixEmptyStatePaddingBug() || mProfiles.getWorkProfilePresent()) {
             mChooserMultiProfilePagerAdapter
-                    .setEmptyStateBottomOffset(insets.getSystemWindowInsetBottom());
+                    .setEmptyStateBottomOffset(mSystemWindowInsets.bottom);
         }
 
-        WindowInsets result = super_onApplyWindowInsets(v, insets);
+        mResolverDrawerLayout.setPadding(mSystemWindowInsets.left, mSystemWindowInsets.top,
+                mSystemWindowInsets.right, 0);
+
+        // Need extra padding so the list can fully scroll up
+        // To accommodate for window insets
+        applyFooterView(mSystemWindowInsets.bottom);
+
         if (mResolverDrawerLayout != null) {
             mResolverDrawerLayout.requestLayout();
         }
-        return result;
+        return WindowInsets.CONSUMED;
     }
 
     private void setHorizontalScrollingEnabled(boolean enabled) {
