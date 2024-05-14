@@ -36,6 +36,8 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -43,8 +45,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.dimensionResource
@@ -65,6 +66,7 @@ fun Shareousel(viewModel: ShareouselViewModel) {
     } else {
         Spacer(
             Modifier.height(dimensionResource(R.dimen.chooser_preview_image_height_tall) + 64.dp)
+                .background(MaterialTheme.colorScheme.surfaceContainer)
         )
     }
 }
@@ -127,12 +129,7 @@ private fun ShareouselCard(viewModel: ShareouselPreviewViewModel) {
             }
                 ?: run {
                     // TODO: look at ScrollableImagePreviewView.setLoading()
-                    Box(
-                        modifier =
-                            Modifier.fillMaxHeight()
-                                .aspectRatio(2f / 5f)
-                                .border(1.dp, Color.Red, RectangleShape)
-                    )
+                    Box(modifier = Modifier.fillMaxHeight().aspectRatio(2f / 5f))
                 }
         },
         contentType = contentType,
@@ -167,7 +164,13 @@ private fun ActionCarousel(viewModel: ShareouselViewModel) {
                     label = actionViewModel.label,
                     onClick = { actionViewModel.onClicked() },
                 ) {
-                    actionViewModel.icon?.let { Image(icon = it, modifier = Modifier.size(16.dp)) }
+                    actionViewModel.icon?.let {
+                        Image(
+                            icon = it,
+                            modifier = Modifier.size(16.dp),
+                            colorFilter = ColorFilter.tint(LocalContentColor.current)
+                        )
+                    }
                 }
                 if (idx == actions.size - 1) {
                     Spacer(Modifier.width(dimensionResource(R.dimen.chooser_edge_margin_normal)))
@@ -188,7 +191,15 @@ private fun ShareouselAction(
         onClick = onClick,
         label = { Text(label) },
         leadingIcon = leadingIcon,
-        modifier = modifier
+        border = null,
+        shape = RoundedCornerShape(1000.dp), // pill shape.
+        colors =
+            AssistChipDefaults.assistChipColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                labelColor = MaterialTheme.colorScheme.onSurface,
+                leadingIconContentColor = MaterialTheme.colorScheme.onSurface
+            ),
+        modifier = modifier,
     )
 }
 

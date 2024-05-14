@@ -448,6 +448,9 @@ public class ResolverListAdapter extends BaseAdapter {
         // Send an "incomplete" list-ready while the async task is running.
         postListReadyRunnable(doPostProcessing, /* rebuildCompleted */ false);
         mBgExecutor.execute(() -> {
+            if (isDestroyed()) {
+                return;
+            }
             List<ResolvedComponentInfo> sortedComponents = null;
             //TODO: the try-catch logic here is to formally match the AsyncTask's behavior.
             // Empirically, we don't need it as in the case on an exception, the app will crash and
@@ -785,6 +788,10 @@ public class ResolverListAdapter extends BaseAdapter {
         mRequestedLabels.clear();
     }
 
+    public final boolean isDestroyed() {
+        return mDestroyed.get();
+    }
+
     private static ColorMatrixColorFilter getSuspendedColorMatrix() {
         if (sSuspendedMatrixColorFilter == null) {
 
@@ -833,7 +840,7 @@ public class ResolverListAdapter extends BaseAdapter {
                 userHandle);
     }
 
-    public final List<Intent> getIntents() {
+    public List<Intent> getIntents() {
         // TODO: immutable copy?
         return mIntents;
     }
