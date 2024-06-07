@@ -76,8 +76,40 @@ constructor(
                 .toMap(ConcurrentHashMap())
         val pagedCursor: PagedCursor<CursorRow?> = uriCursor.paged(pageSize)
         val startPosition = uriCursor.extras?.getInt(POSITION, 0) ?: 0
-        val state = readInitialState(pagedCursor, startPosition, unclaimedRecords)
+        val state =
+            loadToMaxPages(
+                initialState = readInitialState(pagedCursor, startPosition, unclaimedRecords),
+                pagedCursor = pagedCursor,
+                unclaimedRecords = unclaimedRecords,
+            )
         processLoadRequests(state, pagedCursor, unclaimedRecords)
+    }
+
+    private suspend fun loadToMaxPages(
+        initialState: CursorWindow,
+        pagedCursor: PagedCursor<CursorRow?>,
+        unclaimedRecords: MutableUnclaimedMap,
+    ): CursorWindow {
+        var state = initialState
+        val startPageNum = state.firstLoadedPageNum
+        while ((state.hasMoreLeft || state.hasMoreRight) && state.numLoadedPages < maxLoadedPages) {
+            interactor.setPreviews(
+                previews = state.merged.values.toList(),
+                startIndex = startPageNum,
+                hasMoreLeft = state.hasMoreLeft,
+                hasMoreRight = state.hasMoreRight,
+            )
+            val loadedLeft = startPageNum - state.firstLoadedPageNum
+            val loadedRight = state.lastLoadedPageNum - startPageNum
+            state =
+                when {
+                    state.hasMoreLeft && loadedLeft < loadedRight ->
+                        state.loadMoreLeft(pagedCursor, unclaimedRecords)
+                    state.hasMoreRight -> state.loadMoreRight(pagedCursor, unclaimedRecords)
+                    else -> state.loadMoreLeft(pagedCursor, unclaimedRecords)
+                }
+        }
+        return state
     }
 
     /** Loop forever, processing any loading requests from the UI and updating local cache. */
@@ -94,7 +126,7 @@ constructor(
             // those.
             val loadingState: Flow<LoadDirection?> =
                 interactor.setPreviews(
-                    previewsByKey = state.merged.values.toSet(),
+                    previews = state.merged.values.toList(),
                     startIndex = 0, // TODO: actually track this as the window changes?
                     hasMoreLeft = state.hasMoreLeft,
                     hasMoreRight = state.hasMoreRight,
@@ -301,5 +333,5 @@ annotation class MaxLoadedPages
 object ShareouselConstants {
     @Provides @PageSize fun pageSize(): Int = 16
 
-    @Provides @MaxLoadedPages fun maxLoadedPages(): Int = 3
+    @Provides @MaxLoadedPages fun maxLoadedPages(): Int = 8
 }
