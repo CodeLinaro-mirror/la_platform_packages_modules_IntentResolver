@@ -14,15 +14,11 @@
  * limitations under the License.
  */
 
-package com.android.intentresolver.contentpreview.payloadtoggle.data.repository
+package com.android.intentresolver.contentpreview.payloadtoggle.shared
 
-import com.android.intentresolver.contentpreview.payloadtoggle.shared.model.PreviewModel
-import dagger.hilt.android.scopes.ViewModelScoped
-import javax.inject.Inject
-import kotlinx.coroutines.flow.MutableStateFlow
-
-/** Stores set of selected previews. */
-@ViewModelScoped
-class PreviewSelectionsRepository @Inject constructor() {
-    val selections = MutableStateFlow(emptyList<PreviewModel>())
+/** Type of the content being previewed. */
+enum class ContentType {
+    Image,
+    Video,
+    Other
 }

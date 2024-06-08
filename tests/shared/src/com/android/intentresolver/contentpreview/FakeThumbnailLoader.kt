@@ -14,15 +14,23 @@
  * limitations under the License.
  */
 
-package com.android.intentresolver.contentpreview.payloadtoggle.data.repository
+package com.android.intentresolver.contentpreview
 
-import com.android.intentresolver.contentpreview.payloadtoggle.shared.model.PreviewModel
-import dagger.hilt.android.scopes.ViewModelScoped
-import javax.inject.Inject
-import kotlinx.coroutines.flow.MutableStateFlow
+import android.graphics.Bitmap
+import android.net.Uri
 
-/** Stores set of selected previews. */
-@ViewModelScoped
-class PreviewSelectionsRepository @Inject constructor() {
-    val selections = MutableStateFlow(emptyList<PreviewModel>())
+/** Fake implementation of [ThumbnailLoader] for use in testing. */
+class FakeThumbnailLoader : ThumbnailLoader {
+
+    val fakeInvoke = mutableMapOf<Uri, suspend () -> Bitmap?>()
+    val invokeCalls = mutableListOf<Uri>()
+    var unfinishedInvokeCount = 0
+
+    override suspend fun invoke(uri: Uri): Bitmap? {
+        invokeCalls.add(uri)
+        unfinishedInvokeCount++
+        val result = fakeInvoke[uri]?.invoke()
+        unfinishedInvokeCount--
+        return result
+    }
 }
