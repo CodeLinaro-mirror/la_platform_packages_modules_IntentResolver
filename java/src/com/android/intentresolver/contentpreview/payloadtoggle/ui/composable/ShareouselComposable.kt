@@ -18,7 +18,6 @@ package com.android.intentresolver.contentpreview.payloadtoggle.ui.composable
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,10 +30,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.systemGestureExclusion
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.LocalContentColor
@@ -49,11 +49,14 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.dimensionResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.android.intentresolver.R
+import com.android.intentresolver.contentpreview.payloadtoggle.shared.ContentType
 import com.android.intentresolver.contentpreview.payloadtoggle.shared.model.PreviewsModel
-import com.android.intentresolver.contentpreview.payloadtoggle.ui.viewmodel.ContentType
 import com.android.intentresolver.contentpreview.payloadtoggle.ui.viewmodel.ShareouselPreviewViewModel
 import com.android.intentresolver.contentpreview.payloadtoggle.ui.viewmodel.ShareouselViewModel
 import kotlinx.coroutines.launch
@@ -98,9 +101,10 @@ private fun PreviewCarousel(
         modifier =
             Modifier.fillMaxWidth()
                 .height(dimensionResource(R.dimen.chooser_preview_image_height_tall))
+                .systemGestureExclusion()
     ) {
-        items(previews.previewModels.toList(), key = { it.uri }) { model ->
-            ShareouselCard(viewModel.preview(model))
+        itemsIndexed(previews.previewModels, key = { _, model -> model.uri }) { index, model ->
+            ShareouselCard(viewModel.preview(index, model))
         }
     }
 }
@@ -109,10 +113,14 @@ private fun PreviewCarousel(
 private fun ShareouselCard(viewModel: ShareouselPreviewViewModel) {
     val bitmap by viewModel.bitmap.collectAsStateWithLifecycle(initialValue = null)
     val selected by viewModel.isSelected.collectAsStateWithLifecycle(initialValue = false)
-    val contentType by
-        viewModel.contentType.collectAsStateWithLifecycle(initialValue = ContentType.Image)
     val borderColor = MaterialTheme.colorScheme.primary
     val scope = rememberCoroutineScope()
+    val contentDescription =
+        when (viewModel.contentType) {
+            ContentType.Image -> stringResource(R.string.selectable_image)
+            ContentType.Video -> stringResource(R.string.selectable_video)
+            else -> stringResource(R.string.selectable_item)
+        }
     ShareouselCard(
         image = {
             // TODO: max ratio is actually equal to the viewport ratio
@@ -130,7 +138,7 @@ private fun ShareouselCard(viewModel: ShareouselPreviewViewModel) {
                     Box(modifier = Modifier.fillMaxHeight().aspectRatio(aspectRatio))
                 }
         },
-        contentType = contentType,
+        contentType = viewModel.contentType,
         selected = selected,
         modifier =
             Modifier.thenIf(selected) {
@@ -140,8 +148,12 @@ private fun ShareouselCard(viewModel: ShareouselPreviewViewModel) {
                         shape = RoundedCornerShape(size = 12.dp),
                     )
                 }
+                .semantics { this.contentDescription = contentDescription }
                 .clip(RoundedCornerShape(size = 12.dp))
-                .clickable { scope.launch { viewModel.setSelected(!selected) } },
+                .toggleable(
+                    value = selected,
+                    onValueChange = { scope.launch { viewModel.setSelected(it) } },
+                )
     )
 }
 
