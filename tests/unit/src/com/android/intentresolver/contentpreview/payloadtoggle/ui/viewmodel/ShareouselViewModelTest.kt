@@ -25,6 +25,7 @@ import android.graphics.drawable.Icon
 import android.net.Uri
 import com.android.intentresolver.FakeImageLoader
 import com.android.intentresolver.contentpreview.HeadlineGenerator
+import com.android.intentresolver.contentpreview.mimetypeClassifier
 import com.android.intentresolver.contentpreview.payloadtoggle.data.model.CustomActionModel
 import com.android.intentresolver.contentpreview.payloadtoggle.data.repository.activityResultRepository
 import com.android.intentresolver.contentpreview.payloadtoggle.data.repository.cursorPreviewsRepository
@@ -39,6 +40,8 @@ import com.android.intentresolver.contentpreview.payloadtoggle.domain.interactor
 import com.android.intentresolver.contentpreview.payloadtoggle.domain.interactor.payloadToggleImageLoader
 import com.android.intentresolver.contentpreview.payloadtoggle.domain.interactor.selectablePreviewsInteractor
 import com.android.intentresolver.contentpreview.payloadtoggle.domain.interactor.selectionInteractor
+import com.android.intentresolver.contentpreview.payloadtoggle.domain.model.ValueUpdate
+import com.android.intentresolver.contentpreview.payloadtoggle.shared.ContentType
 import com.android.intentresolver.contentpreview.payloadtoggle.shared.model.PreviewModel
 import com.android.intentresolver.contentpreview.payloadtoggle.shared.model.PreviewsModel
 import com.android.intentresolver.data.model.ChooserRequest
@@ -68,27 +71,68 @@ class ShareouselViewModelTest {
             actionsInteractor = customActionsInteractor,
             headlineGenerator = headlineGenerator,
             chooserRequestInteractor = chooserRequestInteractor,
+            mimeTypeClassifier = mimetypeClassifier,
             selectionInteractor = selectionInteractor,
             scope = viewModelScope,
         )
     }
 
     @Test
-    fun headline() = runTest {
-        assertThat(shareouselViewModel.headline.first()).isEqualTo("IMAGES: 1")
+    fun headline_images() = runTest {
+        assertThat(shareouselViewModel.headline.first()).isEqualTo("FILES: 1")
         previewSelectionsRepository.selections.value =
-            setOf(
+            listOf(
                 PreviewModel(
                     uri = Uri.fromParts("scheme", "ssp", "fragment"),
-                    mimeType = null,
+                    mimeType = "image/png",
+                    order = 0,
                 ),
                 PreviewModel(
                     uri = Uri.fromParts("scheme1", "ssp1", "fragment1"),
-                    mimeType = null,
+                    mimeType = "image/jpeg",
+                    order = 1,
                 )
-            )
+            ).associateBy { it.uri }
         runCurrent()
         assertThat(shareouselViewModel.headline.first()).isEqualTo("IMAGES: 2")
+    }
+
+    @Test
+    fun headline_videos() = runTest {
+        previewSelectionsRepository.selections.value =
+            listOf(
+                PreviewModel(
+                    uri = Uri.fromParts("scheme", "ssp", "fragment"),
+                    mimeType = "video/mpeg",
+                    order = 0,
+                ),
+                PreviewModel(
+                    uri = Uri.fromParts("scheme1", "ssp1", "fragment1"),
+                    mimeType = "video/mpeg",
+                    order = 1,
+                )
+            ).associateBy { it.uri }
+        runCurrent()
+        assertThat(shareouselViewModel.headline.first()).isEqualTo("VIDEOS: 2")
+    }
+
+    @Test
+    fun headline_mixed() = runTest {
+        previewSelectionsRepository.selections.value =
+            listOf(
+                PreviewModel(
+                    uri = Uri.fromParts("scheme", "ssp", "fragment"),
+                    mimeType = "image/jpeg",
+                    order = 0,
+                ),
+                PreviewModel(
+                    uri = Uri.fromParts("scheme1", "ssp1", "fragment1"),
+                    mimeType = "video/mpeg",
+                    order = 1,
+                )
+            ).associateBy { it.uri }
+        runCurrent()
+        assertThat(shareouselViewModel.headline.first()).isEqualTo("FILES: 2")
     }
 
     @Test
@@ -112,19 +156,23 @@ class ShareouselViewModelTest {
             cursorPreviewsRepository.previewsModel.value =
                 PreviewsModel(
                     previewModels =
-                        setOf(
+                        listOf(
                             PreviewModel(
                                 uri = Uri.fromParts("scheme", "ssp", "fragment"),
-                                mimeType = null,
+                                mimeType = "image/png",
+                                order = 0,
                             ),
                             PreviewModel(
                                 uri = Uri.fromParts("scheme1", "ssp1", "fragment1"),
-                                mimeType = null,
+                                mimeType = "video/mpeg",
+                                order = 1,
                             )
                         ),
                     startIdx = 1,
                     loadMoreLeft = null,
                     loadMoreRight = null,
+                    leftTriggerIndex = 0,
+                    rightTriggerIndex = 1,
                 )
             runCurrent()
 
@@ -140,21 +188,72 @@ class ShareouselViewModelTest {
                 .inOrder()
 
             val previewVm =
-                shareouselViewModel.preview(
+                shareouselViewModel.preview.invoke(
                     PreviewModel(
                         uri = Uri.fromParts("scheme1", "ssp1", "fragment1"),
-                        mimeType = null
-                    )
+                        mimeType = "video/mpeg",
+                        order = 0,
+                    ),
+                    /* index = */ 1,
+                    viewModelScope,
                 )
 
-            assertWithMessage("preview bitmap is null").that(previewVm.bitmap.first()).isNotNull()
+            runCurrent()
+
+            assertWithMessage("preview bitmap is null")
+                .that((previewVm.bitmapLoadState.first() as ValueUpdate.Value).value)
+                .isNotNull()
             assertThat(previewVm.isSelected.first()).isFalse()
+            assertThat(previewVm.contentType).isEqualTo(ContentType.Video)
 
             previewVm.setSelected(true)
 
-            assertThat(previewSelectionsRepository.selections.value)
-                .comparingElementsUsingTransform("has uri of") { model: PreviewModel -> model.uri }
+            assertThat(previewSelectionsRepository.selections.value.keys)
                 .contains(Uri.fromParts("scheme1", "ssp1", "fragment1"))
+        }
+
+    @Test
+    fun previews_wontLoad() =
+        runTest(targetIntentModifier = { Intent() }) {
+            cursorPreviewsRepository.previewsModel.value =
+                PreviewsModel(
+                    previewModels =
+                        listOf(
+                            PreviewModel(
+                                uri = Uri.fromParts("scheme", "ssp", "fragment"),
+                                mimeType = "image/png",
+                                order = 0,
+                            ),
+                            PreviewModel(
+                                uri = Uri.fromParts("scheme1", "ssp1", "fragment1"),
+                                mimeType = "video/mpeg",
+                                order = 1,
+                            )
+                        ),
+                    startIdx = 1,
+                    loadMoreLeft = null,
+                    loadMoreRight = null,
+                    leftTriggerIndex = 0,
+                    rightTriggerIndex = 1,
+                )
+            runCurrent()
+
+            val previewVm =
+                shareouselViewModel.preview.invoke(
+                    PreviewModel(
+                        uri = Uri.fromParts("scheme", "ssp", "fragment"),
+                        mimeType = "video/mpeg",
+                        order = 1,
+                    ),
+                    /* index = */ 1,
+                    viewModelScope,
+                )
+
+            runCurrent()
+
+            assertWithMessage("preview bitmap is not null")
+                .that((previewVm.bitmapLoadState.first() as ValueUpdate.Value).value)
+                .isNull()
         }
 
     @Test
@@ -208,7 +307,11 @@ class ShareouselViewModelTest {
         this.pendingIntentSender = pendingIntentSender
         this.targetIntentModifier = targetIntentModifier
         previewSelectionsRepository.selections.value =
-            setOf(PreviewModel(uri = Uri.fromParts("scheme", "ssp", "fragment"), mimeType = null))
+            PreviewModel(
+                uri = Uri.fromParts("scheme", "ssp", "fragment"),
+                mimeType = null,
+                order = 0,
+            ).let { mapOf(it.uri to it) }
         payloadToggleImageLoader =
             FakeImageLoader(
                 initialBitmaps =
@@ -234,9 +337,9 @@ class ShareouselViewModelTest {
                 override fun getFilesWithTextHeadline(text: CharSequence, count: Int): String =
                     error("not supported")
 
-                override fun getVideosHeadline(count: Int): String = error("not supported")
+                override fun getVideosHeadline(count: Int): String = "VIDEOS: $count"
 
-                override fun getFilesHeadline(count: Int): String = error("not supported")
+                override fun getFilesHeadline(count: Int): String = "FILES: $count"
             }
         // instantiate the view model, and then runCurrent() so that it is fully hydrated before
         // starting the test

@@ -17,24 +17,20 @@
 package com.android.intentresolver.contentpreview.payloadtoggle.ui.viewmodel
 
 import android.graphics.Bitmap
+import com.android.intentresolver.contentpreview.payloadtoggle.domain.model.ValueUpdate
+import com.android.intentresolver.contentpreview.payloadtoggle.shared.ContentType
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.StateFlow
 
 /** An individual preview within Shareousel. */
 data class ShareouselPreviewViewModel(
     /** Image to be shared. */
-    val bitmap: Flow<Bitmap?>,
+    val bitmapLoadState: StateFlow<ValueUpdate<Bitmap?>>,
     /** Type of data to be shared. */
-    val contentType: Flow<ContentType>,
+    val contentType: ContentType,
     /** Whether this preview has been selected by the user. */
     val isSelected: Flow<Boolean>,
     /** Sets whether this preview has been selected by the user. */
     val setSelected: suspend (Boolean) -> Unit,
     val aspectRatio: Float,
 )
-
-/** Type of the content being previewed. */
-enum class ContentType {
-    Image,
-    Video,
-    Other
-}

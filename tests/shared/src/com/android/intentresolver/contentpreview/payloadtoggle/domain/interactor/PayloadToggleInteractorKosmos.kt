@@ -20,6 +20,7 @@ import com.android.intentresolver.backgroundDispatcher
 import com.android.intentresolver.contentResolver
 import com.android.intentresolver.contentpreview.HeadlineGenerator
 import com.android.intentresolver.contentpreview.ImageLoader
+import com.android.intentresolver.contentpreview.mimetypeClassifier
 import com.android.intentresolver.contentpreview.payloadtoggle.data.repository.activityResultRepository
 import com.android.intentresolver.contentpreview.payloadtoggle.data.repository.cursorPreviewsRepository
 import com.android.intentresolver.contentpreview.payloadtoggle.data.repository.pendingSelectionCallbackRepository
@@ -47,6 +48,7 @@ val Kosmos.cursorPreviewsInteractor
     get() =
         CursorPreviewsInteractor(
             interactor = setCursorPreviewsInteractor,
+            selectionInteractor = selectionInteractor,
             focusedItemIdx = focusedItemIndex,
             uriMetadataReader = uriMetadataReader,
             pageSize = pageSize,
@@ -97,6 +99,7 @@ val Kosmos.selectionInteractor
             selectionsRepo = previewSelectionsRepository,
             targetIntentModifier = targetIntentModifier,
             updateTargetIntentInteractor = updateTargetIntentInteractor,
+            mimeTypeClassifier = mimetypeClassifier,
         )
 
 val Kosmos.setCursorPreviewsInteractor

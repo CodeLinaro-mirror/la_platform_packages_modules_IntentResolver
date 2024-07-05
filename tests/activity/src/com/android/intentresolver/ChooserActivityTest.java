@@ -91,6 +91,7 @@ import android.os.UserHandle;
 import android.platform.test.flag.junit.CheckFlagsRule;
 import android.platform.test.flag.junit.DeviceFlagsValueProvider;
 import android.provider.DeviceConfig;
+import android.provider.Settings;
 import android.service.chooser.ChooserAction;
 import android.service.chooser.ChooserTarget;
 import android.text.Spannable;
@@ -117,8 +118,12 @@ import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.rule.ActivityTestRule;
 
 import com.android.intentresolver.chooser.DisplayResolveInfo;
+import com.android.intentresolver.contentpreview.FakeThumbnailLoader;
 import com.android.intentresolver.contentpreview.ImageLoader;
 import com.android.intentresolver.contentpreview.ImageLoaderModule;
+import com.android.intentresolver.contentpreview.PreviewCacheSize;
+import com.android.intentresolver.contentpreview.PreviewMaxConcurrency;
+import com.android.intentresolver.contentpreview.ThumbnailLoader;
 import com.android.intentresolver.data.repository.FakeUserRepository;
 import com.android.intentresolver.data.repository.UserRepository;
 import com.android.intentresolver.data.repository.UserRepositoryModule;
@@ -130,6 +135,7 @@ import com.android.intentresolver.logging.EventLog;
 import com.android.intentresolver.logging.FakeEventLog;
 import com.android.intentresolver.platform.AppPredictionAvailable;
 import com.android.intentresolver.platform.AppPredictionModule;
+import com.android.intentresolver.platform.GlobalSettings;
 import com.android.intentresolver.platform.ImageEditor;
 import com.android.intentresolver.platform.ImageEditorModule;
 import com.android.intentresolver.shared.model.User;
@@ -233,6 +239,9 @@ public class ChooserActivityTest {
     @ApplicationContext
     Context mContext;
 
+    @Inject
+    GlobalSettings mGlobalSettings;
+
     /** An arbitrary pre-installed activity that handles this type of intent. */
     @BindValue
     @ImageEditor
@@ -266,6 +275,17 @@ public class ChooserActivityTest {
 
     @BindValue
     final ImageLoader mImageLoader = mFakeImageLoader;
+
+    @BindValue
+    @PreviewCacheSize
+    int mPreviewCacheSize = 16;
+
+    @BindValue
+    @PreviewMaxConcurrency
+    int mPreviewMaxConcurrency = 4;
+
+    @BindValue
+    ThumbnailLoader mThumbnailLoader = new FakeThumbnailLoader();
 
     @Before
     public void setUp() {
@@ -2752,6 +2772,16 @@ public class ChooserActivityTest {
         waitForIdle();
 
         assertThat(activity.getCurrentUserHandle(), is(PERSONAL_USER_HANDLE));
+    }
+
+    @Test
+    public void chooserDisabledWhileDeviceFrpLocked() {
+        mGlobalSettings.putBoolean(Settings.Global.SECURE_FRP_MODE, true);
+        Intent viewIntent = createSendTextIntent();
+        ChooserWrapperActivity activity = mActivityRule.launchActivity(
+                Intent.createChooser(viewIntent, "chooser test"));
+        waitForIdle();
+        assertTrue(activity.isFinishing());
     }
 
     private Intent createChooserIntent(Intent intent, Intent[] initialIntents) {
