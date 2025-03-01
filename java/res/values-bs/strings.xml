@@ -56,7 +56,7 @@
     <string name="other_files" msgid="4501185823517473875">"{count,plural, =1{i još # fajl}one{i još # fajl}few{i još # fajla}other{i još # fajlova}}"</string>
     <string name="more_files" msgid="1043875756612339842">"{count,plural, =1{i još # fajl}one{i još # fajl}few{i još # fajla}other{i još # fajlova}}"</string>
     <string name="sharing_text" msgid="8137537443603304062">"Dijeljenje teksta"</string>
-    <string name="sharing_link" msgid="2307694372813942916">"Dijeljenje linka"</string>
+    <string name="sharing_link" msgid="2307694372813942916">"Podijelite link"</string>
     <string name="sharing_images" msgid="5251443722186962006">"{count,plural, =1{Podijelite sliku}one{Podijelite # sliku}few{Podijelite # slike}other{Podijelite # slika}}"</string>
     <string name="sharing_videos" msgid="3583423190182877434">"{count,plural, =1{Dijeljenje videozapisa}one{Dijeljenje # videozapisa}few{Dijeljenje # videozapisa}other{Dijeljenje # videozapisa}}"</string>
     <string name="sharing_files" msgid="1275646542246028823">"{count,plural, =1{Dijeljenje # fajla}one{Dijeljenje # fajla}few{Dijeljenje # fajla}other{Dijeljenje # fajlova}}"</string>
@@ -85,7 +85,7 @@
     <string name="resolver_cross_profile_blocked" msgid="3515194063758605377">"Blokirao je vaš IT administrator"</string>
     <string name="resolver_cant_share_with_work_apps_explanation" msgid="2984105853145456723">"Ovaj sadržaj nije moguće dijeliti pomoću poslovnih aplikacija"</string>
     <string name="resolver_cant_access_work_apps_explanation" msgid="1463093773348988122">"Ovaj sadržaj nije moguće otvoriti pomoću poslovnih aplikacija"</string>
-    <string name="resolver_cant_share_with_personal_apps_explanation" msgid="6406971348929464569">"Ovaj sadržaj nije moguće dijeliti pomoću ličnih aplikacija"</string>
+    <string name="resolver_cant_share_with_personal_apps_explanation" msgid="6406971348929464569">"Ovaj sadržaj nije moguće dijeliti s ličnim aplikacijama"</string>
     <string name="resolver_cant_access_personal_apps_explanation" msgid="6209543716289792706">"Ovaj sadržaj nije moguće otvoriti pomoću ličnih aplikacija"</string>
     <string name="resolver_cant_share_with_private_apps_explanation" msgid="1781980997411434697">"Sadržaj se ne može dijeliti pomoću privatnih aplikacija"</string>
     <string name="resolver_cant_access_private_apps_explanation" msgid="5978609934961648342">"Sadržaj se ne može otvoriti pomoću privatnih aplikacija"</string>
@@ -103,6 +103,7 @@
     <string name="exclude_link" msgid="1332778255031992228">"Izuzmi link"</string>
     <string name="include_link" msgid="827855767220339802">"Uključi link"</string>
     <string name="pinned" msgid="7623664001331394139">"Zakačeno"</string>
+    <string name="item_position_label" msgid="5112465518086817859">"Stavka <xliff:g id="ITEM_POSITION">%1$d</xliff:g>"</string>
     <string name="selectable_image" msgid="3157858923437182271">"Slika koju je moguće odabrati"</string>
     <string name="selectable_video" msgid="1271768647699300826">"Videozapis koji je moguće odabrati"</string>
     <string name="selectable_item" msgid="7557320816744205280">"Stavka koju je moguće odabrati"</string>
