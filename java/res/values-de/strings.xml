@@ -83,9 +83,9 @@
     <string name="resolver_work_tab_accessibility" msgid="7581878836587799920">"Geschäftliche Ansicht"</string>
     <string name="resolver_private_tab_accessibility" msgid="2513122834337197252">"Private Ansicht"</string>
     <string name="resolver_cross_profile_blocked" msgid="3515194063758605377">"Vom IT‑Administrator blockiert"</string>
-    <string name="resolver_cant_share_with_work_apps_explanation" msgid="2984105853145456723">"Diese Art von Inhalt kann nicht über geschäftliche Apps geteilt werden"</string>
+    <string name="resolver_cant_share_with_work_apps_explanation" msgid="2984105853145456723">"Dieser Inhalt kann nicht über geschäftliche Apps geteilt werden"</string>
     <string name="resolver_cant_access_work_apps_explanation" msgid="1463093773348988122">"Diese Art von Inhalt kann nicht mit geschäftlichen Apps geöffnet werden"</string>
-    <string name="resolver_cant_share_with_personal_apps_explanation" msgid="6406971348929464569">"Diese Art von Inhalt kann nicht über private Apps geteilt werden"</string>
+    <string name="resolver_cant_share_with_personal_apps_explanation" msgid="6406971348929464569">"Dieser Inhalt kann nicht über private Apps geteilt werden"</string>
     <string name="resolver_cant_access_personal_apps_explanation" msgid="6209543716289792706">"Diese Art von Inhalt kann nicht mit privaten Apps geöffnet werden"</string>
     <string name="resolver_cant_share_with_private_apps_explanation" msgid="1781980997411434697">"Diese Art von Inhalt kann nicht über interne Apps geteilt werden"</string>
     <string name="resolver_cant_access_private_apps_explanation" msgid="5978609934961648342">"Diese Art von Inhalt kann nicht mit internen Apps geöffnet werden"</string>
@@ -103,6 +103,8 @@
     <string name="exclude_link" msgid="1332778255031992228">"Link ausschließen"</string>
     <string name="include_link" msgid="827855767220339802">"Link einschließen"</string>
     <string name="pinned" msgid="7623664001331394139">"Angepinnt"</string>
+    <!-- no translation found for item_position_label (5112465518086817859) -->
+    <skip />
     <string name="selectable_image" msgid="3157858923437182271">"Auswählbares Bild"</string>
     <string name="selectable_video" msgid="1271768647699300826">"Auswählbares Video"</string>
     <string name="selectable_item" msgid="7557320816744205280">"Auswählbares Element"</string>
