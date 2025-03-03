@@ -49,7 +49,6 @@ public class ChooserActivityOverrideData {
         return sInstance;
     }
     public Function<TargetInfo, Boolean> onSafelyStartInternalCallback;
-    public Function<TargetInfo, Boolean> onSafelyStartCallback;
     public Function2<UserHandle, Consumer<ShortcutLoader.Result>, ShortcutLoader>
             shortcutLoaderFactory = (userHandle, callback) -> null;
     public ChooserListController resolverListController;
@@ -60,7 +59,7 @@ public class ChooserActivityOverrideData {
     public Resources resources;
     public boolean hasCrossProfileIntents;
     public boolean isQuietModeEnabled;
-    public Integer myUserId;
+    public UserHandle personalUserHandle;
     public CrossProfileIntentsChecker mCrossProfileIntentsChecker;
 
     public void reset() {
@@ -73,7 +72,7 @@ public class ChooserActivityOverrideData {
         resources = null;
         hasCrossProfileIntents = true;
         isQuietModeEnabled = false;
-        myUserId = null;
+        personalUserHandle = null;
         shortcutLoaderFactory = ((userHandle, resultConsumer) -> null);
         mCrossProfileIntentsChecker = mock(CrossProfileIntentsChecker.class);
         when(mCrossProfileIntentsChecker.hasCrossProfileIntents(any(), anyInt(), anyInt()))

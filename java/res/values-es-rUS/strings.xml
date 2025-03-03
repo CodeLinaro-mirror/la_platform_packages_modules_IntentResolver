@@ -103,6 +103,7 @@
     <string name="exclude_link" msgid="1332778255031992228">"Excluir vínculo"</string>
     <string name="include_link" msgid="827855767220339802">"Incluir vínculo"</string>
     <string name="pinned" msgid="7623664001331394139">"Fijado"</string>
+    <string name="item_position_label" msgid="5112465518086817859">"Elemento <xliff:g id="ITEM_POSITION">%1$d</xliff:g>"</string>
     <string name="selectable_image" msgid="3157858923437182271">"Imagen seleccionable"</string>
     <string name="selectable_video" msgid="1271768647699300826">"Video seleccionable"</string>
     <string name="selectable_item" msgid="7557320816744205280">"Elemento seleccionable"</string>
@@ -110,4 +111,6 @@
     <string name="shortcut_group_a11y_title" msgid="3097624986281770746">"Objetivos de uso compartido directo"</string>
     <string name="suggested_apps_group_a11y_title" msgid="2394561651436551139">"Sugerencias de aplicaciones"</string>
     <string name="all_apps_group_a11y_title" msgid="2646382370571120047">"Lista de apps"</string>
+    <string name="copy_text" msgid="1341801611046464360">"Copiar texto"</string>
+    <string name="copy_link" msgid="3822142723771306592">"Copiar vínculo"</string>
 </resources>
