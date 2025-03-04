@@ -38,7 +38,6 @@ import static com.android.intentresolver.ChooserActivity.TARGET_TYPE_SHORTCUTS_F
 import static com.android.intentresolver.ChooserListAdapter.CALLER_TARGET_SCORE_BOOST;
 import static com.android.intentresolver.ChooserListAdapter.SHORTCUT_TARGET_SCORE_BOOST;
 import static com.android.intentresolver.MatcherUtils.first;
-import static com.android.intentresolver.TestUtils.createSendImageIntent;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
@@ -80,7 +79,9 @@ import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.database.Cursor;
 import android.graphics.Bitmap;
+import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Paint;
 import android.graphics.Rect;
 import android.graphics.Typeface;
 import android.graphics.drawable.Icon;
@@ -2849,6 +2850,19 @@ public class ChooserActivityTest {
         return sendIntent;
     }
 
+    private Intent createSendImageIntent(Uri imageThumbnail) {
+        Intent sendIntent = new Intent();
+        sendIntent.setAction(Intent.ACTION_SEND);
+        sendIntent.putExtra(Intent.EXTRA_STREAM, imageThumbnail);
+        sendIntent.setType("image/png");
+        if (imageThumbnail != null) {
+            ClipData.Item clipItem = new ClipData.Item(imageThumbnail);
+            sendIntent.setClipData(new ClipData("Clip Label", new String[]{"image/png"}, clipItem));
+        }
+
+        return sendIntent;
+    }
+
     private Uri createTestContentProviderUri(
             @Nullable String mimeType, @Nullable String streamType) {
         return createTestContentProviderUri(mimeType, streamType, 0);
@@ -2856,11 +2870,22 @@ public class ChooserActivityTest {
 
     private Uri createTestContentProviderUri(
             @Nullable String mimeType, @Nullable String streamType, long streamTypeTimeout) {
-        return TestContentProvider.makeItemUri(
-                "image.png",
-                mimeType,
-                streamType == null ? new String[0] : new String[] { streamType },
-                streamTypeTimeout);
+        String packageName =
+                InstrumentationRegistry.getInstrumentation().getContext().getPackageName();
+        Uri.Builder builder = Uri.parse("content://" + packageName + "/image.png")
+                .buildUpon();
+        if (mimeType != null) {
+            builder.appendQueryParameter(TestContentProvider.PARAM_MIME_TYPE, mimeType);
+        }
+        if (streamType != null) {
+            builder.appendQueryParameter(TestContentProvider.PARAM_STREAM_TYPE, streamType);
+        }
+        if (streamTypeTimeout > 0) {
+            builder.appendQueryParameter(
+                    TestContentProvider.PARAM_STREAM_TYPE_TIMEOUT,
+                    Long.toString(streamTypeTimeout));
+        }
+        return builder.build();
     }
 
     private Intent createSendTextIntentWithPreview(String title, Uri imageThumbnail) {
@@ -3005,11 +3030,29 @@ public class ChooserActivityTest {
             Rect bounds = windowManager.getMaximumWindowMetrics().getBounds();
             width = bounds.width() + 200;
         }
-        return TestUtils.createBitmap(width, 100, bgColor);
+        return createBitmap(width, 100, bgColor);
     }
 
     private Bitmap createBitmap(int width, int height) {
-        return TestUtils.createBitmap(width, height, Color.RED);
+        return createBitmap(width, height, Color.RED);
+    }
+
+    private Bitmap createBitmap(int width, int height, int bgColor) {
+        Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(bitmap);
+
+        Paint paint = new Paint();
+        paint.setColor(bgColor);
+        paint.setStyle(Paint.Style.FILL);
+        canvas.drawPaint(paint);
+
+        paint.setColor(Color.WHITE);
+        paint.setAntiAlias(true);
+        paint.setTextSize(14.f);
+        paint.setTextAlign(Paint.Align.CENTER);
+        canvas.drawText("Hi!", (width / 2.f), (height / 2.f), paint);
+
+        return bitmap;
     }
 
     private List<ShareShortcutInfo> createShortcuts(Context context) {

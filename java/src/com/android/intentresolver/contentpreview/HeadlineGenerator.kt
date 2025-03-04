@@ -38,6 +38,4 @@ interface HeadlineGenerator {
     fun getFilesHeadline(count: Int): String
 
     fun getNotItemsSelectedHeadline(): String
-
-    fun getCopyButtonContentDescription(sharedText: CharSequence): String
 }

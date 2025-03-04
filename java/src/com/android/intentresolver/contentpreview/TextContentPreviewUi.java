@@ -142,8 +142,6 @@ class TextContentPreviewUi extends ContentPreviewUi {
         View copyButton = contentPreviewLayout.findViewById(R.id.copy);
         if (copyButton != null) {
             if (onCopy != null) {
-                copyButton.setContentDescription(
-                        mHeadlineGenerator.getCopyButtonContentDescription(mSharingText));
                 copyButton.setOnClickListener((v) -> onCopy.run());
                 ViewCompat.setAccessibilityDelegate(
                         copyButton,
