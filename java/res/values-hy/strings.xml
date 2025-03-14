@@ -103,8 +103,7 @@
     <string name="exclude_link" msgid="1332778255031992228">"Բացառել հղումը"</string>
     <string name="include_link" msgid="827855767220339802">"Ներառել հղումը"</string>
     <string name="pinned" msgid="7623664001331394139">"Ամրացված է"</string>
-    <!-- no translation found for item_position_label (5112465518086817859) -->
-    <skip />
+    <string name="item_position_label" msgid="5112465518086817859">"Տարր <xliff:g id="ITEM_POSITION">%1$d</xliff:g>"</string>
     <string name="selectable_image" msgid="3157858923437182271">"Ընտրելու հնարավորությամբ պատկեր"</string>
     <string name="selectable_video" msgid="1271768647699300826">"Ընտրելու հնարավորությամբ տեսանյութ"</string>
     <string name="selectable_item" msgid="7557320816744205280">"Ընտրելու հնարավորությամբ տարր"</string>
@@ -112,4 +111,8 @@
     <string name="shortcut_group_a11y_title" msgid="3097624986281770746">"Direct Share-ի ստացողներ"</string>
     <string name="suggested_apps_group_a11y_title" msgid="2394561651436551139">"Առաջարկվող հավելվածներ"</string>
     <string name="all_apps_group_a11y_title" msgid="2646382370571120047">"Հավելվածների ցուցակ"</string>
+    <!-- no translation found for copy_text (1341801611046464360) -->
+    <skip />
+    <!-- no translation found for copy_link (3822142723771306592) -->
+    <skip />
 </resources>
