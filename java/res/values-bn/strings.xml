@@ -103,8 +103,7 @@
     <string name="exclude_link" msgid="1332778255031992228">"লিঙ্ক বাদ দিন"</string>
     <string name="include_link" msgid="827855767220339802">"লিঙ্ক যোগ করুন"</string>
     <string name="pinned" msgid="7623664001331394139">"পিন করা হয়েছে"</string>
-    <!-- no translation found for item_position_label (5112465518086817859) -->
-    <skip />
+    <string name="item_position_label" msgid="5112465518086817859">"আইটেম <xliff:g id="ITEM_POSITION">%1$d</xliff:g>"</string>
     <string name="selectable_image" msgid="3157858923437182271">"বেছে নেওয়া যাবে এমন ছবি"</string>
     <string name="selectable_video" msgid="1271768647699300826">"বেছে নেওয়া যাবে এমন ভিডিও"</string>
     <string name="selectable_item" msgid="7557320816744205280">"বেছে নেওয়া যাবে এমন আইটেম"</string>
@@ -112,4 +111,8 @@
     <string name="shortcut_group_a11y_title" msgid="3097624986281770746">"সরাসরি টার্গেট শেয়ার করুন"</string>
     <string name="suggested_apps_group_a11y_title" msgid="2394561651436551139">"অ্যাপ সাজেশন"</string>
     <string name="all_apps_group_a11y_title" msgid="2646382370571120047">"অ্যাপ তালিকা"</string>
+    <!-- no translation found for copy_text (1341801611046464360) -->
+    <skip />
+    <!-- no translation found for copy_link (3822142723771306592) -->
+    <skip />
 </resources>
