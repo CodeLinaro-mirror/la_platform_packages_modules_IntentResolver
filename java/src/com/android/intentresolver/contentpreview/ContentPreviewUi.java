@@ -50,6 +50,12 @@ public abstract class ContentPreviewUi {
             ViewGroup parent,
             View headlineViewParent);
 
+
+    /** Provide callback for image editor invocation. */
+    public void setImageEditorCallback(Runnable imageEditorCallback) {
+        // most implementations don't need.
+    }
+
     protected static void updateViewWithImage(ImageView imageView, Bitmap image) {
         if (image == null) {
             imageView.setVisibility(View.GONE);
