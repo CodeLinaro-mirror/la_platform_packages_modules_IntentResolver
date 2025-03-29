@@ -68,6 +68,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -300,7 +301,10 @@ private fun ShareouselCard(
         Crossfade(
             targetState = bitmapLoadState,
             modifier =
-                Modifier.semantics { this.contentDescription = contentDescription }
+                Modifier.semantics {
+                        this.selected = selected
+                        this.contentDescription = contentDescription
+                    }
                     .testTag(viewModel.testTag)
                     .clickable { scope.launch { viewModel.setSelected(!selected) } }
                     .conditional(shareouselSelectionShrink()) {
