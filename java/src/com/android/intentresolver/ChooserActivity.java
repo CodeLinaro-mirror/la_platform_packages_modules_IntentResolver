@@ -1343,6 +1343,10 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         return result;
     }
 
+    protected void onExitButtonClicked(View v) {
+        finish();
+    }
+
     /**
      * Finishing procedures to be performed after the list has been rebuilt.
      * </p>Subclasses must call postRebuildListInternal at the end of postRebuildList.
