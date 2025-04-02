@@ -72,18 +72,7 @@ import java.util.stream.Collectors;
 
 public class ChooserListAdapter extends ResolverListAdapter {
 
-    /**
-     * Delegate interface for injecting a chooser-specific operation to be performed before handling
-     * a package-change event. This allows the "driver" invoking the package-change to be generic,
-     * with no knowledge specific to the chooser implementation.
-     */
-    public interface PackageChangeCallback {
-        /** Perform any steps necessary before processing the package-change event. */
-        void beforeHandlingPackagesChanged();
-    }
-
     private static final String TAG = "ChooserListAdapter";
-    private static final boolean DEBUG = false;
 
     public static final int NO_POSITION = -1;
     public static final int TARGET_BAD = -1;
@@ -106,9 +95,6 @@ public class ChooserListAdapter extends ResolverListAdapter {
     private final EventLog mEventLog;
 
     private final Set<TargetInfo> mRequestedIcons = new HashSet<>();
-
-    @Nullable
-    private final PackageChangeCallback mPackageChangeCallback;
 
     // Reserve spots for incoming direct share targets by adding placeholders
     private final TargetInfo mPlaceHolderTargetInfo;
@@ -189,8 +175,7 @@ public class ChooserListAdapter extends ResolverListAdapter {
             EventLog eventLog,
             int maxRankedTargets,
             UserHandle initialIntentsUserSpace,
-            TargetDataLoader targetDataLoader,
-            @Nullable PackageChangeCallback packageChangeCallback) {
+            TargetDataLoader targetDataLoader) {
         this(
                 context,
                 payloadIntents,
@@ -207,7 +192,6 @@ public class ChooserListAdapter extends ResolverListAdapter {
                 maxRankedTargets,
                 initialIntentsUserSpace,
                 targetDataLoader,
-                packageChangeCallback,
                 AsyncTask.SERIAL_EXECUTOR,
                 context.getMainExecutor()
         );
@@ -230,7 +214,6 @@ public class ChooserListAdapter extends ResolverListAdapter {
             int maxRankedTargets,
             UserHandle initialIntentsUserSpace,
             TargetDataLoader targetDataLoader,
-            @Nullable PackageChangeCallback packageChangeCallback,
             Executor bgExecutor,
             Executor mainExecutor) {
         // Don't send the initial intents through the shared ResolverActivity path,
@@ -255,7 +238,6 @@ public class ChooserListAdapter extends ResolverListAdapter {
 
         mPlaceHolderTargetInfo = NotSelectableTargetInfo.newPlaceHolderTargetInfo(context);
         mTargetDataLoader = targetDataLoader;
-        mPackageChangeCallback = packageChangeCallback;
         createPlaceHolders();
         mEventLog = eventLog;
         mShortcutSelectionLogic = new ShortcutSelectionLogic(
@@ -366,19 +348,6 @@ public class ChooserListAdapter extends ResolverListAdapter {
 
     public void setAnimateItems(boolean animateItems) {
         mAnimateItems = animateItems;
-    }
-
-    @Override
-    public void handlePackagesChanged() {
-        if (mPackageChangeCallback != null) {
-            mPackageChangeCallback.beforeHandlingPackagesChanged();
-        }
-        if (DEBUG) {
-            Log.d(TAG, "clearing queryTargets on package change");
-        }
-        createPlaceHolders();
-        mResolverListCommunicator.onHandlePackagesChanged(this);
-
     }
 
     @Override
@@ -856,6 +825,7 @@ public class ChooserListAdapter extends ResolverListAdapter {
      */
     public void resetDirectTargets() {
         createPlaceHolders();
+        notifyDataSetChanged();
     }
 
     private boolean isDirectTargetRowEmptyState() {
