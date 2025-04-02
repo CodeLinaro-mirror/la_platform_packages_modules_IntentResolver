@@ -101,6 +101,15 @@ class UnifiedContentPreviewUi extends ContentPreviewUi {
         return displayInternal(layoutInflater, parent, headlineViewParent);
     }
 
+    @Override
+    public void setImageEditorCallback(Runnable imageEditorCallback) {
+        if (mShowEditAction) {
+            ScrollableImagePreviewView imagePreview =
+                    mContentPreviewView.requireViewById(R.id.scrollable_image_preview);
+            imagePreview.setImageEditorCallback(imageEditorCallback);
+        }
+    }
+
     private void setFiles(List<FileInfo> files) {
         Size previewSize = new Size(mPreviewSize, mPreviewSize);
         mImageLoader.prePopulate(
