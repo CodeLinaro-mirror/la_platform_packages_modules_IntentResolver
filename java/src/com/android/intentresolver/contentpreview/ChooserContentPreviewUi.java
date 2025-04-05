@@ -215,6 +215,11 @@ public final class ChooserContentPreviewUi {
         return mContentPreviewUi.getType();
     }
 
+    /** Provide callback for image editor invocation. */
+    public void setImageEditorCallback(Runnable callback) {
+        mContentPreviewUi.setImageEditorCallback(callback);
+    }
+
     /**
      * Display a content preview of the specified {@code previewType} to preview the content of the
      * specified {@code intent}.

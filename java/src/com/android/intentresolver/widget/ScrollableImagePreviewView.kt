@@ -42,6 +42,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.android.intentresolver.R
 import com.android.intentresolver.util.throttle
 import com.android.intentresolver.widget.ImagePreviewView.TransitionElementStatusCallback
+import com.android.systemui.shared.Flags.usePreferredImageEditor
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -225,6 +226,10 @@ class ScrollableImagePreviewView : RecyclerView, ImagePreviewView {
         maybeLoadAspectRatios()
     }
 
+    fun setImageEditorCallback(imageEditorCallback: Runnable) {
+        previewAdapter.setImageEditorCallback(imageEditorCallback)
+    }
+
     private fun maybeLoadAspectRatios() {
         if (isMeasured && isAttachedToWindow()) {
             batchLoader?.let { it.loadAspectRatios(getMaxWidth(), this::updatePreviewSize) }
@@ -305,6 +310,7 @@ class ScrollableImagePreviewView : RecyclerView, ImagePreviewView {
         private val editButtonRoleDescription: CharSequence?,
     ) : RecyclerView.Adapter<ViewHolder>() {
         private val previews = ArrayList<Preview>()
+        private var imageEditCallaback: Runnable? = null
         private val imagePreviewDescription =
             context.resources.getString(R.string.image_preview_a11y_description)
         private val videoPreviewDescription =
@@ -378,6 +384,11 @@ class ScrollableImagePreviewView : RecyclerView, ImagePreviewView {
             }
         }
 
+        fun setImageEditorCallback(callback: Runnable) {
+            imageEditCallaback = callback
+            notifyItemChanged(0)
+        }
+
         override fun onCreateViewHolder(parent: ViewGroup, itemType: Int): ViewHolder {
             val view = LayoutInflater.from(context).inflate(itemType, parent, false)
             return when (itemType) {
@@ -422,6 +433,7 @@ class ScrollableImagePreviewView : RecyclerView, ImagePreviewView {
                             } else {
                                 null
                             },
+                        imageEditCallaback,
                     )
             }
         }
@@ -468,6 +480,7 @@ class ScrollableImagePreviewView : RecyclerView, ImagePreviewView {
             isSharedTransitionElement: Boolean,
             editButtonRoleDescription: CharSequence?,
             previewReadyCallback: ((String) -> Unit)?,
+            imageEditorCallback: Runnable?,
         ) {
             image.setImageDrawable(null)
             image.alpha = 1f
@@ -497,15 +510,34 @@ class ScrollableImagePreviewView : RecyclerView, ImagePreviewView {
                     badgeFrame.visibility = View.VISIBLE
                 }
             }
-            preview.editAction?.also { onClick ->
+
+            if (usePreferredImageEditor()) {
                 editActionContainer?.apply {
-                    setOnClickListener { onClick.run() }
-                    visibility = View.VISIBLE
-                    if (editButtonRoleDescription != null) {
-                        ViewCompat.setAccessibilityDelegate(
-                            this,
-                            ViewRoleDescriptionAccessibilityDelegate(editButtonRoleDescription),
-                        )
+                    if (imageEditorCallback != null) {
+                        visibility = View.VISIBLE
+                        setOnClickListener { imageEditorCallback.run() }
+
+                        if (editButtonRoleDescription != null) {
+                            ViewCompat.setAccessibilityDelegate(
+                                this,
+                                ViewRoleDescriptionAccessibilityDelegate(editButtonRoleDescription),
+                            )
+                        }
+                    } else {
+                        visibility = View.GONE
+                    }
+                }
+            } else {
+                preview.editAction?.also { onClick ->
+                    editActionContainer?.apply {
+                        setOnClickListener { onClick.run() }
+                        visibility = View.VISIBLE
+                        if (editButtonRoleDescription != null) {
+                            ViewCompat.setAccessibilityDelegate(
+                                this,
+                                ViewRoleDescriptionAccessibilityDelegate(editButtonRoleDescription),
+                            )
+                        }
                     }
                 }
             }
