@@ -103,8 +103,7 @@
     <string name="exclude_link" msgid="1332778255031992228">"Изключване на връзката"</string>
     <string name="include_link" msgid="827855767220339802">"Включване на връзката"</string>
     <string name="pinned" msgid="7623664001331394139">"Фиксирано"</string>
-    <!-- no translation found for item_position_label (5112465518086817859) -->
-    <skip />
+    <string name="item_position_label" msgid="5112465518086817859">"Елемент <xliff:g id="ITEM_POSITION">%1$d</xliff:g>"</string>
     <string name="selectable_image" msgid="3157858923437182271">"Избираемо изображение"</string>
     <string name="selectable_video" msgid="1271768647699300826">"Избираем видеоклип"</string>
     <string name="selectable_item" msgid="7557320816744205280">"Избираем елемент"</string>
@@ -112,4 +111,6 @@
     <string name="shortcut_group_a11y_title" msgid="3097624986281770746">"Цели за директно споделяне"</string>
     <string name="suggested_apps_group_a11y_title" msgid="2394561651436551139">"Предложения за приложения"</string>
     <string name="all_apps_group_a11y_title" msgid="2646382370571120047">"Списък с приложения"</string>
+    <string name="copy_text" msgid="1341801611046464360">"Копиране на текста"</string>
+    <string name="copy_link" msgid="3822142723771306592">"Копиране на връзката"</string>
 </resources>

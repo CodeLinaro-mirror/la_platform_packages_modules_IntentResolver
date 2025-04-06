@@ -103,8 +103,7 @@
     <string name="exclude_link" msgid="1332778255031992228">"Ungafaki ilinki"</string>
     <string name="include_link" msgid="827855767220339802">"Faka ilinki"</string>
     <string name="pinned" msgid="7623664001331394139">"Kuphiniwe"</string>
-    <!-- no translation found for item_position_label (5112465518086817859) -->
-    <skip />
+    <string name="item_position_label" msgid="5112465518086817859">"Into <xliff:g id="ITEM_POSITION">%1$d</xliff:g>"</string>
     <string name="selectable_image" msgid="3157858923437182271">"Umfanekiso okhethekayo"</string>
     <string name="selectable_video" msgid="1271768647699300826">"Ividiyo ekhethekayo"</string>
     <string name="selectable_item" msgid="7557320816744205280">"Into ekhethekayo"</string>
@@ -112,4 +111,6 @@
     <string name="shortcut_group_a11y_title" msgid="3097624986281770746">"Qondisa ofuna ukwabelana nabo"</string>
     <string name="suggested_apps_group_a11y_title" msgid="2394561651436551139">"Iziphakamiso ze-app"</string>
     <string name="all_apps_group_a11y_title" msgid="2646382370571120047">"Uhlu lwama-app"</string>
+    <string name="copy_text" msgid="1341801611046464360">"Kopisha umbhalo"</string>
+    <string name="copy_link" msgid="3822142723771306592">"Kopisha ilinki"</string>
 </resources>
