@@ -31,37 +31,64 @@ import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
 import org.mockito.ArgumentMatchers.anyInt
-import org.mockito.kotlin.any
+import org.mockito.kotlin.argForWhich
 import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.mock
 
 class ImageEditorActionFactoryTest {
     val scheduler = TestCoroutineScheduler()
     val testDispatcher = UnconfinedTestDispatcher(scheduler)
-    val editorComponent = ComponentName("some.package", "some.class")
-    val editorResolveInfo =
-        ResolveInfo().apply {
-            activityInfo =
-                ActivityInfo().apply {
-                    name = editorComponent.className
-                    applicationInfo =
-                        ApplicationInfo().apply { packageName = editorComponent.packageName }
-                }
-        }
+    val preferredEditorComponent = ComponentName("preferred.package", "preferred.class")
+    val fallbackEditorComponent = ComponentName("fallback.pkg", "fallback.cls")
+
     val contentResolver: ContentResolver = mock()
 
-    fun createPackageManager(hasEditor: Boolean): PackageManager = mock {
-        if (hasEditor) {
-            on { resolveActivity(any(), anyInt()) }.doReturn(editorResolveInfo)
+    fun createPackageManager(
+        hasPreferredEditor: Boolean,
+        hasFallbackEditor: Boolean,
+    ): PackageManager = mock {
+        if (hasPreferredEditor) {
+            on {
+                    resolveActivity(
+                        argForWhich { preferredEditorComponent.equals(component) },
+                        anyInt(),
+                    )
+                }
+                .doReturn(resolveInfoForComponent(preferredEditorComponent))
+        }
+        if (hasFallbackEditor) {
+            on {
+                    resolveActivity(
+                        argForWhich { fallbackEditorComponent.equals(component) },
+                        anyInt(),
+                    )
+                }
+                .doReturn(resolveInfoForComponent(fallbackEditorComponent))
         }
     }
 
-    fun createFactory(hasEditor: Boolean = true) =
+    fun resolveInfoForComponent(component: ComponentName): ResolveInfo =
+        ResolveInfo().apply {
+            activityInfo =
+                ActivityInfo().apply {
+                    name = component.className
+                    applicationInfo =
+                        ApplicationInfo().apply { packageName = component.packageName }
+                }
+        }
+
+    fun createFactory(
+        hasPreferredEditor: Boolean = true,
+        hasFallbackEditor: Boolean = true,
+        preferredEditor: ComponentName? = preferredEditorComponent,
+        fallbackEditor: ComponentName? = fallbackEditorComponent,
+    ) =
         ImageEditorActionFactory(
             InstrumentationRegistry.getInstrumentation().getContext(),
             testDispatcher,
-            Optional.of(editorComponent),
-            createPackageManager(hasEditor),
+            Optional.ofNullable(preferredEditor),
+            Optional.ofNullable(fallbackEditor),
+            createPackageManager(hasPreferredEditor, hasFallbackEditor),
             contentResolver,
         )
 
@@ -69,8 +96,26 @@ class ImageEditorActionFactoryTest {
     fun test_getImageEditorTargetInfo() = runTest {
         val target = createFactory().getImageEditorTargetInfo(Intent(Intent.ACTION_SEND))
         assertThat(target).isNotNull()
-        assertThat(target?.resolvedIntent?.component).isEqualTo(editorComponent)
+        assertThat(target?.resolvedIntent?.component).isEqualTo(preferredEditorComponent)
         assertThat(target?.resolvedIntent?.action).isEqualTo(Intent.ACTION_EDIT)
+    }
+
+    @Test
+    fun test_getImageEditorTargetInfo_preferredNotProvided() = runTest {
+        val target =
+            createFactory(preferredEditor = null)
+                .getImageEditorTargetInfo(Intent(Intent.ACTION_SEND))
+        assertThat(target).isNotNull()
+        assertThat(target?.resolvedIntent?.component).isEqualTo(fallbackEditorComponent)
+        assertThat(target?.resolvedIntent?.action).isEqualTo(Intent.ACTION_EDIT)
+    }
+
+    @Test
+    fun test_getImageEditorTargetInfo_noComponentProvided() = runTest {
+        val target =
+            createFactory(preferredEditor = null, fallbackEditor = null)
+                .getImageEditorTargetInfo(Intent(Intent.ACTION_SEND))
+        assertThat(target).isNull()
     }
 
     @Test
@@ -80,9 +125,18 @@ class ImageEditorActionFactoryTest {
     }
 
     @Test
-    fun test_getImageEditorTargetInfo_noEditor() = runTest {
+    fun test_getImageEditorTargetInfo_preferredNotAvailable() = runTest {
         val target =
-            createFactory(hasEditor = false).getImageEditorTargetInfo(Intent(Intent.ACTION_SEND))
+            createFactory(hasPreferredEditor = false)
+                .getImageEditorTargetInfo(Intent(Intent.ACTION_SEND))
+        assertThat(target?.resolvedIntent?.component).isEqualTo(fallbackEditorComponent)
+    }
+
+    @Test
+    fun test_getImageEditorTargetInfo_bothNotAvailable() = runTest {
+        val target =
+            createFactory(hasPreferredEditor = false, hasFallbackEditor = false)
+                .getImageEditorTargetInfo(Intent(Intent.ACTION_SEND))
         assertThat(target).isNull()
     }
 }
