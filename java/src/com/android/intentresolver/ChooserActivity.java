@@ -129,7 +129,7 @@ import com.android.intentresolver.model.AbstractResolverComparator;
 import com.android.intentresolver.model.AppPredictionServiceResolverComparator;
 import com.android.intentresolver.model.ResolverRankerServiceResolverComparator;
 import com.android.intentresolver.platform.AppPredictionAvailable;
-import com.android.intentresolver.platform.ImageEditor;
+import com.android.intentresolver.platform.FallbackImageEditor;
 import com.android.intentresolver.platform.NearbyShare;
 import com.android.intentresolver.profiles.ChooserMultiProfilePagerAdapter;
 import com.android.intentresolver.profiles.MultiProfilePagerAdapter.ProfileType;
@@ -266,7 +266,8 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
     @Inject public ChooserHelper mChooserHelper;
     @Inject public EventLog mEventLog;
     @Inject @AppPredictionAvailable public boolean mAppPredictionAvailable;
-    @Inject @ImageEditor public Optional<ComponentName> mImageEditor;
+    @Inject @FallbackImageEditor
+    public Optional<ComponentName> mImageEditor;
 
     @Inject public ImageEditorActionFactory mImageEditorActionFactory;
     @Inject @NearbyShare public Optional<ComponentName> mNearbyShare;

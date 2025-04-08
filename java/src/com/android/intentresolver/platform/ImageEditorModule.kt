@@ -34,7 +34,15 @@ internal fun Resources.componentName(@StringRes resId: Int): ComponentName? {
     return ComponentName.unflattenFromString(getString(resId))
 }
 
-@Qualifier @MustBeDocumented @Retention(AnnotationRetention.RUNTIME) annotation class ImageEditor
+@Qualifier
+@MustBeDocumented
+@Retention(AnnotationRetention.RUNTIME)
+annotation class PreferredImageEditor
+
+@Qualifier
+@MustBeDocumented
+@Retention(AnnotationRetention.RUNTIME)
+annotation class FallbackImageEditor
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -45,7 +53,17 @@ object ImageEditorModule {
      */
     @Provides
     @Singleton
-    @ImageEditor
+    @PreferredImageEditor
+    fun preferredImageEditorComponent(@ApplicationOwned resources: Resources) =
+        Optional.ofNullable(resources.componentName(R.string.config_preferredSystemImageEditor))
+
+    /**
+     * The name of the preferred Activity to launch for editing images. This is added to Intents to
+     * edit images using Intent.ACTION_EDIT.
+     */
+    @Provides
+    @Singleton
+    @FallbackImageEditor
     fun imageEditorComponent(@ApplicationOwned resources: Resources) =
         Optional.ofNullable(resources.componentName(R.string.config_systemImageEditor))
 }

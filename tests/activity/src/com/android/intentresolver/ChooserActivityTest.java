@@ -135,9 +135,10 @@ import com.android.intentresolver.logging.EventLog;
 import com.android.intentresolver.logging.FakeEventLog;
 import com.android.intentresolver.platform.AppPredictionAvailable;
 import com.android.intentresolver.platform.AppPredictionModule;
+import com.android.intentresolver.platform.FallbackImageEditor;
 import com.android.intentresolver.platform.GlobalSettings;
-import com.android.intentresolver.platform.ImageEditor;
 import com.android.intentresolver.platform.ImageEditorModule;
+import com.android.intentresolver.platform.PreferredImageEditor;
 import com.android.intentresolver.shared.model.User;
 import com.android.intentresolver.shortcuts.ShortcutLoader;
 import com.android.internal.config.sysui.SystemUiDeviceConfigFlags;
@@ -246,10 +247,14 @@ public class ChooserActivityTest {
 
     /** An arbitrary pre-installed activity that handles this type of intent. */
     @BindValue
-    @ImageEditor
+    @FallbackImageEditor
     final Optional<ComponentName> mImageEditor = Optional.ofNullable(
             ComponentName.unflattenFromString("com.google.android.apps.messaging/"
                     + ".ui.conversationlist.ShareIntentActivity"));
+
+    @BindValue
+    @PreferredImageEditor
+    final Optional<ComponentName> mPreferredImageEditor = Optional.ofNullable(null);
 
     /** Whether an AppPredictionService is available for use. */
     @BindValue
