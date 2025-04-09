@@ -26,6 +26,7 @@
     app:maxCollapsedHeight="0dp"
     app:maxCollapsedHeightSmall="56dp"
     app:useScrollablePreviewNestedFlingLogic="true"
+    app:showAtTop="@bool/show_preview_at_top"
     android:maxWidth="@dimen/chooser_width"
     android:id="@androidprv:id/contentPanel">
 
@@ -35,6 +36,7 @@
         android:layout_height="wrap_content"
         app:layout_alwaysShow="true"
         android:elevation="0dp"
+        android:visibility="@integer/chooser_header_for_preview_visibility"
         android:background="@drawable/bottomsheet_background">
 
         <View
@@ -60,22 +62,40 @@
                   android:layout_centerHorizontal="true"/>
     </RelativeLayout>
 
-    <FrameLayout
-        android:id="@+id/chooser_headline_row_container"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        app:layout_alwaysShow="true"
-        android:background="@androidprv:color/materialColorSurfaceContainer">
+        android:layout_marginTop="@dimen/chooser_margin_vertical"
+        android:gravity="center"
+        app:layout_alwaysShow="true">
 
-        <ViewStub
-            android:id="@+id/chooser_headline_row_stub"
-            android:inflatedId="@+id/chooser_headline_row"
-            android:layout="@layout/chooser_headline_row"
+        <ImageView
+            android:id="@+id/exit_button"
+            android:layout_width="@dimen/chooser_close_icon_size"
+            android:layout_height="@dimen/chooser_close_icon_size"
+            android:src="@drawable/ic_close"
+            android:contentDescription="@string/exit_button_label"
+            android:layout_marginHorizontal="@dimen/chooser_close_icon_size_margin"
+            android:layout_marginVertical="@dimen/chooser_close_icon_size_margin"
+            android:onClick="onExitButtonClicked"
+            android:visibility="@integer/preview_close_button_visibility"/>
+
+        <FrameLayout
+            android:id="@+id/chooser_headline_row_container"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:paddingHorizontal="@dimen/chooser_edge_margin_normal"
-            android:layout_marginBottom="@dimen/chooser_view_spacing" />
-    </FrameLayout>
+            android:background="@color/chooser_grid_layout_background">
+
+            <ViewStub
+                android:id="@+id/chooser_headline_row_stub"
+                android:inflatedId="@+id/chooser_headline_row"
+                android:layout="@layout/chooser_headline_row"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingHorizontal="@dimen/chooser_edge_margin_normal"
+                android:layout_marginBottom="@dimen/chooser_view_spacing" />
+        </FrameLayout>
+    </LinearLayout>
 
     <com.android.intentresolver.widget.ChooserNestedScrollView
         android:id="@+id/chooser_scrollable_container"
@@ -91,6 +111,9 @@
                 android:id="@androidprv:id/content_preview_container"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:minHeight="@dimen/chooser_content_view_min_height"
+                android:layout_marginTop="@dimen/chooser_content_view_margin_top"
+                android:layout_marginHorizontal="@dimen/chooser_content_view_margin_horizontal"
                 android:visibility="gone" />
 
             <TabHost
@@ -99,7 +122,8 @@
                 android:layout_height="wrap_content"
                 android:layout_alignParentTop="true"
                 android:layout_centerHorizontal="true"
-                android:background="@androidprv:color/materialColorSurfaceContainer">
+                android:layout_marginHorizontal="@dimen/chooser_profile_tabhost_margin_horizontal"
+                android:background="@color/chooser_grid_layout_background">
                 <LinearLayout
                     android:orientation="vertical"
                     android:layout_width="match_parent"
