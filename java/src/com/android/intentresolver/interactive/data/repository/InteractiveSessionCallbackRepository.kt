@@ -17,8 +17,8 @@
 package com.android.intentresolver.interactive.data.repository
 
 import android.os.Bundle
-import android.service.chooser.IChooserController
 import androidx.lifecycle.SavedStateHandle
+import com.android.intentresolver.IChooserController
 import com.android.intentresolver.interactive.domain.model.ChooserIntentUpdater
 import dagger.hilt.android.scopes.ViewModelScoped
 import java.util.concurrent.atomic.AtomicReference
