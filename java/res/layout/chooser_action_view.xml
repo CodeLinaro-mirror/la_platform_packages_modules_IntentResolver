@@ -22,10 +22,10 @@
     android:paddingHorizontal="@dimen/chooser_edge_margin_normal_half"
     android:clickable="true"
     android:drawablePadding="6dp"
-    android:drawableTint="@androidprv:color/materialColorOnSurface"
+    android:drawableTint="@color/chooser_action_button_drawable_tint_color"
     android:drawableTintMode="src_in"
     android:ellipsize="end"
     android:gravity="center"
     android:maxLines="1"
-    android:textColor="@androidprv:color/materialColorOnSurface"
+    android:textColor="@color/chooser_action_button_text_color"
     android:textSize="@dimen/chooser_action_view_text_size" />

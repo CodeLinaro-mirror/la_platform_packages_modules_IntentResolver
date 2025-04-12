@@ -22,13 +22,13 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
-import android.util.Log
 import com.android.intentresolver.ChooserActionFactory
 import com.android.intentresolver.R
 import com.android.intentresolver.chooser.DisplayResolveInfo
 import com.android.intentresolver.chooser.TargetInfo
 import com.android.intentresolver.inject.Background
-import com.android.intentresolver.platform.ImageEditor
+import com.android.intentresolver.platform.FallbackImageEditor
+import com.android.intentresolver.platform.PreferredImageEditor
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.util.Optional
 import java.util.function.Consumer
@@ -44,7 +44,8 @@ class ImageEditorActionFactory
 constructor(
     @ApplicationContext private val context: Context,
     @Background private val backgroundDispatcher: CoroutineDispatcher,
-    @ImageEditor private val imageEditor: Optional<ComponentName>,
+    @PreferredImageEditor private val preferredImageEditor: Optional<ComponentName>,
+    @FallbackImageEditor private val fallbackImageEditor: Optional<ComponentName>,
     private val packageManager: PackageManager,
     private val contentResolver: ContentResolver,
 ) {
@@ -79,8 +80,6 @@ constructor(
                 targetIntent.flags and ChooserActionFactory.URI_PERMISSION_INTENT_FLAGS
             )
 
-            imageEditor.ifPresent { resolveIntent.setComponent(it) }
-
             resolveIntent.setAction(Intent.ACTION_EDIT)
             resolveIntent.putExtra(
                 ChooserActionFactory.EDIT_SOURCE,
@@ -95,9 +94,24 @@ constructor(
                 }
             }
 
-            displayResolveInfoForIntent(targetIntent, resolveIntent)
+            // Return the target for the preferred editor if found, otherwise the fallback, else
+            // null
+            displayResolveInfoForComponent(preferredImageEditor, targetIntent, resolveIntent)
+                ?: displayResolveInfoForComponent(fallbackImageEditor, targetIntent, resolveIntent)
         }
     }
+
+    // If the component is provided, set the resolved intent's component to that and return the
+    // relevant DisplayResolveInfo if available, otherwise null.
+    private fun displayResolveInfoForComponent(
+        editorComponent: Optional<ComponentName>,
+        targetIntent: Intent,
+        resolveIntent: Intent,
+    ): DisplayResolveInfo? =
+        editorComponent.orElse(null)?.let { component ->
+            resolveIntent.setComponent(component)
+            displayResolveInfoForIntent(targetIntent, resolveIntent)
+        }
 
     private fun displayResolveInfoForIntent(
         targetIntent: Intent,
@@ -106,7 +120,6 @@ constructor(
         val resolveInfo =
             packageManager.resolveActivity(resolveIntent, PackageManager.GET_META_DATA)
         if (resolveInfo?.activityInfo == null) {
-            Log.e(TAG, "Device-specified editor ($imageEditor) not available")
             return null
         }
 
