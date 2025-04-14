@@ -82,3 +82,13 @@ flag {
     purpose: PURPOSE_BUGFIX
   }
 }
+
+flag {
+  name: "sharesheet_esc_exit"
+  namespace: "intentresolver"
+  description: "Whether to ESC exits sharesheet"
+  bug: "409766579"
+  metadata {
+    purpose: PURPOSE_BUGFIX
+  }
+}
