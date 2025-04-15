@@ -16,7 +16,6 @@
 package com.android.intentresolver.contentpreview.payloadtoggle.ui.viewmodel
 
 import android.util.Size
-import com.android.intentresolver.Flags.unselectFinalItem
 import com.android.intentresolver.contentpreview.HeadlineGenerator
 import com.android.intentresolver.contentpreview.ImageLoader
 import com.android.intentresolver.contentpreview.MimeTypeClassifier
@@ -86,7 +85,7 @@ object ShareouselViewModelModule {
                 selectionInteractor.aggregateContentType.zip(selectionInteractor.amountSelected) {
                     contentType,
                     numItems ->
-                    if (unselectFinalItem() && numItems == 0) {
+                    if (numItems == 0) {
                         headlineGenerator.getNotItemsSelectedHeadline()
                     } else {
                         when (contentType) {

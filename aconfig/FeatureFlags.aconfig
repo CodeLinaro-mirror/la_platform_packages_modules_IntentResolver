@@ -117,13 +117,6 @@ flag {
 }
 
 flag {
-  name: "unselect_final_item"
-  namespace: "intentresolver"
-  description: "Allow toggling of final Shareousel item"
-  bug: "349468879"
-}
-
-flag {
   name: "shareousel_scroll_offscreen_selections"
   namespace: "intentresolver"
   description: "Whether to scroll items onscreen when they are partially offscreen and selected/unselected."
