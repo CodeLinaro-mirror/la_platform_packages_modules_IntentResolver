@@ -76,7 +76,7 @@
     <string name="file_preview_a11y_description" msgid="7397224827802410602">"ຮູບຕົວຢ່າງຂອງໄຟລ໌"</string>
     <string name="chooser_no_direct_share_targets" msgid="4233416657754261844">"ບໍ່ມີຄົນທີ່ແນະນຳໃຫ້ແບ່ງປັນນຳ"</string>
     <string name="usb_device_resolve_prompt_warn" msgid="4254493957548169620">"ແອັບນີ້ບໍ່ໄດ້ຮັບສິດອະນຸຍາດໃນການບັນທຶກ ແຕ່ສາມາດບັນທຶກສຽງໄດ້ຜ່ານອຸປະກອນ USB ນີ້."</string>
-    <string name="resolver_personal_tab" msgid="1381052735324320565">"ສ່ວນຕົວ"</string>
+    <string name="resolver_personal_tab" msgid="1381052735324320565">"ສ່ວນບຸກຄົນ"</string>
     <string name="resolver_work_tab" msgid="3588325717455216412">"ວຽກ"</string>
     <string name="resolver_private_tab" msgid="3707548826254095157">"ສ່ວນຕົວ"</string>
     <string name="resolver_personal_tab_accessibility" msgid="4467784352232582574">"ມຸມມອງສ່ວນຕົວ"</string>
@@ -113,4 +113,6 @@
     <string name="all_apps_group_a11y_title" msgid="2646382370571120047">"ລາຍການແອັບ"</string>
     <string name="copy_text" msgid="1341801611046464360">"ສຳເນົາຂໍ້ຄວາມ"</string>
     <string name="copy_link" msgid="3822142723771306592">"ສຳເນົາລິ້ງ"</string>
+    <!-- no translation found for exit_button_label (6396378400527479806) -->
+    <skip />
 </resources>

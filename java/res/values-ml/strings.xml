@@ -113,4 +113,5 @@
     <string name="all_apps_group_a11y_title" msgid="2646382370571120047">"ആപ്പ് ലിസ്റ്റ്"</string>
     <string name="copy_text" msgid="1341801611046464360">"ടെക്‌സ്റ്റ് പകർത്തുക"</string>
     <string name="copy_link" msgid="3822142723771306592">"ലിങ്ക് പകർത്തുക"</string>
+    <string name="exit_button_label" msgid="6396378400527479806">"ഡിസ്‌മിസ് ചെയ്യുക"</string>
 </resources>
