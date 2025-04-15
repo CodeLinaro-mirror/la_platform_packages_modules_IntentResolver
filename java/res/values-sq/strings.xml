@@ -113,4 +113,6 @@
     <string name="all_apps_group_a11y_title" msgid="2646382370571120047">"Lista e aplikacioneve"</string>
     <string name="copy_text" msgid="1341801611046464360">"Kopjo tekstin"</string>
     <string name="copy_link" msgid="3822142723771306592">"Kopjo lidhjen"</string>
+    <!-- no translation found for exit_button_label (6396378400527479806) -->
+    <skip />
 </resources>
