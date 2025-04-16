@@ -30,7 +30,6 @@ import static com.android.intentresolver.Flags.keyboardNavigationFix;
 import static com.android.intentresolver.Flags.rebuildAdaptersOnTargetPinning;
 import static com.android.intentresolver.Flags.refineSystemActions;
 import static com.android.intentresolver.Flags.shareouselUpdateExcludeComponentsExtra;
-import static com.android.intentresolver.Flags.unselectFinalItem;
 import static com.android.intentresolver.ext.CreationExtrasExtKt.replaceDefaultArgs;
 import static com.android.intentresolver.profiles.MultiProfilePagerAdapter.PROFILE_PERSONAL;
 import static com.android.intentresolver.profiles.MultiProfilePagerAdapter.PROFILE_WORK;
@@ -358,9 +357,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         mChooserHelper.setInitializer(this::initialize);
         mChooserHelper.setOnChooserRequestChanged(this::onChooserRequestChanged);
         mChooserHelper.setOnPendingSelection(this::onPendingSelection);
-        if (unselectFinalItem()) {
-            mChooserHelper.setOnHasSelections(this::onHasSelections);
-        }
+        mChooserHelper.setOnHasSelections(this::onHasSelections);
     }
     private int mInitialProfile = -1;
 
