@@ -16,8 +16,6 @@
 
 package com.android.intentresolver;
 
-import static com.android.intentresolver.Flags.announceShortcutsAndSuggestedApps;
-
 import android.content.Context;
 import android.util.AttributeSet;
 import android.view.View;
@@ -56,9 +54,7 @@ public class ChooserGridLayoutManager extends GridLayoutManager {
     public ChooserGridLayoutManager(Context context, AttributeSet attrs, int defStyleAttr,
             int defStyleRes) {
         super(context, attrs, defStyleAttr, defStyleRes);
-        if (announceShortcutsAndSuggestedApps()) {
-            readGroupTitles(context);
-        }
+        readGroupTitles(context);
     }
 
     /**
@@ -69,9 +65,7 @@ public class ChooserGridLayoutManager extends GridLayoutManager {
      */
     public ChooserGridLayoutManager(Context context, int spanCount) {
         super(context, spanCount);
-        if (announceShortcutsAndSuggestedApps()) {
-            readGroupTitles(context);
-        }
+        readGroupTitles(context);
     }
 
     /**
@@ -84,9 +78,7 @@ public class ChooserGridLayoutManager extends GridLayoutManager {
     public ChooserGridLayoutManager(Context context, int spanCount, int orientation,
             boolean reverseLayout) {
         super(context, spanCount, orientation, reverseLayout);
-        if (announceShortcutsAndSuggestedApps()) {
-            readGroupTitles(context);
-        }
+        readGroupTitles(context);
     }
 
     private void readGroupTitles(Context context) {
@@ -130,7 +122,7 @@ public class ChooserGridLayoutManager extends GridLayoutManager {
             View host,
             AccessibilityNodeInfoCompat info) {
         super.onInitializeAccessibilityNodeInfoForItem(recycler, state, host, info);
-        if (announceShortcutsAndSuggestedApps() && host instanceof ViewGroup) {
+        if (host instanceof ViewGroup) {
             if (host.getId() == R.id.shortcuts_container) {
                 info.setClassName(GridView.class.getName());
                 info.setContainerTitle(mShortcutGroupTitle);
@@ -158,15 +150,13 @@ public class ChooserGridLayoutManager extends GridLayoutManager {
     public void onInitializeAccessibilityNodeInfo(@NonNull RecyclerView.Recycler recycler,
             @NonNull RecyclerView.State state, @NonNull AccessibilityNodeInfoCompat info) {
         super.onInitializeAccessibilityNodeInfo(recycler, state, info);
-        if (announceShortcutsAndSuggestedApps()) {
-            info.setContainerTitle(mAllAppListGroupTitle);
-        }
+        info.setContainerTitle(mAllAppListGroupTitle);
     }
 
     @Override
     public boolean isLayoutHierarchical(
             @NonNull RecyclerView.Recycler recycler, @NonNull RecyclerView.State state) {
-        return announceShortcutsAndSuggestedApps() || super.isLayoutHierarchical(recycler, state);
+        return true;
     }
 
     private CollectionInfoCompat createShortcutsA11yCollectionInfo(ViewGroup container) {
