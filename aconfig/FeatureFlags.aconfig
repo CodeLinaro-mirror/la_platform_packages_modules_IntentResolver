@@ -73,16 +73,6 @@ flag {
 }
 
 flag {
-  name: "keyboard_navigation_fix"
-  namespace: "intentresolver"
-  description: "Enable Chooser keyboard navigation bugfix"
-  bug: "325259478"
-  metadata {
-    purpose: PURPOSE_BUGFIX
-  }
-}
-
-flag {
   name: "rebuild_adapters_on_target_pinning"
   namespace: "intentresolver"
   description: "Rebuild and swap adapters when a target gets (un)pinned to avoid flickering."
