@@ -70,13 +70,6 @@ flag {
 }
 
 flag {
-  name: "shareousel_update_exclude_components_extra"
-  namespace: "intentresolver"
-  description: "Allow Shareousel selection change callback to update Intent#EXTRA_EXCLUDE_COMPONENTS"
-  bug: "352496527"
-}
-
-flag {
   name: "shareousel_scroll_offscreen_selections"
   namespace: "intentresolver"
   description: "Whether to scroll items onscreen when they are partially offscreen and selected/unselected."

@@ -34,7 +34,6 @@ import android.os.Bundle
 import android.service.chooser.AdditionalContentContract.MethodNames.ON_SELECTION_CHANGED
 import android.service.chooser.ChooserAction
 import android.service.chooser.ChooserTarget
-import com.android.intentresolver.Flags.shareouselUpdateExcludeComponentsExtra
 import com.android.intentresolver.contentpreview.payloadtoggle.domain.model.ShareouselUpdate
 import com.android.intentresolver.contentpreview.payloadtoggle.domain.model.ValueUpdate
 import com.android.intentresolver.inject.AdditionalContent
@@ -85,9 +84,9 @@ constructor(
                     Bundle().apply {
                         putParcelable(
                             EXTRA_INTENT,
-                            Intent(chooserIntent).apply { putExtra(EXTRA_INTENT, targetIntent) }
+                            Intent(chooserIntent).apply { putExtra(EXTRA_INTENT, targetIntent) },
                         )
-                    }
+                    },
                 )
             }
             ?.let { bundle ->
@@ -104,9 +103,7 @@ constructor(
             }
 }
 
-private fun readCallbackResponse(
-    bundle: Bundle,
-): ValidationResult<ShareouselUpdate> {
+private fun readCallbackResponse(bundle: Bundle): ValidationResult<ShareouselUpdate> {
     return validateFrom(bundle::get) {
         // An error is treated as an empty collection or null as the presence of a value indicates
         // an intention to change the old value implying that the old value is obsolete (and should
@@ -140,12 +137,8 @@ private fun readCallbackResponse(
                 optional(value<CharSequence>(key))
             }
         val excludedComponents: ValueUpdate<List<ComponentName>> =
-            if (shareouselUpdateExcludeComponentsExtra()) {
-                bundle.readValueUpdate(EXTRA_EXCLUDE_COMPONENTS) { key ->
-                    optional(array<ComponentName>(key)) ?: emptyList()
-                }
-            } else {
-                ValueUpdate.Absent
+            bundle.readValueUpdate(EXTRA_EXCLUDE_COMPONENTS) { key ->
+                optional(array<ComponentName>(key)) ?: emptyList()
             }
 
         ShareouselUpdate(
@@ -163,7 +156,7 @@ private fun readCallbackResponse(
 
 private inline fun <reified T> Bundle.readValueUpdate(
     key: String,
-    block: (String) -> T
+    block: (String) -> T,
 ): ValueUpdate<T> =
     if (containsKey(key)) {
         ValueUpdate.Value(block(key))

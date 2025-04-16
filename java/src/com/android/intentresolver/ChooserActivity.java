@@ -28,7 +28,6 @@ import static com.android.intentresolver.Flags.fixShortcutsFlashingFixed;
 import static com.android.intentresolver.Flags.interactiveSession;
 import static com.android.intentresolver.Flags.rebuildAdaptersOnTargetPinning;
 import static com.android.intentresolver.Flags.refineSystemActions;
-import static com.android.intentresolver.Flags.shareouselUpdateExcludeComponentsExtra;
 import static com.android.intentresolver.ext.CreationExtrasExtKt.replaceDefaultArgs;
 import static com.android.intentresolver.profiles.MultiProfilePagerAdapter.PROFILE_PERSONAL;
 import static com.android.intentresolver.profiles.MultiProfilePagerAdapter.PROFILE_WORK;
@@ -858,8 +857,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         //  an artifact of the current implementation; revisit.
         return !oldTargetIntent.equals(newTargetIntent)
                 || !oldAltIntents.equals(newAltIntents)
-                || (shareouselUpdateExcludeComponentsExtra()
-                        && !oldExcluded.equals(newExcluded));
+                || !oldExcluded.equals(newExcluded);
     }
 
     private void recreatePagerAdapter() {
