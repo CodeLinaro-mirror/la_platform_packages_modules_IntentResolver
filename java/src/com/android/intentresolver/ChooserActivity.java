@@ -26,11 +26,9 @@ import static com.android.intentresolver.ChooserActionFactory.EDIT_SOURCE;
 import static com.android.intentresolver.Flags.delayDrawerOffsetCalculation;
 import static com.android.intentresolver.Flags.fixShortcutsFlashingFixed;
 import static com.android.intentresolver.Flags.interactiveSession;
-import static com.android.intentresolver.Flags.keyboardNavigationFix;
 import static com.android.intentresolver.Flags.rebuildAdaptersOnTargetPinning;
 import static com.android.intentresolver.Flags.refineSystemActions;
 import static com.android.intentresolver.Flags.shareouselUpdateExcludeComponentsExtra;
-import static com.android.intentresolver.Flags.unselectFinalItem;
 import static com.android.intentresolver.ext.CreationExtrasExtKt.replaceDefaultArgs;
 import static com.android.intentresolver.profiles.MultiProfilePagerAdapter.PROFILE_PERSONAL;
 import static com.android.intentresolver.profiles.MultiProfilePagerAdapter.PROFILE_WORK;
@@ -358,9 +356,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         mChooserHelper.setInitializer(this::initialize);
         mChooserHelper.setOnChooserRequestChanged(this::onChooserRequestChanged);
         mChooserHelper.setOnPendingSelection(this::onPendingSelection);
-        if (unselectFinalItem()) {
-            mChooserHelper.setOnHasSelections(this::onHasSelections);
-        }
+        mChooserHelper.setOnHasSelections(this::onHasSelections);
     }
     private int mInitialProfile = -1;
 
@@ -1381,16 +1377,14 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         mChooserMultiProfilePagerAdapter.setupViewPager(mViewPager);
         ChooserNestedScrollView scrollableContainer =
                 requireViewById(R.id.chooser_scrollable_container);
-        if (keyboardNavigationFix()) {
-            scrollableContainer.setRequestChildFocusPredicate((child, focused) ->
-                    // TabHost view will request focus on the newly activated tab. The RecyclerView
-                    // from the tab gets focused and  notifies its parents (including
-                    // NestedScrollView) about it through #requestChildFocus method call.
-                    // NestedScrollView's view implementation of the method  will  scroll to the
-                    // focused view. As we don't want to change drawer's position upon tab change,
-                    // ignore focus requests from tab RecyclerViews.
-                    focused == null || focused.getId() != com.android.internal.R.id.resolver_list);
-        }
+        scrollableContainer.setRequestChildFocusPredicate((child, focused) ->
+                // TabHost view will request focus on the newly activated tab. The RecyclerView
+                // from the tab gets focused and  notifies its parents (including
+                // NestedScrollView) about it through #requestChildFocus method call.
+                // NestedScrollView's view implementation of the method  will  scroll to the
+                // focused view. As we don't want to change drawer's position upon tab change,
+                // ignore focus requests from tab RecyclerViews.
+                focused == null || focused.getId() != com.android.internal.R.id.resolver_list);
         boolean result = postRebuildList(rebuildCompleted);
         Trace.endSection();
         return result;

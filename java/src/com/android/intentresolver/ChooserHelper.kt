@@ -28,7 +28,6 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.android.intentresolver.Flags.interactiveSession
-import com.android.intentresolver.Flags.unselectFinalItem
 import com.android.intentresolver.annotation.JavaInterop
 import com.android.intentresolver.contentpreview.ContentPreviewType.CONTENT_PREVIEW_PAYLOAD_SELECTION
 import com.android.intentresolver.contentpreview.payloadtoggle.data.repository.ActivityResultRepository
@@ -163,9 +162,8 @@ constructor(
             activity.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 val hasSelectionFlow =
                     if (
-                        unselectFinalItem() &&
-                            viewModel.previewDataProvider.previewType ==
-                                CONTENT_PREVIEW_PAYLOAD_SELECTION
+                        viewModel.previewDataProvider.previewType ==
+                            CONTENT_PREVIEW_PAYLOAD_SELECTION
                     ) {
                         viewModel.shareouselViewModel.hasSelectedItems.stateIn(scope = this).also {
                             flow ->

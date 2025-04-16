@@ -73,16 +73,6 @@ flag {
 }
 
 flag {
-  name: "keyboard_navigation_fix"
-  namespace: "intentresolver"
-  description: "Enable Chooser keyboard navigation bugfix"
-  bug: "325259478"
-  metadata {
-    purpose: PURPOSE_BUGFIX
-  }
-}
-
-flag {
   name: "rebuild_adapters_on_target_pinning"
   namespace: "intentresolver"
   description: "Rebuild and swap adapters when a target gets (un)pinned to avoid flickering."
@@ -100,27 +90,10 @@ flag {
 }
 
 flag {
-  name: "save_shareousel_state"
-  namespace: "intentresolver"
-  description: "Preserve Shareousel state over a system-initiated process death."
-  bug: "362347212"
-  metadata {
-    purpose: PURPOSE_BUGFIX
-  }
-}
-
-flag {
   name: "shareousel_update_exclude_components_extra"
   namespace: "intentresolver"
   description: "Allow Shareousel selection change callback to update Intent#EXTRA_EXCLUDE_COMPONENTS"
   bug: "352496527"
-}
-
-flag {
-  name: "unselect_final_item"
-  namespace: "intentresolver"
-  description: "Allow toggling of final Shareousel item"
-  bug: "349468879"
 }
 
 flag {
