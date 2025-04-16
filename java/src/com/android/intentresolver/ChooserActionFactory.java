@@ -83,7 +83,7 @@ public final class ChooserActionFactory implements ChooserContentPreviewUi.Actio
 
     private static final String TAG = "ChooserActions";
 
-    private static final int URI_PERMISSION_INTENT_FLAGS = Intent.FLAG_GRANT_READ_URI_PERMISSION
+    public static final int URI_PERMISSION_INTENT_FLAGS = Intent.FLAG_GRANT_READ_URI_PERMISSION
             | Intent.FLAG_GRANT_WRITE_URI_PERMISSION
             | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION
             | Intent.FLAG_GRANT_PREFIX_URI_PERMISSION;
@@ -92,13 +92,13 @@ public final class ChooserActionFactory implements ChooserContentPreviewUi.Actio
     // for the sharesheet editing flow.
     // Note: EDIT_SOURCE is also used as a signal to avoid sending a 'Component Selected'
     // ShareResult for this intent when sent via ChooserActivity#safelyStartActivityAsUser
-    static final String EDIT_SOURCE = "edit_source";
-    private static final String EDIT_SOURCE_SHARESHEET = "sharesheet";
+    public static final String EDIT_SOURCE = "edit_source";
+    public static final String EDIT_SOURCE_SHARESHEET = "sharesheet";
 
     private static final String CHIP_LABEL_METADATA_KEY = "android.service.chooser.chip_label";
     private static final String CHIP_ICON_METADATA_KEY = "android.service.chooser.chip_icon";
 
-    private static final String IMAGE_EDITOR_SHARED_ELEMENT = "screenshot_preview_image";
+    public static final String IMAGE_EDITOR_SHARED_ELEMENT = "screenshot_preview_image";
 
     private final Context mContext;
 
