@@ -21,7 +21,6 @@ import android.net.Uri
 import android.os.Bundle
 import android.service.chooser.ChooserAction
 import androidx.lifecycle.SavedStateHandle
-import com.android.intentresolver.Flags.saveShareouselState
 import com.android.intentresolver.data.model.ChooserRequest
 import com.android.intentresolver.data.repository.ActivityModelRepository
 import com.android.intentresolver.ui.viewmodel.CHOOSER_REQUEST_KEY
@@ -130,13 +129,9 @@ private fun restoreChooserRequestExtras(
     initialExtras: Bundle?,
     savedStateHandle: SavedStateHandle,
 ): Bundle =
-    if (saveShareouselState()) {
-        savedStateHandle.get<Bundle>(CHOOSER_REQUEST_KEY)?.let { savedSateBundle ->
-            Bundle().apply {
-                initialExtras?.let { putAll(it) }
-                putAll(savedSateBundle)
-            }
-        } ?: initialExtras
-    } else {
-        initialExtras
-    } ?: Bundle()
+    savedStateHandle.get<Bundle>(CHOOSER_REQUEST_KEY)?.let { savedSateBundle ->
+        Bundle().apply {
+            initialExtras?.let { putAll(it) }
+            putAll(savedSateBundle)
+        }
+    } ?: initialExtras ?: Bundle()
