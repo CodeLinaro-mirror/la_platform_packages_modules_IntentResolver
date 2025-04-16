@@ -36,16 +36,6 @@ flag {
 }
 
 flag {
-  name: "fix_shortcuts_flashing_fixed"
-  namespace: "intentresolver"
-  description: "Do not flash shortcuts on payload selection change"
-  bug: "343300158"
-  metadata {
-    purpose: PURPOSE_BUGFIX
-  }
-}
-
-flag {
   name: "interactive_session"
   namespace: "intentresolver"
   description: "Enables interactive chooser session (a.k.a 'Splitti') feature."
