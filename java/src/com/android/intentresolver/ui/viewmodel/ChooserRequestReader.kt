@@ -47,12 +47,17 @@ import com.android.intentresolver.ContentTypeHint
 import com.android.intentresolver.Flags.interactiveSession
 import com.android.intentresolver.R
 import com.android.intentresolver.data.model.ChooserRequest
+import com.android.intentresolver.data.model.ColorScheme
 import com.android.intentresolver.ext.hasSendAction
 import com.android.intentresolver.ext.ifMatch
 import com.android.intentresolver.shared.model.ActivityModel
 import com.android.intentresolver.util.hasValidIcon
+import com.android.intentresolver.validation.IgnoredValue
+import com.android.intentresolver.validation.Importance
+import com.android.intentresolver.validation.Valid
 import com.android.intentresolver.validation.Validation
 import com.android.intentresolver.validation.ValidationResult
+import com.android.intentresolver.validation.Validator
 import com.android.intentresolver.validation.types.IntentOrUri
 import com.android.intentresolver.validation.types.array
 import com.android.intentresolver.validation.types.value
@@ -62,6 +67,12 @@ private const val MAX_CHOOSER_ACTIONS = 5
 private const val MAX_INITIAL_INTENTS = 2
 private const val EXTRA_CHOOSER_INTERACTIVE_CALLBACK =
     "com.android.extra.EXTRA_CHOOSER_INTERACTIVE_CALLBACK"
+
+const val EXTRA_CHOOSER_COLOR_SCHEME = "com.android.extra.CHOOSER_COLOR_SCHEME"
+
+const val COLOR_SCHEME_SYSTEM_DEFAULT = 0
+const val COLOR_SCHEME_LIGHT = 1
+const val COLOR_SCHEME_DARK = 2
 
 internal fun Intent.maybeAddSendActionFlags() =
     ifMatch(Intent::hasSendAction) {
@@ -159,6 +170,35 @@ fun readChooserRequest(
                 null
             }
 
+        val colorScheme =
+            if (interactiveSession()) {
+                optional(
+                    object : Validator<ColorScheme> {
+                        override val key = EXTRA_CHOOSER_COLOR_SCHEME
+
+                        override fun validate(
+                            source: (String) -> Any?,
+                            importance: Importance,
+                        ): ValidationResult<ColorScheme> {
+                            val value = source(key) ?: return Valid(ColorScheme.SystemDefault)
+                            return when (value) {
+                                COLOR_SCHEME_LIGHT -> Valid(ColorScheme.Light)
+                                COLOR_SCHEME_DARK -> Valid(ColorScheme.Dark)
+                                COLOR_SCHEME_SYSTEM_DEFAULT -> Valid(ColorScheme.SystemDefault)
+                                else -> {
+                                    Valid(
+                                        ColorScheme.SystemDefault,
+                                        IgnoredValue(key, "Unexpected value $value"),
+                                    )
+                                }
+                            }
+                        }
+                    }
+                ) ?: ColorScheme.SystemDefault
+            } else {
+                ColorScheme.SystemDefault
+            }
+
         ChooserRequest(
             targetIntent = targetIntent,
             targetAction = targetIntent.action,
@@ -189,6 +229,7 @@ fun readChooserRequest(
             contentTypeHint = contentTypeHint,
             metadataText = metadataText,
             interactiveSessionCallback = interactiveSessionCallback,
+            colorScheme,
         )
     }
 }
