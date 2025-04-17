@@ -19,6 +19,7 @@ package com.android.intentresolver.interactive.domain.interactor
 import android.content.Intent
 import android.os.Bundle
 import android.os.IBinder
+import android.os.RemoteException
 import com.android.intentresolver.contentpreview.payloadtoggle.data.repository.PendingSelectionCallbackRepository
 import com.android.intentresolver.data.model.ChooserRequest
 import com.android.intentresolver.data.repository.ActivityModelRepository
@@ -60,20 +61,7 @@ constructor(
             sessionCallback?.registerChooserController(null)
             return@coroutineScope
         }
-        launch {
-            val callbackBinder: IBinder = sessionCallback.asBinder()
-            if (callbackBinder.isBinderAlive) {
-                val deathRecipient = IBinder.DeathRecipient { isSessionActive.value = false }
-                callbackBinder.linkToDeath(deathRecipient, 0)
-                try {
-                    awaitCancellation()
-                } finally {
-                    runCatching { sessionCallback.asBinder().unlinkToDeath(deathRecipient, 0) }
-                }
-            } else {
-                isSessionActive.value = false
-            }
-        }
+        launch { listenToLinkToDeath(sessionCallback.asBinder()) { isSessionActive.value = false } }
         val chooserIntentUpdater =
             interactiveCallbackRepo.intentUpdater
                 ?: ChooserIntentUpdater().also {
@@ -81,6 +69,27 @@ constructor(
                     sessionCallback.registerChooserController(it)
                 }
         chooserIntentUpdater.chooserIntent.collect { onIntentUpdated(it) }
+    }
+
+    private suspend fun listenToLinkToDeath(
+        binder: IBinder,
+        deathRecipient: IBinder.DeathRecipient,
+    ) {
+        if (!binder.isBinderAlive) {
+            deathRecipient.binderDied()
+            return
+        }
+        try {
+            binder.linkToDeath(deathRecipient, 0)
+        } catch (_: RemoteException) {
+            deathRecipient.binderDied()
+            return
+        }
+        try {
+            awaitCancellation()
+        } finally {
+            runCatching { binder.unlinkToDeath(deathRecipient, 0) }
+        }
     }
 
     fun sendTopDrawerTopOffsetChange(offset: Int) {

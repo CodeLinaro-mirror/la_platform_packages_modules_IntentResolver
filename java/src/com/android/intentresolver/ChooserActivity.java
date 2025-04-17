@@ -34,7 +34,9 @@ import static com.android.intentresolver.Flags.unselectFinalItem;
 import static com.android.intentresolver.ext.CreationExtrasExtKt.replaceDefaultArgs;
 import static com.android.intentresolver.profiles.MultiProfilePagerAdapter.PROFILE_PERSONAL;
 import static com.android.intentresolver.profiles.MultiProfilePagerAdapter.PROFILE_WORK;
+import static com.android.intentresolver.widget.ViewExtensionsKt.isFullyVisible;
 import static com.android.internal.util.LatencyTracker.ACTION_LOAD_SHARE_SHEET;
+import static com.android.systemui.shared.Flags.usePreferredImageEditor;
 
 import static java.util.Objects.requireNonNull;
 
@@ -101,6 +103,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import androidx.viewpager.widget.ViewPager;
 
 import com.android.intentresolver.ChooserRefinementManager.RefinementType;
+import com.android.intentresolver.actions.ImageEditorActionFactory;
 import com.android.intentresolver.chooser.DisplayResolveInfo;
 import com.android.intentresolver.chooser.MultiDisplayResolveInfo;
 import com.android.intentresolver.chooser.TargetInfo;
@@ -264,6 +267,8 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
     @Inject public EventLog mEventLog;
     @Inject @AppPredictionAvailable public boolean mAppPredictionAvailable;
     @Inject @ImageEditor public Optional<ComponentName> mImageEditor;
+
+    @Inject public ImageEditorActionFactory mImageEditorActionFactory;
     @Inject @NearbyShare public Optional<ComponentName> mNearbyShare;
     @Inject
     @Caching
@@ -630,8 +635,16 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                     break;
 
                     case EDIT_ACTION: {
-                        if (refinedActionFactory.getEditButtonRunnable() != null) {
-                            refinedActionFactory.getEditButtonRunnable().run();
+                        if (usePreferredImageEditor()) {
+                            mImageEditorActionFactory.getImageEditorTargetInfoAsync(
+                                    getCoroutineScope(getLifecycle()),
+                                    completion.getRefinedIntent(),
+                                    targetInfo -> launchImageEditor(targetInfo));
+                            return;
+                        } else {
+                            if (refinedActionFactory.getEditButtonRunnable() != null) {
+                                refinedActionFactory.getEditButtonRunnable().run();
+                            }
                         }
                     }
                     break;
@@ -655,6 +668,25 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                 mRequest.getContentTypeHint(),
                 mRequest.getMetadataText());
         updateStickyContentPreview();
+
+        if (usePreferredImageEditor()) {
+            mImageEditorActionFactory.getImageEditorTargetInfoAsync(
+                    getCoroutineScope(getLifecycle()),
+                    mRequest.getTargetIntent(),
+                    targetInfo -> mChooserContentPreviewUi.setImageEditorCallback(() -> {
+                        if (!mRefinementManager.maybeHandleSelection(
+                                RefinementType.EDIT_ACTION,
+                                List.of(mRequest.getTargetIntent()),
+                                null,
+                                mRequest.getRefinementIntentSender(),
+                                getApplication(),
+                                getMainThreadHandler())) {
+                            // No refinement needed, launch it.
+                            launchImageEditor(targetInfo);
+                        }
+                    }));
+        }
+
         if (shouldShowStickyContentPreview()) {
             getEventLog().logActionShareWithPreview(
                     mChooserContentPreviewUi.getPreferredContentPreview());
@@ -694,6 +726,26 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
             configureInteractiveSessionWindow();
             updateInteractiveArea();
         }
+    }
+
+    private void launchImageEditor(TargetInfo editorTargetInfo) {
+        if (editorTargetInfo == null) return;
+        mEventLog.logActionSelected(EventLog.SELECTION_TYPE_EDIT);
+        View imageViewForTransition = getFirstVisibleImgPreviewView();
+        if (imageViewForTransition != null && isFullyVisible(imageViewForTransition)) {
+            ActivityOptions options = ActivityOptions.makeSceneTransitionAnimation(
+                    this, imageViewForTransition, ChooserActionFactory.IMAGE_EDITOR_SHARED_ELEMENT);
+            safelyStartActivityAsUser(
+                    editorTargetInfo,
+                    mProfiles.getPersonalHandle(),
+                    options.toBundle());
+        } else {
+            safelyStartActivityAsUser(
+                    editorTargetInfo,
+                    mProfiles.getPersonalHandle()
+            );
+        }
+        finish();
     }
 
     private void maybeDisableRecentsScreenshot(
