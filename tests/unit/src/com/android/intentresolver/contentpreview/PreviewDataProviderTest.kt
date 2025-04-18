@@ -21,13 +21,9 @@ import android.content.Intent
 import android.database.MatrixCursor
 import android.media.MediaMetadata
 import android.net.Uri
-import android.platform.test.annotations.EnableFlags
-import android.platform.test.flag.junit.FlagsParameterization
-import android.platform.test.flag.junit.SetFlagsRule
 import android.provider.DocumentsContract
 import android.provider.Downloads
 import android.provider.OpenableColumns
-import com.android.intentresolver.Flags.FLAG_INDIVIDUAL_METADATA_TITLE_READ
 import com.google.common.truth.Truth.assertThat
 import kotlin.coroutines.EmptyCoroutineContext
 import kotlinx.coroutines.CoroutineScope
@@ -36,10 +32,7 @@ import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
-import org.junit.Rule
 import org.junit.Test
-import org.junit.runner.RunWith
-import org.junit.runners.Parameterized
 import org.mockito.kotlin.any
 import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.eq
@@ -49,13 +42,11 @@ import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 
-@RunWith(Parameterized::class)
 @OptIn(ExperimentalCoroutinesApi::class)
-class PreviewDataProviderTest(flags: FlagsParameterization) {
+class PreviewDataProviderTest() {
     private val contentResolver = mock<ContentInterface>()
     private val mimeTypeClassifier = DefaultMimeTypeClassifier
     private val testScope = TestScope(EmptyCoroutineContext + UnconfinedTestDispatcher())
-    @get:Rule val setFlagsRule = SetFlagsRule(flags)
 
     private fun createDataProvider(
         targetIntent: Intent,
@@ -207,7 +198,6 @@ class PreviewDataProviderTest(flags: FlagsParameterization) {
         }
 
     @Test
-    @EnableFlags(FLAG_INDIVIDUAL_METADATA_TITLE_READ)
     fun test_sendSingleImageWithFailingGetTypeDisjointTitleRead_resolvesToFilePreviewUi() =
         testScope.runTest {
             val uri = Uri.parse("content://org.pkg.app/image.png")
@@ -255,7 +245,6 @@ class PreviewDataProviderTest(flags: FlagsParameterization) {
         }
 
     @Test
-    @EnableFlags(FLAG_INDIVIDUAL_METADATA_TITLE_READ)
     fun test_sendSingleFileWithFailingImageMetadataIndividualTitleRead_resolvesToFilePreviewUi() =
         testScope.runTest {
             val uri = Uri.parse("content://org.pkg.app/image.png")
@@ -538,13 +527,6 @@ class PreviewDataProviderTest(flags: FlagsParameterization) {
 
         assertThat(testSubject.previewType).isEqualTo(ContentPreviewType.CONTENT_PREVIEW_TEXT)
         verify(contentResolver, never()).getType(any())
-    }
-
-    companion object {
-        @JvmStatic
-        @Parameterized.Parameters(name = "{0}")
-        fun parameters(): List<FlagsParameterization> =
-            FlagsParameterization.allCombinationsOf(FLAG_INDIVIDUAL_METADATA_TITLE_READ)
     }
 }
 

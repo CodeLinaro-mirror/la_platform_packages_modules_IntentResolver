@@ -28,7 +28,6 @@ import android.text.TextUtils
 import android.util.Log
 import androidx.annotation.OpenForTesting
 import androidx.annotation.VisibleForTesting
-import com.android.intentresolver.Flags.individualMetadataTitleRead
 import com.android.intentresolver.contentpreview.ContentPreviewType.CONTENT_PREVIEW_FILE
 import com.android.intentresolver.contentpreview.ContentPreviewType.CONTENT_PREVIEW_IMAGE
 import com.android.intentresolver.contentpreview.ContentPreviewType.CONTENT_PREVIEW_PAYLOAD_SELECTION
@@ -37,6 +36,7 @@ import com.android.intentresolver.measurements.runTracing
 import com.android.intentresolver.util.ownedByCurrentUser
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.function.Consumer
+import kotlin.getValue
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -50,18 +50,6 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
-
-/**
- * A set of metadata columns we read for a content URI (see
- * [PreviewDataProvider.UriRecord.readQueryResult] method).
- */
-private val METADATA_COLUMNS =
-    arrayOf(
-        DocumentsContract.Document.COLUMN_FLAGS,
-        MediaMetadata.METADATA_KEY_DISPLAY_ICON_URI,
-        OpenableColumns.DISPLAY_NAME,
-        Downloads.Impl.COLUMN_TITLE,
-    )
 
 /** Preview-related metadata columns. */
 @VisibleForTesting
@@ -291,21 +279,14 @@ constructor(
         val supportsThumbnail: Boolean
             get() = query.supportsThumbnail
 
-        val title: String
-            get() = if (individualMetadataTitleRead()) titleFromQuery else query.title
+        val title: String by lazy {
+            readDisplayNameFromQuery().takeIf { !TextUtils.isEmpty(it) } ?: readTitleFromQuery()
+        }
 
         val iconUri: Uri?
             get() = query.iconUri
 
-        private val query by lazy {
-            readQueryResult(
-                if (individualMetadataTitleRead()) ICON_METADATA_COLUMNS else METADATA_COLUMNS
-            )
-        }
-
-        private val titleFromQuery by lazy {
-            readDisplayNameFromQuery().takeIf { !TextUtils.isEmpty(it) } ?: readTitleFromQuery()
-        }
+        private val query by lazy { readQueryResult(ICON_METADATA_COLUMNS) }
 
         private fun readQueryResult(columns: Array<String>): QueryResult =
             contentResolver.querySafe(uri, columns)?.use { cursor ->
@@ -313,29 +294,17 @@ constructor(
 
                 var flagColIdx = -1
                 var displayIconUriColIdx = -1
-                var nameColIndex = -1
-                var titleColIndex = -1
                 // TODO: double-check why Cursor#getColumnInded didn't work
                 cursor.columnNames.forEachIndexed { i, columnName ->
                     when (columnName) {
                         DocumentsContract.Document.COLUMN_FLAGS -> flagColIdx = i
                         MediaMetadata.METADATA_KEY_DISPLAY_ICON_URI -> displayIconUriColIdx = i
-                        OpenableColumns.DISPLAY_NAME -> nameColIndex = i
-                        Downloads.Impl.COLUMN_TITLE -> titleColIndex = i
                     }
                 }
 
                 val supportsThumbnail =
                     flagColIdx >= 0 &&
                         ((cursor.getInt(flagColIdx) and FLAG_SUPPORTS_THUMBNAIL) != 0)
-
-                var title = ""
-                if (nameColIndex >= 0) {
-                    title = cursor.getString(nameColIndex) ?: ""
-                }
-                if (TextUtils.isEmpty(title) && titleColIndex >= 0) {
-                    title = cursor.getString(titleColIndex) ?: ""
-                }
 
                 val iconUri =
                     if (displayIconUriColIdx >= 0) {
@@ -344,7 +313,7 @@ constructor(
                         null
                     }
 
-                QueryResult(supportsThumbnail, title, iconUri)
+                QueryResult(supportsThumbnail, iconUri)
             } ?: QueryResult()
 
         private fun readTitleFromQuery(): String = readStringColumn(Downloads.Impl.COLUMN_TITLE)
@@ -359,11 +328,7 @@ constructor(
             } ?: ""
     }
 
-    private class QueryResult(
-        val supportsThumbnail: Boolean = false,
-        val title: String = "",
-        val iconUri: Uri? = null,
-    )
+    private class QueryResult(val supportsThumbnail: Boolean = false, val iconUri: Uri? = null)
 }
 
 private val Intent.isSend: Boolean

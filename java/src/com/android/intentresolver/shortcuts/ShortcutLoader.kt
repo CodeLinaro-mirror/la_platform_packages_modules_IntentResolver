@@ -35,7 +35,6 @@ import androidx.annotation.MainThread
 import androidx.annotation.OpenForTesting
 import androidx.annotation.VisibleForTesting
 import androidx.annotation.WorkerThread
-import com.android.intentresolver.Flags.fixShortcutsFlashingFixed
 import com.android.intentresolver.chooser.DisplayResolveInfo
 import com.android.intentresolver.measurements.Tracer
 import com.android.intentresolver.measurements.runTracing
@@ -189,27 +188,21 @@ constructor(
                 Log.d(TAG, "[$id] query AppPredictor for user $userHandle")
 
                 val watchdogJob =
-                    if (fixShortcutsFlashingFixed()) {
-                        scope
-                            .launch(start = CoroutineStart.LAZY) {
-                                delay(APP_PREDICTOR_RESPONSE_TIMEOUT_MS)
-                                Log.w(TAG, "AppPredictor response timeout for user: $userHandle")
-                                appPredictorCallback.onTargetsAvailable(emptyList())
-                            }
-                            .also { job ->
-                                appPredictorWatchdog.getAndSet(job)?.cancel()
-                                job.invokeOnCompletion {
-                                    appPredictorWatchdog.compareAndSet(job, null)
-                                }
-                            }
-                    } else {
-                        null
-                    }
+                    scope
+                        .launch(start = CoroutineStart.LAZY) {
+                            delay(APP_PREDICTOR_RESPONSE_TIMEOUT_MS)
+                            Log.w(TAG, "AppPredictor response timeout for user: $userHandle")
+                            appPredictorCallback.onTargetsAvailable(emptyList())
+                        }
+                        .also { job ->
+                            appPredictorWatchdog.getAndSet(job)?.cancel()
+                            job.invokeOnCompletion { appPredictorWatchdog.compareAndSet(job, null) }
+                        }
 
                 Tracer.beginAppPredictorQueryTrace(userHandle)
                 appPredictor.requestPredictionUpdate()
 
-                watchdogJob?.start()
+                watchdogJob.start()
                 return
             } catch (e: Throwable) {
                 endAppPredictorQueryTrace(userHandle)
