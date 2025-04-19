@@ -27,6 +27,7 @@ import static com.android.intentresolver.Flags.delayDrawerOffsetCalculation;
 import static com.android.intentresolver.Flags.interactiveSession;
 import static com.android.intentresolver.Flags.rebuildAdaptersOnTargetPinning;
 import static com.android.intentresolver.Flags.refineSystemActions;
+import static com.android.intentresolver.Flags.sharesheetEscExit;
 import static com.android.intentresolver.ext.CreationExtrasExtKt.replaceDefaultArgs;
 import static com.android.intentresolver.profiles.MultiProfilePagerAdapter.PROFILE_PERSONAL;
 import static com.android.intentresolver.profiles.MultiProfilePagerAdapter.PROFILE_WORK;
@@ -73,6 +74,7 @@ import android.text.TextUtils;
 import android.util.Log;
 import android.util.Slog;
 import android.view.Gravity;
+import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -741,6 +743,16 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
             );
         }
         finish();
+    }
+
+    @Override
+    public boolean onKeyUp(int keyCode, KeyEvent event) {
+        if (sharesheetEscExit() && keyCode == KeyEvent.KEYCODE_ESCAPE) {
+            finish();
+            return true;
+        }
+
+        return super.onKeyUp(keyCode, event);
     }
 
     private void maybeDisableRecentsScreenshot(
