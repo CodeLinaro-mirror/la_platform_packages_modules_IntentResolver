@@ -36,14 +36,12 @@ import android.content.Intent.EXTRA_STREAM
 import android.graphics.drawable.Icon
 import android.net.Uri
 import android.os.Bundle
-import android.platform.test.annotations.EnableFlags
 import android.platform.test.flag.junit.SetFlagsRule
 import android.service.chooser.AdditionalContentContract.MethodNames.ON_SELECTION_CHANGED
 import android.service.chooser.ChooserAction
 import android.service.chooser.ChooserTarget
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import com.android.intentresolver.Flags.FLAG_SHAREOUSEL_UPDATE_EXCLUDE_COMPONENTS_EXTRA
 import com.android.intentresolver.contentpreview.payloadtoggle.domain.model.ValueUpdate
 import com.android.intentresolver.contentpreview.payloadtoggle.domain.model.ValueUpdate.Absent
 import com.google.common.truth.Correspondence
@@ -98,7 +96,7 @@ class SelectionChangeCallbackImplTest {
                 authorityCaptor.capture(),
                 methodCaptor.capture(),
                 argCaptor.capture(),
-                extraCaptor.capture()
+                extraCaptor.capture(),
             )
         assertWithMessage("Wrong additional content provider authority")
             .that(authorityCaptor.firstValue)
@@ -147,8 +145,8 @@ class SelectionChangeCallbackImplTest {
                         context,
                         1,
                         Intent("test"),
-                        PendingIntent.FLAG_IMMUTABLE
-                    )
+                        PendingIntent.FLAG_IMMUTABLE,
+                    ),
                 )
                 .build()
         val a2 =
@@ -159,8 +157,8 @@ class SelectionChangeCallbackImplTest {
                         context,
                         1,
                         Intent("test"),
-                        PendingIntent.FLAG_IMMUTABLE
-                    )
+                        PendingIntent.FLAG_IMMUTABLE,
+                    ),
                 )
                 .build()
         whenever(contentResolver.call(any<String>(), any(), any(), any()))
@@ -198,8 +196,8 @@ class SelectionChangeCallbackImplTest {
                         context,
                         1,
                         Intent("test"),
-                        PendingIntent.FLAG_IMMUTABLE
-                    )
+                        PendingIntent.FLAG_IMMUTABLE,
+                    ),
                 )
                 .build()
         whenever(contentResolver.call(any<String>(), any(), any(), any()))
@@ -279,7 +277,7 @@ class SelectionChangeCallbackImplTest {
                 Icon.createWithContentUri(createUri(1)),
                 0.99f,
                 ComponentName("org.pkg.app", ".ClassA"),
-                null
+                null,
             )
         val t2 =
             ChooserTarget(
@@ -287,7 +285,7 @@ class SelectionChangeCallbackImplTest {
                 Icon.createWithContentUri(createUri(1)),
                 1f,
                 ComponentName("org.pkg.app", ".ClassB"),
-                null
+                null,
             )
         whenever(contentResolver.call(any<String>(), any(), any(), any()))
             .thenReturn(
@@ -310,7 +308,7 @@ class SelectionChangeCallbackImplTest {
                             expected.icon == actual?.icon &&
                             expected.score == actual?.score
                     },
-                    ""
+                    "",
                 )
             )
             .containsExactly(t1, t2)
@@ -404,7 +402,6 @@ class SelectionChangeCallbackImplTest {
     }
 
     @Test
-    @EnableFlags(FLAG_SHAREOUSEL_UPDATE_EXCLUDE_COMPONENTS_EXTRA)
     fun testPayloadChangeCallbackUpdatesExcludedComponents_valueUpdated() = runTest {
         val excludedComponent = ComponentName("org.pkg.app", "org.pkg.app.TheClass")
         whenever(contentResolver.call(any<String>(), any(), any(), any()))

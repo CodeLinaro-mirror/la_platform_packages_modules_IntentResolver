@@ -26,11 +26,8 @@ import android.content.pm.PackageManager.ApplicationInfoFlags
 import android.content.pm.ShortcutManager
 import android.os.UserHandle
 import android.os.UserManager
-import android.platform.test.annotations.DisableFlags
-import android.platform.test.annotations.EnableFlags
 import android.platform.test.flag.junit.SetFlagsRule
 import androidx.test.filters.SmallTest
-import com.android.intentresolver.Flags.FLAG_FIX_SHORTCUTS_FLASHING_FIXED
 import com.android.intentresolver.chooser.DisplayResolveInfo
 import com.android.intentresolver.createAppTarget
 import com.android.intentresolver.createShareShortcutInfo
@@ -324,43 +321,6 @@ class ShortcutLoaderTest {
         }
 
     @Test
-    @DisableFlags(FLAG_FIX_SHORTCUTS_FLASHING_FIXED)
-    fun test_appPredictorNotResponding_noCallbackFromShortcutLoader() {
-        scope.runTest {
-            val shortcutManagerResult =
-                listOf(
-                    ShortcutManager.ShareShortcutInfo(matchingShortcutInfo, componentName),
-                    // mismatching shortcut
-                    createShareShortcutInfo("id-1", ComponentName("mismatching.pkg", "Class"), 1),
-                )
-            val shortcutManager =
-                mock<ShortcutManager> {
-                    on { getShareTargets(intentFilter) } doReturn shortcutManagerResult
-                }
-            whenever(context.getSystemService(Context.SHORTCUT_SERVICE)).thenReturn(shortcutManager)
-            val testSubject =
-                ShortcutLoader(
-                    context,
-                    backgroundScope,
-                    appPredictor,
-                    UserHandle.of(0),
-                    true,
-                    intentFilter,
-                    dispatcher,
-                    callback,
-                )
-
-            testSubject.updateAppTargets(appTargets)
-
-            verify(appPredictor, times(1)).requestPredictionUpdate()
-
-            scheduler.advanceTimeBy(ShortcutLoader.APP_PREDICTOR_RESPONSE_TIMEOUT_MS * 2)
-            verify(callback, never()).accept(any())
-        }
-    }
-
-    @Test
-    @EnableFlags(FLAG_FIX_SHORTCUTS_FLASHING_FIXED)
     fun test_appPredictorNotResponding_timeoutAndFallbackToShortcutManager() {
         scope.runTest {
             val testSubject =
@@ -398,7 +358,6 @@ class ShortcutLoaderTest {
     }
 
     @Test
-    @EnableFlags(FLAG_FIX_SHORTCUTS_FLASHING_FIXED)
     fun test_appPredictorResponding_appPredictorTimeoutJobIsCancelled() {
         scope.runTest {
             val shortcutManagerResult =

@@ -17,7 +17,6 @@
 package com.android.intentresolver.contentpreview.payloadtoggle.domain.interactor
 
 import android.net.Uri
-import com.android.intentresolver.Flags.unselectFinalItem
 import com.android.intentresolver.contentpreview.MimeTypeClassifier
 import com.android.intentresolver.contentpreview.payloadtoggle.data.repository.PreviewSelectionsRepository
 import com.android.intentresolver.contentpreview.payloadtoggle.domain.intent.TargetIntentModifier
@@ -61,13 +60,11 @@ constructor(
     }
 
     fun unselect(model: PreviewModel) {
-        if (selectionsRepo.selections.value.size > 1 || unselectFinalItem()) {
-            selectionsRepo.selections
-                .updateAndGet { it - model.uri }
-                .values
-                .takeIf { it.isNotEmpty() }
-                ?.let { updateChooserRequest(it) }
-        }
+        selectionsRepo.selections
+            .updateAndGet { it - model.uri }
+            .values
+            .takeIf { it.isNotEmpty() }
+            ?.let { updateChooserRequest(it) }
     }
 
     private fun updateChooserRequest(selections: Collection<PreviewModel>) {
@@ -76,9 +73,7 @@ constructor(
         updateTargetIntentInteractor.updateTargetIntent(intent)
     }
 
-    private fun aggregateContentType(
-        items: Collection<PreviewModel>,
-    ): ContentType {
+    private fun aggregateContentType(items: Collection<PreviewModel>): ContentType {
         if (items.isEmpty()) {
             return ContentType.Other
         }

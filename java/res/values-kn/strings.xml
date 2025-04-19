@@ -113,4 +113,5 @@
     <string name="all_apps_group_a11y_title" msgid="2646382370571120047">"ಆ್ಯಪ್ ಪಟ್ಟಿ"</string>
     <string name="copy_text" msgid="1341801611046464360">"ಪಠ್ಯವನ್ನು ಕಾಪಿ ಮಾಡಿ"</string>
     <string name="copy_link" msgid="3822142723771306592">"ಲಿಂಕ್ ಅನ್ನು ಕಾಪಿ ಮಾಡಿ"</string>
+    <string name="exit_button_label" msgid="6396378400527479806">"ವಜಾಗೊಳಿಸಿ"</string>
 </resources>
