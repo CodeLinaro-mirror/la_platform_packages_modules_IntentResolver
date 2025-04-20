@@ -63,8 +63,9 @@ import com.android.intentresolver.inject.PackageManagerModule
 import com.android.intentresolver.inject.ProfileParent
 import com.android.intentresolver.platform.AppPredictionAvailable
 import com.android.intentresolver.platform.AppPredictionModule
-import com.android.intentresolver.platform.ImageEditor
+import com.android.intentresolver.platform.FallbackImageEditor
 import com.android.intentresolver.platform.ImageEditorModule
+import com.android.intentresolver.platform.PreferredImageEditor
 import com.android.intentresolver.shared.model.User
 import com.android.intentresolver.tests.R
 import com.android.internal.config.sysui.SystemUiDeviceConfigFlags
@@ -132,13 +133,17 @@ class ChooserActivityShareouselTest() {
 
     @BindValue val imageLoader: ImageLoader = fakeImageLoader
     @BindValue
-    @ImageEditor
+    @FallbackImageEditor
     val imageEditor: Optional<ComponentName> =
         Optional.ofNullable(
             ComponentName.unflattenFromString(
                 "com.google.android.apps.messaging/.ui.conversationlist.ShareIntentActivity"
             )
         )
+
+    @BindValue
+    @PreferredImageEditor
+    val preferredImageEditor: Optional<ComponentName> = Optional.ofNullable(null)
 
     @BindValue @ApplicationUser val applicationUser = PERSONAL_USER_HANDLE
 

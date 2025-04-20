@@ -30,4 +30,6 @@
     <color name="content_preview_text_color">@androidprv:color/materialColorOnSurfaceVariant</color>
     <color name="content_preview_copy_icon_tint">@androidprv:color/materialColorOnSurfaceVariant</color>
     <color name="chooser_row_text_color">@androidprv:color/materialColorOnSurfaceVariant</color>
+    <color name="icon_tint_color">@androidprv:color/materialColorOnSurface</color>
+    <color name="resolver_common_window_background_color">@android:color/transparent</color>
 </resources>

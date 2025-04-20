@@ -360,4 +360,7 @@
     <!-- Content description for an action chip button in the content preview UI when a link is
          shared. The button is used to copy the text into the clipboard. [CHAR_LIMIT=NONE] -->
     <string name="copy_link">Copy link</string>
+
+    <!-- The content description label for the exit button. [CHAR_LIMIT=NONE] -->
+    <string name="exit_button_label">Dismiss</string>
 </resources>
