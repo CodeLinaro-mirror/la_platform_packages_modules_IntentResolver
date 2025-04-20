@@ -17,7 +17,7 @@
 package com.android.intentresolver.interactive.domain.model
 
 import android.content.Intent
-import android.service.chooser.IChooserController
+import com.android.intentresolver.IChooserController
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.filter
