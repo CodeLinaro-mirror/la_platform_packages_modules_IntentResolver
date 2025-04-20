@@ -21,6 +21,10 @@
     <color name="chooser_row_divider">@*android:color/list_divider_color_light</color>
     <color name="chooser_gradient_background">@*android:color/loading_gradient_background_color_light</color>
 
+    <color name="chooser_action_button_bg_color">@androidprv:color/materialColorSurfaceContainerHigh</color>
+    <color name="chooser_action_button_drawable_tint_color">@androidprv:color/materialColorOnSurface</color>
+    <color name="chooser_action_button_text_color">@androidprv:color/materialColorOnSurface</color>
+    <color name="chooser_content_preview_rounded_color">@androidprv:color/materialColorSurfaceContainerHigh</color>
     <color name="chooser_grid_layout_background">@androidprv:color/materialColorSurfaceContainer</color>
     <color name="chooser_grid_preview_background">@androidprv:color/materialColorSurfaceContainer</color>
     <color name="chooser_grid_item_text1_color">@androidprv:color/materialColorOnSurface</color>
