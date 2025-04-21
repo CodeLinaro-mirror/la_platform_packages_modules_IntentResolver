@@ -1,0 +1,78 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!--
+  ~ Copyright (C) 2025 The Android Open Source Project
+  ~
+  ~ Licensed under the Apache License, Version 2.0 (the "License");
+  ~ you may not use this file except in compliance with the License.
+  ~ You may obtain a copy of the License at
+  ~
+  ~      http://www.apache.org/licenses/LICENSE-2.0
+  ~
+  ~ Unless required by applicable law or agreed to in writing, software
+  ~ distributed under the License is distributed on an "AS IS" BASIS,
+  ~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  ~ See the License for the specific language governing permissions and
+  ~ limitations under the License.
+  -->
+<resources>
+  <overlayable name="IntentResolver">
+      <policy type="odm|oem|product|signature|system|vendor">
+          <item type="bool" name="show_preview_at_top"/>
+
+          <item type="color" name="chooser_action_button_bg_color"/>
+          <item type="color" name="chooser_action_button_drawable_tint_color"/>
+          <item type="color" name="chooser_action_button_text_color"/>
+          <item type="color" name="chooser_content_preview_rounded_color"/>
+          <item type="color" name="chooser_grid_preview_background"/>
+          <item type="color" name="chooser_grid_layout_background"/>
+          <item type="color" name="chooser_grid_item_text1_color"/>
+          <item type="color" name="chooser_grid_item_text2_color"/>
+          <item type="color" name="chooser_row_text_color"/>
+          <item type="color" name="content_preview_filename_text_color"/>
+          <item type="color" name="content_preview_more_files_text_color"/>
+          <item type="color" name="content_preview_text_color"/>
+          <item type="color" name="content_preview_copy_icon_tint"/>
+          <item type="color" name="icon_tint_color"/>
+          <item type="color" name="resolver_common_window_background_color"/>
+
+          <item type="dimen" name="chooser_action_view_icon_size"/>
+          <item type="dimen" name="chooser_action_view_text_size"/>
+          <item type="dimen" name="chooser_action_horizontal_margin"/>
+          <item type="dimen" name="chooser_width"/>
+          <item type="dimen" name="chooser_margin_vertical"/>
+          <item type="dimen" name="chooser_list_padding"/>
+          <item type="dimen" name="chooser_close_icon_size"/>
+          <item type="dimen" name="chooser_close_icon_size_margin"/>
+          <item type="dimen" name="chooser_content_view_margin_horizontal"/>
+          <item type="dimen" name="chooser_content_view_margin_vertical"/>
+          <item type="dimen" name="chooser_content_view_min_height"/>
+          <item type="dimen" name="chooser_content_view_margin_top"/>
+          <item type="dimen" name="chooser_edge_margin_normal_half"/>
+          <item type="dimen" name="chooser_edge_margin_normal"/>
+          <item type="dimen" name="chooser_profile_tabhost_margin_horizontal"/>
+          <item type="dimen" name="chooser_grid_target_name_text_size"/>
+          <item type="dimen" name="chooser_grid_activity_name_text_size"/>
+          <item type="dimen" name="chooser_icon_size"/>
+          <item type="dimen" name="chooser_icon_horizontal_padding"/>
+          <item type="dimen" name="chooser_icon_vertical_padding"/>
+          <item type="dimen" name="chooser_icon_height_with_padding"/>
+          <item type="dimen" name="chooser_icon_width_with_padding"/>
+          <item type="dimen" name="chooser_item_focus_outline_corner_radius"/>
+          <item type="dimen" name="chooser_headline_text_size"/>
+          <item type="dimen" name="chooser_row_height"/>
+          <item type="dimen" name="content_preview_copy_icon_size"/>
+          <item type="dimen" name="content_preview_text_size"/>
+          <item type="dimen" name="content_preview_filename_line_size"/>
+          <item type="dimen" name="content_preview_more_files_text_size"/>
+          <item type="dimen" name="content_preview_more_files_line_size"/>
+          <item type="dimen" name="grid_padding_vertical"/>
+          <item type="dimen" name="grid_padding_horizontal"/>
+
+          <item type="integer" name="config_chooser_max_targets_per_row"/>
+          <item type="integer" name="chooser_header_for_preview_visibility"/>
+          <item type="integer" name="preview_close_button_visibility"/>
+          <item type="style" name="Theme.DeviceDefault.ResolverCommon"/>
+          <item type="style" name="TextAppearance.ChooserDefault"/>
+      </policy>
+  </overlayable>
+</resources>
