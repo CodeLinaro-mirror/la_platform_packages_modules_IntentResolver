@@ -824,7 +824,14 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
             ResolverDrawerLayoutExt.getVisibleDrawerRect(rdl, rect);
             rect.offset(left, top);
             if (oldTop != rect.top) {
-                mViewModel.getInteractiveSessionInteractor().sendTopDrawerTopOffsetChange(rect.top);
+                Rect r = rect;
+                Window w = getWindow();
+                WindowManager.LayoutParams wa = w == null ? null : w.getAttributes();
+                if (wa != null && (wa.x != 0 || wa.y != 0)) {
+                    r = new Rect(rect);
+                    r.offset(wa.x, wa.y);
+                }
+                mViewModel.getInteractiveSessionInteractor().sendChooserWindowSize(r);
             }
             info.setTouchableInsets(ViewTreeObserver.InternalInsetsInfo.TOUCHABLE_INSETS_REGION);
             info.touchableRegion.set(new Rect(rect));
@@ -1676,10 +1683,9 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         mChooserMultiProfilePagerAdapter.getActiveListAdapter().handlePackagesChanged();
 
         if (mSystemWindowInsets != null) {
-            int topSpacing = isInteractiveSession() ? getInteractiveSessionTopSpacing() : 0;
             mResolverDrawerLayout.setPadding(
                     mSystemWindowInsets.left,
-                    mSystemWindowInsets.top + topSpacing,
+                    mSystemWindowInsets.top,
                     mSystemWindowInsets.right,
                     0);
         }
@@ -2778,10 +2784,6 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         }
     }
 
-    private int getInteractiveSessionTopSpacing() {
-        return getResources().getDimensionPixelSize(R.dimen.chooser_preview_image_height_tall);
-    }
-
     private boolean isInteractiveSession() {
         return interactiveSession() && mRequest.getInteractiveSessionCallback() != null
                 && !isTaskRoot();
@@ -2792,10 +2794,9 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         mChooserMultiProfilePagerAdapter
                 .setEmptyStateBottomOffset(mSystemWindowInsets.bottom);
 
-        final int topSpacing = isInteractiveSession() ? getInteractiveSessionTopSpacing() : 0;
         mResolverDrawerLayout.setPadding(
                 mSystemWindowInsets.left,
-                mSystemWindowInsets.top + topSpacing,
+                mSystemWindowInsets.top,
                 mSystemWindowInsets.right,
                 0);
 

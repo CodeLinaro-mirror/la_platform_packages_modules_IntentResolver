@@ -92,3 +92,13 @@ flag {
     purpose: PURPOSE_BUGFIX
   }
 }
+
+flag {
+  name: "use_google_sans_flex"
+  namespace: "intentresolver"
+  description: "Use Google Sans Flex font."
+  bug: "393610034"
+  metadata {
+    purpose: PURPOSE_BUGFIX
+  }
+}
