@@ -16,10 +16,12 @@
 
 package com.android.intentresolver.contentpreview;
 
+import static com.android.intentresolver.Flags.useGoogleSansFlex;
 import static com.android.intentresolver.contentpreview.ContentPreviewType.CONTENT_PREVIEW_FILE;
 import static com.android.intentresolver.contentpreview.ContentPreviewType.CONTENT_PREVIEW_IMAGE;
 
 import android.content.res.Resources;
+import android.graphics.Typeface;
 import android.net.Uri;
 import android.text.util.Linkify;
 import android.util.PluralsMessageFormatter;
@@ -34,6 +36,7 @@ import android.widget.TextView;
 import androidx.annotation.Nullable;
 
 import com.android.intentresolver.R;
+import com.android.intentresolver.ui.FontStyles;
 import com.android.intentresolver.widget.ActionRow;
 import com.android.intentresolver.widget.ScrollableImagePreviewView;
 
@@ -217,6 +220,10 @@ class FilesPlusTextContentPreviewUi extends ContentPreviewUi {
             View headlineView,
             ChooserContentPreviewUi.ActionFactory actionFactory) {
         final TextView textView = contentPreview.requireViewById(R.id.content_preview_text);
+        if (useGoogleSansFlex()) {
+            textView.setTypeface(
+                    Typeface.create(FontStyles.GSF_LABEL_MEDIUM_BASELINE, Typeface.NORMAL));
+        }
         CheckBox includeText = headlineView.requireViewById(R.id.include_text_action);
         boolean isLink = HttpUriMatcher.isHttpUri(mText.toString());
         textView.setAutoLinkMask(isLink ? Linkify.WEB_URLS : 0);
