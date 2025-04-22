@@ -6,16 +6,6 @@ container: "system"
 # bug: "Feature_Bug_#" or "<none>"
 
 flag {
-  name: "announce_shareousel_item_list_position"
-  namespace: "intentresolver"
-  description: "Add item list position to item content description."
-  bug: "379032721"
-  metadata {
-    purpose: PURPOSE_BUGFIX
-  }
-}
-
-flag {
   name: "delay_drawer_offset_calculation"
   namespace: "intentresolver"
   description: "Do not update the drawer offset until app targets are ready."
