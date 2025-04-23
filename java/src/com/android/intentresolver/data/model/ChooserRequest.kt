@@ -185,6 +185,7 @@ data class ChooserRequest(
      */
     val metadataText: CharSequence? = null,
     val interactiveSessionCallback: IChooserControllerCallback? = null,
+    val colorScheme: ColorScheme = ColorScheme.SystemDefault,
 ) {
     val referrerPackage = referrer?.takeIf { it.scheme == ANDROID_APP_SCHEME }?.authority
 
@@ -200,4 +201,10 @@ data class ChooserRequest(
 
     val callerAllowsTextToggle =
         screenshotContextUrl() && "com.android.systemui".equals(referrerPackage)
+}
+
+enum class ColorScheme {
+    SystemDefault,
+    Light,
+    Dark,
 }
