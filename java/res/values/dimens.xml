@@ -93,6 +93,8 @@
     <dimen name="chooser_preview_image_height_tall">124dp</dimen>
     <dimen name="grid_padding_vertical">8dp</dimen>
     <dimen name="grid_padding_horizontal">4dp</dimen>
+    <dimen name="grid_padding_vertical_hover">1dp</dimen>
+    <dimen name="grid_padding_horizontal_hover">4dp</dimen>
     <dimen name="width_text_image_preview_size">46dp</dimen>
     <!-- END SECTION -->
 </resources>

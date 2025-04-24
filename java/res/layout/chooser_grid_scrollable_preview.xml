@@ -67,7 +67,8 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="@dimen/chooser_margin_vertical"
         android:gravity="center"
-        app:layout_alwaysShow="true">
+        app:layout_alwaysShow="true"
+        android:background="@color/chooser_grid_layout_background">
 
         <ImageView
             android:id="@+id/exit_button"
@@ -105,7 +106,8 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical">
+            android:orientation="vertical"
+            android:background="@color/chooser_grid_layout_background">
 
             <FrameLayout
                 android:id="@androidprv:id/content_preview_container"
@@ -145,7 +147,7 @@
                     </FrameLayout>
                 </LinearLayout>
             </TabHost>
-    </LinearLayout>
+        </LinearLayout>
 
     </com.android.intentresolver.widget.ChooserNestedScrollView>
 
