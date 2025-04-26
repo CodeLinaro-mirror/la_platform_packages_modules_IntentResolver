@@ -73,7 +73,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.android.intentresolver.Flags.announceShareouselItemListPosition
 import com.android.intentresolver.Flags.shareouselScrollOffscreenSelections
 import com.android.intentresolver.Flags.shareouselSelectionShrink
 import com.android.intentresolver.Flags.shareouselTapToScrollSupport
@@ -330,11 +329,7 @@ private fun buildContentDescription(
     annotateWithPosition: Boolean,
     viewModel: ShareouselPreviewViewModel,
 ): String = buildString {
-    if (
-        announceShareouselItemListPosition() &&
-            annotateWithPosition &&
-            viewModel.cursorPosition >= 0
-    ) {
+    if (annotateWithPosition && viewModel.cursorPosition >= 0) {
         // If item cursor position is not known, do not announce item position.
         // We can have items with an unknown cursor position only when:
         // * when we haven't got the cursor and showing the initially shared items;

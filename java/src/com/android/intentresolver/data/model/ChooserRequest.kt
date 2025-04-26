@@ -26,9 +26,9 @@ import android.net.Uri
 import android.os.Bundle
 import android.service.chooser.ChooserAction
 import android.service.chooser.ChooserTarget
+import android.service.chooser.IChooserControllerCallback
 import androidx.annotation.StringRes
 import com.android.intentresolver.ContentTypeHint
-import com.android.intentresolver.IChooserInteractiveSessionCallback
 import com.android.intentresolver.ext.hasAction
 import com.android.systemui.shared.Flags.screenshotContextUrl
 
@@ -184,7 +184,8 @@ data class ChooserRequest(
      * Specified by the [Intent.EXTRA_METADATA_TEXT]
      */
     val metadataText: CharSequence? = null,
-    val interactiveSessionCallback: IChooserInteractiveSessionCallback? = null,
+    val interactiveSessionCallback: IChooserControllerCallback? = null,
+    val colorScheme: ColorScheme = ColorScheme.SystemDefault,
 ) {
     val referrerPackage = referrer?.takeIf { it.scheme == ANDROID_APP_SCHEME }?.authority
 
@@ -200,4 +201,10 @@ data class ChooserRequest(
 
     val callerAllowsTextToggle =
         screenshotContextUrl() && "com.android.systemui".equals(referrerPackage)
+}
+
+enum class ColorScheme {
+    SystemDefault,
+    Light,
+    Dark,
 }

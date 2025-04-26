@@ -30,6 +30,7 @@ import android.content.Intent.EXTRA_EXCLUDE_COMPONENTS
 import android.content.Intent.EXTRA_INITIAL_INTENTS
 import android.content.Intent.EXTRA_REPLACEMENT_EXTRAS
 import android.content.IntentSender
+import android.graphics.Rect
 import android.os.Binder
 import android.os.IBinder
 import android.os.IBinder.DeathRecipient
@@ -38,10 +39,10 @@ import android.os.Parcel
 import android.os.ResultReceiver
 import android.os.ShellCallback
 import android.service.chooser.ChooserTarget
+import android.service.chooser.IChooserController
+import android.service.chooser.IChooserControllerCallback
 import androidx.core.os.bundleOf
 import androidx.lifecycle.SavedStateHandle
-import com.android.intentresolver.IChooserController
-import com.android.intentresolver.IChooserInteractiveSessionCallback
 import com.android.intentresolver.contentpreview.payloadtoggle.data.repository.PendingSelectionCallbackRepository
 import com.android.intentresolver.data.model.ChooserRequest
 import com.android.intentresolver.data.repository.ActivityModelRepository
@@ -371,7 +372,7 @@ class InteractiveSessionInteractorTest {
 }
 
 private class FakeChooserInteractiveSessionCallback :
-    IChooserInteractiveSessionCallback, IBinder, IInterface {
+    IChooserControllerCallback, IBinder, IInterface {
     var isAlive = true
     val registeredIntentUpdaters = ArrayList<IChooserController?>()
     val linkedDeathRecipients = ArrayList<DeathRecipient>()
@@ -381,7 +382,7 @@ private class FakeChooserInteractiveSessionCallback :
         registeredIntentUpdaters.add(intentUpdater)
     }
 
-    override fun onDrawerVerticalOffsetChanged(offset: Int) {}
+    override fun onSizeChanged(size: Rect) {}
 
     override fun asBinder() = this
 
