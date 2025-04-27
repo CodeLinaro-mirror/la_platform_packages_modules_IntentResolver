@@ -113,4 +113,5 @@
     <string name="all_apps_group_a11y_title" msgid="2646382370571120047">"ऐप्लिकेशन की सूची"</string>
     <string name="copy_text" msgid="1341801611046464360">"टेक्स्ट कॉपी करें"</string>
     <string name="copy_link" msgid="3822142723771306592">"लिंक कॉपी करें"</string>
+    <string name="exit_button_label" msgid="6396378400527479806">"खारिज करें"</string>
 </resources>

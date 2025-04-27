@@ -113,4 +113,6 @@
     <string name="all_apps_group_a11y_title" msgid="2646382370571120047">"앱 목록"</string>
     <string name="copy_text" msgid="1341801611046464360">"텍스트 복사"</string>
     <string name="copy_link" msgid="3822142723771306592">"링크 복사"</string>
+    <!-- no translation found for exit_button_label (6396378400527479806) -->
+    <skip />
 </resources>

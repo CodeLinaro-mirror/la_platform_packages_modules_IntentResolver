@@ -77,7 +77,6 @@ import com.android.intentresolver.Flags.announceShareouselItemListPosition
 import com.android.intentresolver.Flags.shareouselScrollOffscreenSelections
 import com.android.intentresolver.Flags.shareouselSelectionShrink
 import com.android.intentresolver.Flags.shareouselTapToScrollSupport
-import com.android.intentresolver.Flags.unselectFinalItem
 import com.android.intentresolver.R
 import com.android.intentresolver.contentpreview.payloadtoggle.domain.model.ValueUpdate
 import com.android.intentresolver.contentpreview.payloadtoggle.domain.model.getOrDefault
@@ -90,7 +89,6 @@ import kotlin.math.abs
 import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 
 @Composable
@@ -402,12 +400,7 @@ private fun ActionCarousel(viewModel: ShareouselViewModel) {
     val actions by viewModel.actions.collectAsStateWithLifecycle(initialValue = emptyList())
     if (actions.isNotEmpty()) {
         Spacer(Modifier.height(16.dp))
-        val visibilityFlow =
-            if (unselectFinalItem()) {
-                viewModel.hasSelectedItems
-            } else {
-                MutableStateFlow(true)
-            }
+        val visibilityFlow = viewModel.hasSelectedItems
         val visibility by visibilityFlow.collectAsStateWithLifecycle(true)
         val height = 32.dp
         if (visibility) {

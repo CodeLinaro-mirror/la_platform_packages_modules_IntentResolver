@@ -22,7 +22,6 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.android.intentresolver.Flags.interactiveSession
-import com.android.intentresolver.Flags.saveShareouselState
 import com.android.intentresolver.contentpreview.ImageLoader
 import com.android.intentresolver.contentpreview.PreviewDataProvider
 import com.android.intentresolver.contentpreview.payloadtoggle.domain.interactor.FetchPreviewsInteractor
@@ -110,16 +109,14 @@ constructor(
                 Log.w(TAG, "initialRequest is Invalid, initialization failed")
             }
             is Valid<ChooserRequest> -> {
-                if (saveShareouselState()) {
-                    val isRestored =
-                        savedStateHandle.get<Bundle>(CHOOSER_REQUEST_KEY)?.takeIf { !it.isEmpty } !=
-                            null
-                    savedStateHandle.setSavedStateProvider(CHOOSER_REQUEST_KEY) {
-                        Bundle().also { result ->
-                            request.value
-                                .takeIf { isRestored || it != initialRequest.value }
-                                ?.saveUpdates(result)
-                        }
+                val isRestored =
+                    savedStateHandle.get<Bundle>(CHOOSER_REQUEST_KEY)?.takeIf { !it.isEmpty } !=
+                        null
+                savedStateHandle.setSavedStateProvider(CHOOSER_REQUEST_KEY) {
+                    Bundle().also { result ->
+                        request.value
+                            .takeIf { isRestored || it != initialRequest.value }
+                            ?.saveUpdates(result)
                     }
                 }
                 if (interactiveSession()) {

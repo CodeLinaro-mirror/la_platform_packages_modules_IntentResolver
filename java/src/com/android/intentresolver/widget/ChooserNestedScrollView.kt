@@ -25,7 +25,6 @@ import androidx.core.view.marginBottom
 import androidx.core.view.marginLeft
 import androidx.core.view.marginRight
 import androidx.core.view.marginTop
-import com.android.intentresolver.Flags.keyboardNavigationFix
 
 /**
  * A narrowly tailored [NestedScrollView] to be used inside [ResolverDrawerLayout] and help to
@@ -109,11 +108,7 @@ class ChooserNestedScrollView : NestedScrollView {
     }
 
     override fun onRequestChildFocus(child: View?, focused: View?) {
-        if (keyboardNavigationFix()) {
-            if (requestChildFocusPredicate(child, focused)) {
-                super.onRequestChildFocus(child, focused)
-            }
-        } else {
+        if (requestChildFocusPredicate(child, focused)) {
             super.onRequestChildFocus(child, focused)
         }
     }

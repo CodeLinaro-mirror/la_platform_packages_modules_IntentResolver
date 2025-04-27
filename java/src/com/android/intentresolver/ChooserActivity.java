@@ -24,13 +24,10 @@ import static androidx.lifecycle.LifecycleKt.getCoroutineScope;
 
 import static com.android.intentresolver.ChooserActionFactory.EDIT_SOURCE;
 import static com.android.intentresolver.Flags.delayDrawerOffsetCalculation;
-import static com.android.intentresolver.Flags.fixShortcutsFlashingFixed;
 import static com.android.intentresolver.Flags.interactiveSession;
-import static com.android.intentresolver.Flags.keyboardNavigationFix;
 import static com.android.intentresolver.Flags.rebuildAdaptersOnTargetPinning;
 import static com.android.intentresolver.Flags.refineSystemActions;
-import static com.android.intentresolver.Flags.shareouselUpdateExcludeComponentsExtra;
-import static com.android.intentresolver.Flags.unselectFinalItem;
+import static com.android.intentresolver.Flags.sharesheetEscExit;
 import static com.android.intentresolver.ext.CreationExtrasExtKt.replaceDefaultArgs;
 import static com.android.intentresolver.profiles.MultiProfilePagerAdapter.PROFILE_PERSONAL;
 import static com.android.intentresolver.profiles.MultiProfilePagerAdapter.PROFILE_WORK;
@@ -77,6 +74,7 @@ import android.text.TextUtils;
 import android.util.Log;
 import android.util.Slog;
 import android.view.Gravity;
+import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -358,9 +356,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         mChooserHelper.setInitializer(this::initialize);
         mChooserHelper.setOnChooserRequestChanged(this::onChooserRequestChanged);
         mChooserHelper.setOnPendingSelection(this::onPendingSelection);
-        if (unselectFinalItem()) {
-            mChooserHelper.setOnHasSelections(this::onHasSelections);
-        }
+        mChooserHelper.setOnHasSelections(this::onHasSelections);
     }
     private int mInitialProfile = -1;
 
@@ -749,6 +745,16 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         finish();
     }
 
+    @Override
+    public boolean onKeyUp(int keyCode, KeyEvent event) {
+        if (sharesheetEscExit() && keyCode == KeyEvent.KEYCODE_ESCAPE) {
+            finish();
+            return true;
+        }
+
+        return super.onKeyUp(keyCode, event);
+    }
+
     private void maybeDisableRecentsScreenshot(
             ProfileHelper profileHelper, ProfileAvailability profileAvailability) {
         for (Profile profile : profileHelper.getProfiles()) {
@@ -862,8 +868,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         //  an artifact of the current implementation; revisit.
         return !oldTargetIntent.equals(newTargetIntent)
                 || !oldAltIntents.equals(newAltIntents)
-                || (shareouselUpdateExcludeComponentsExtra()
-                        && !oldExcluded.equals(newExcluded));
+                || !oldExcluded.equals(newExcluded);
     }
 
     private void recreatePagerAdapter() {
@@ -925,7 +930,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         postRebuildList(
                 mChooserMultiProfilePagerAdapter.rebuildTabs(
                     mProfiles.getWorkProfilePresent() || mProfiles.getPrivateProfilePresent()));
-        if (fixShortcutsFlashingFixed() && oldPagerAdapter != null) {
+        if (oldPagerAdapter != null) {
             for (int i = 0, count = mChooserMultiProfilePagerAdapter.getCount(); i < count; i++) {
                 ChooserListAdapter listAdapter =
                         mChooserMultiProfilePagerAdapter.getPageAdapterForIndex(i)
@@ -1381,16 +1386,14 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         mChooserMultiProfilePagerAdapter.setupViewPager(mViewPager);
         ChooserNestedScrollView scrollableContainer =
                 requireViewById(R.id.chooser_scrollable_container);
-        if (keyboardNavigationFix()) {
-            scrollableContainer.setRequestChildFocusPredicate((child, focused) ->
-                    // TabHost view will request focus on the newly activated tab. The RecyclerView
-                    // from the tab gets focused and  notifies its parents (including
-                    // NestedScrollView) about it through #requestChildFocus method call.
-                    // NestedScrollView's view implementation of the method  will  scroll to the
-                    // focused view. As we don't want to change drawer's position upon tab change,
-                    // ignore focus requests from tab RecyclerViews.
-                    focused == null || focused.getId() != com.android.internal.R.id.resolver_list);
-        }
+        scrollableContainer.setRequestChildFocusPredicate((child, focused) ->
+                // TabHost view will request focus on the newly activated tab. The RecyclerView
+                // from the tab gets focused and  notifies its parents (including
+                // NestedScrollView) about it through #requestChildFocus method call.
+                // NestedScrollView's view implementation of the method  will  scroll to the
+                // focused view. As we don't want to change drawer's position upon tab change,
+                // ignore focus requests from tab RecyclerViews.
+                focused == null || focused.getId() != com.android.internal.R.id.resolver_list);
         boolean result = postRebuildList(rebuildCompleted);
         Trace.endSection();
         return result;
@@ -2552,9 +2555,6 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
             if (duration >= 0) {
                 Log.d(TAG, "app target loading time " + duration + " ms");
             }
-            if (!fixShortcutsFlashingFixed()) {
-                addCallerChooserTargets(chooserListAdapter);
-            }
             getEventLog().logSharesheetAppLoadComplete();
             maybeQueryAdditionalPostProcessingTargets(
                     listProfileUserHandle,
@@ -2584,11 +2584,9 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         ChooserListAdapter adapter =
                 mChooserMultiProfilePagerAdapter.getListAdapterForUserHandle(userHandle);
         if (adapter != null) {
-            if (fixShortcutsFlashingFixed()) {
-                adapter.setDirectTargetsEnabled(true);
-                adapter.resetDirectTargets();
-                addCallerChooserTargets(adapter);
-            }
+            adapter.setDirectTargetsEnabled(true);
+            adapter.resetDirectTargets();
+            addCallerChooserTargets(adapter);
             for (ShortcutLoader.ShortcutResultInfo resultInfo : result.getShortcutsByApp()) {
                 adapter.addServiceResults(
                         resultInfo.getAppTarget(),
