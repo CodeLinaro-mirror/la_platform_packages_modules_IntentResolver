@@ -19,6 +19,7 @@ package com.android.intentresolver;
 import static com.android.intentresolver.ChooserActivity.TARGET_TYPE_SHORTCUTS_FROM_PREDICTION_SERVICE;
 import static com.android.intentresolver.ChooserActivity.TARGET_TYPE_SHORTCUTS_FROM_SHORTCUT_MANAGER;
 import static com.android.intentresolver.Flags.targetHoverAndKeyboardFocusStates;
+import static com.android.intentresolver.Flags.useGoogleSansFlex;
 
 import android.app.ActivityManager;
 import android.app.prediction.AppTarget;
@@ -30,6 +31,7 @@ import android.content.pm.LabeledIntent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.content.pm.ShortcutInfo;
+import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
 import android.os.AsyncTask;
 import android.os.Trace;
@@ -56,6 +58,7 @@ import com.android.intentresolver.chooser.SelectableTargetInfo;
 import com.android.intentresolver.chooser.TargetInfo;
 import com.android.intentresolver.icons.TargetDataLoader;
 import com.android.intentresolver.logging.EventLog;
+import com.android.intentresolver.ui.FontStyles;
 import com.android.intentresolver.widget.BadgeTextView;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.config.sysui.SystemUiDeviceConfigFlags;
@@ -394,7 +397,20 @@ public class ChooserListAdapter extends ResolverListAdapter {
         int layout = targetHoverAndKeyboardFocusStates()
                 ? R.layout.chooser_grid_item_hover
                 : R.layout.chooser_grid_item;
-        return mInflater.inflate(layout, parent, false);
+        View view = mInflater.inflate(layout, parent, false);
+        if (useGoogleSansFlex()) {
+            TextView textOne = view.findViewById(com.android.internal.R.id.text1);
+            TextView textTwo = view.findViewById(com.android.internal.R.id.text2);
+            if (textOne != null) {
+                textOne.setTypeface(
+                        Typeface.create(FontStyles.GSF_TITLE_SMALL_BASELINE, Typeface.NORMAL));
+            }
+            if (textTwo != null) {
+                textTwo.setTypeface(
+                        Typeface.create(FontStyles.GSF_TITLE_SMALL_BASELINE, Typeface.NORMAL));
+            }
+        }
+        return view;
     }
 
     @Override
