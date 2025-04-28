@@ -113,4 +113,5 @@
     <string name="all_apps_group_a11y_title" msgid="2646382370571120047">"ஆப்ஸ் பட்டியல்"</string>
     <string name="copy_text" msgid="1341801611046464360">"வார்த்தைகளை நகலெடுக்கும்"</string>
     <string name="copy_link" msgid="3822142723771306592">"இணைப்பை நகலெடுக்கும்"</string>
+    <string name="exit_button_label" msgid="6396378400527479806">"மூடும்"</string>
 </resources>

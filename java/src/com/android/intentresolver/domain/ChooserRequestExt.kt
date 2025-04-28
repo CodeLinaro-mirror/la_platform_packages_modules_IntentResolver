@@ -28,7 +28,6 @@ import android.content.Intent.EXTRA_EXCLUDE_COMPONENTS
 import android.content.Intent.EXTRA_INTENT
 import android.content.Intent.EXTRA_METADATA_TEXT
 import android.os.Bundle
-import com.android.intentresolver.Flags.shareouselUpdateExcludeComponentsExtra
 import com.android.intentresolver.contentpreview.payloadtoggle.domain.model.ShareouselUpdate
 import com.android.intentresolver.contentpreview.payloadtoggle.domain.model.getOrDefault
 import com.android.intentresolver.data.model.ChooserRequest
@@ -44,12 +43,7 @@ fun ChooserRequest.updateWith(targetIntent: Intent, update: ShareouselUpdate): C
         refinementIntentSender = update.refinementIntentSender.getOrDefault(refinementIntentSender),
         metadataText = update.metadataText.getOrDefault(metadataText),
         chooserActions = update.customActions.getOrDefault(chooserActions),
-        filteredComponentNames =
-            if (shareouselUpdateExcludeComponentsExtra()) {
-                update.excludeComponents.getOrDefault(filteredComponentNames)
-            } else {
-                filteredComponentNames
-            },
+        filteredComponentNames = update.excludeComponents.getOrDefault(filteredComponentNames),
     )
 
 /** Save ChooserRequest values that can be updated by the Shareousel into a Bundle */
@@ -63,8 +57,6 @@ fun ChooserRequest.saveUpdates(bundle: Bundle): Bundle {
     bundle.putParcelable(EXTRA_CHOOSER_REFINEMENT_INTENT_SENDER, refinementIntentSender)
     bundle.putCharSequence(EXTRA_METADATA_TEXT, metadataText)
     bundle.putParcelableArray(EXTRA_CHOOSER_CUSTOM_ACTIONS, chooserActions.toTypedArray())
-    if (shareouselUpdateExcludeComponentsExtra()) {
-        bundle.putParcelableArray(EXTRA_EXCLUDE_COMPONENTS, filteredComponentNames.toTypedArray())
-    }
+    bundle.putParcelableArray(EXTRA_EXCLUDE_COMPONENTS, filteredComponentNames.toTypedArray())
     return bundle
 }

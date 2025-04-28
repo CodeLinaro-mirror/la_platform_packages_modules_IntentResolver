@@ -16,30 +16,10 @@ flag {
 }
 
 flag {
-  name: "announce_shortcuts_and_suggested_apps"
-  namespace: "intentresolver"
-  description: "Enable talkback announcement for the app shortcuts and the suggested apps target groups."
-  bug: "379208685"
-  metadata {
-    purpose: PURPOSE_BUGFIX
-  }
-}
-
-flag {
   name: "delay_drawer_offset_calculation"
   namespace: "intentresolver"
   description: "Do not update the drawer offset until app targets are ready."
   bug: "338229069"
-  metadata {
-    purpose: PURPOSE_BUGFIX
-  }
-}
-
-flag {
-  name: "individual_metadata_title_read"
-  namespace: "intentresolver"
-  description: "Enables separate title URI metadata calls"
-  bug: "304686417"
   metadata {
     purpose: PURPOSE_BUGFIX
   }
@@ -56,30 +36,10 @@ flag {
 }
 
 flag {
-  name: "fix_shortcuts_flashing_fixed"
-  namespace: "intentresolver"
-  description: "Do not flash shortcuts on payload selection change"
-  bug: "343300158"
-  metadata {
-    purpose: PURPOSE_BUGFIX
-  }
-}
-
-flag {
   name: "interactive_session"
   namespace: "intentresolver"
   description: "Enables interactive chooser session (a.k.a 'Splitti') feature."
   bug: "358166090"
-}
-
-flag {
-  name: "keyboard_navigation_fix"
-  namespace: "intentresolver"
-  description: "Enable Chooser keyboard navigation bugfix"
-  bug: "325259478"
-  metadata {
-    purpose: PURPOSE_BUGFIX
-  }
 }
 
 flag {
@@ -97,30 +57,6 @@ flag {
   namespace: "intentresolver"
   description: "Adopt Launcher pointer hover and keyboard novigation focus effects for targets."
   bug: "295175912"
-}
-
-flag {
-  name: "save_shareousel_state"
-  namespace: "intentresolver"
-  description: "Preserve Shareousel state over a system-initiated process death."
-  bug: "362347212"
-  metadata {
-    purpose: PURPOSE_BUGFIX
-  }
-}
-
-flag {
-  name: "shareousel_update_exclude_components_extra"
-  namespace: "intentresolver"
-  description: "Allow Shareousel selection change callback to update Intent#EXTRA_EXCLUDE_COMPONENTS"
-  bug: "352496527"
-}
-
-flag {
-  name: "unselect_final_item"
-  namespace: "intentresolver"
-  description: "Allow toggling of final Shareousel item"
-  bug: "349468879"
 }
 
 flag {
@@ -142,6 +78,16 @@ flag {
   namespace: "intentresolver"
   description: "Whether to enable tap to scroll."
   bug: "384656926"
+  metadata {
+    purpose: PURPOSE_BUGFIX
+  }
+}
+
+flag {
+  name: "sharesheet_esc_exit"
+  namespace: "intentresolver"
+  description: "Whether to ESC exits sharesheet"
+  bug: "409766579"
   metadata {
     purpose: PURPOSE_BUGFIX
   }

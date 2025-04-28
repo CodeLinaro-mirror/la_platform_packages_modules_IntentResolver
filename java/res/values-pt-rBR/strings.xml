@@ -113,4 +113,5 @@
     <string name="all_apps_group_a11y_title" msgid="2646382370571120047">"Lista de apps"</string>
     <string name="copy_text" msgid="1341801611046464360">"Copiar texto"</string>
     <string name="copy_link" msgid="3822142723771306592">"Copiar link"</string>
+    <string name="exit_button_label" msgid="6396378400527479806">"Dispensar"</string>
 </resources>

@@ -20,9 +20,7 @@ package com.android.intentresolver.contentpreview.payloadtoggle.domain.interacto
 
 import android.content.ComponentName
 import android.content.Intent
-import android.platform.test.annotations.EnableFlags
 import android.platform.test.flag.junit.SetFlagsRule
-import com.android.intentresolver.Flags.FLAG_SHAREOUSEL_UPDATE_EXCLUDE_COMPONENTS_EXTRA
 import com.android.intentresolver.contentpreview.payloadtoggle.data.repository.pendingSelectionCallbackRepository
 import com.android.intentresolver.contentpreview.payloadtoggle.domain.model.ShareouselUpdate
 import com.android.intentresolver.contentpreview.payloadtoggle.domain.model.ValueUpdate
@@ -54,7 +52,6 @@ class UpdateChooserRequestInteractorTest {
     }
 
     @Test
-    @EnableFlags(FLAG_SHAREOUSEL_UPDATE_EXCLUDE_COMPONENTS_EXTRA)
     fun testSelectionResultWithExcludedComponents_chooserRequestIsUpdated() = runKosmosTest {
         val excludedComponent = ComponentName("org.pkg.app", "Class")
         val selectionCallbackResult =

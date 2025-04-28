@@ -16,7 +16,6 @@
 
 package com.android.intentresolver;
 
-import static com.android.intentresolver.Flags.unselectFinalItem;
 import static com.android.intentresolver.util.graphics.SuspendedMatrixColorFilter.getSuspendedColorMatrix;
 
 import android.content.Context;
@@ -992,7 +991,7 @@ public class ResolverListAdapter extends BaseAdapter {
                 icon.setColorFilter(getSuspendedColorMatrix());
             } else {
                 icon.setColorFilter(null);
-                if (unselectFinalItem() && displayIcon != null) {
+                if (displayIcon != null) {
                     // For some reason, ImageView.setColorFilter() not always propagate the call
                     // to the drawable and the icon remains grayscale when rebound; reset the filter
                     // explicitly.
