@@ -67,6 +67,8 @@
           <item type="dimen" name="content_preview_more_files_line_size"/>
           <item type="dimen" name="grid_padding_vertical"/>
           <item type="dimen" name="grid_padding_horizontal"/>
+          <item type="dimen" name="grid_padding_vertical_hover"/>
+          <item type="dimen" name="grid_padding_horizontal_hover"/>
 
           <item type="integer" name="config_chooser_max_targets_per_row"/>
           <item type="integer" name="chooser_header_for_preview_visibility"/>
