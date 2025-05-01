@@ -17,6 +17,7 @@
 package com.android.intentresolver.interactive.domain.interactor
 
 import android.content.Intent
+import android.graphics.Rect
 import android.os.Bundle
 import android.os.IBinder
 import com.android.intentresolver.contentpreview.payloadtoggle.data.repository.PendingSelectionCallbackRepository
@@ -83,8 +84,8 @@ constructor(
         chooserIntentUpdater.chooserIntent.collect { onIntentUpdated(it) }
     }
 
-    fun sendTopDrawerTopOffsetChange(offset: Int) {
-        sessionCallback?.onDrawerVerticalOffsetChanged(offset)
+    fun sendChooserWindowSize(size: Rect) {
+        sessionCallback?.onSizeChanged(size)
     }
 
     fun endSession() {
