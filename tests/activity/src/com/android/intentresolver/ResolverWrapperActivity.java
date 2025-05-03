@@ -174,9 +174,9 @@ public class ResolverWrapperActivity extends ResolverActivity {
         @Nullable
         public Drawable getOrLoadAppTargetIcon(
                 @NonNull DisplayResolveInfo info,
-                @NonNull UserHandle userHandle,
+                @NonNull UserHandle defaultUserHandle,
                 @NonNull Consumer<Drawable> callback) {
-            return mTargetDataLoader.getOrLoadAppTargetIcon(info, userHandle, callback);
+            return mTargetDataLoader.getOrLoadAppTargetIcon(info, defaultUserHandle, callback);
         }
 
         @Override

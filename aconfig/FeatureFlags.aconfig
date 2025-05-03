@@ -92,3 +92,13 @@ flag {
     purpose: PURPOSE_BUGFIX
   }
 }
+
+flag {
+  name: "use_resolve_info_user_handle"
+  namespace: "intentresolver"
+  description: "Expect that some OEM customizations (Dual apps) may have targets with different user handle in the list."
+  bug: "406053567"
+  metadata {
+    purpose: PURPOSE_BUGFIX
+  }
+}
