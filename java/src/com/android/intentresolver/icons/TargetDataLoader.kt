@@ -27,7 +27,7 @@ interface TargetDataLoader {
     /** Load an app target icon */
     fun getOrLoadAppTargetIcon(
         info: DisplayResolveInfo,
-        userHandle: UserHandle,
+        defaultUserHandle: UserHandle,
         callback: Consumer<Drawable>,
     ): Drawable?
 
