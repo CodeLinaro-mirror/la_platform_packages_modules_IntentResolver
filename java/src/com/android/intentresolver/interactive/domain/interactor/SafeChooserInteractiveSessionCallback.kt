@@ -16,15 +16,15 @@
 
 package com.android.intentresolver.interactive.domain.interactor
 
+import android.graphics.Rect
+import android.service.chooser.IChooserController
+import android.service.chooser.IChooserControllerCallback
 import android.util.Log
-import com.android.intentresolver.IChooserController
-import com.android.intentresolver.IChooserInteractiveSessionCallback
 
 private const val TAG = "SessionCallback"
 
-class SafeChooserInteractiveSessionCallback(
-    private val delegate: IChooserInteractiveSessionCallback
-) : IChooserInteractiveSessionCallback by delegate {
+class SafeChooserInteractiveSessionCallback(private val delegate: IChooserControllerCallback) :
+    IChooserControllerCallback by delegate {
 
     override fun registerChooserController(updater: IChooserController?) {
         if (!isAlive) return
@@ -32,9 +32,9 @@ class SafeChooserInteractiveSessionCallback(
             .onFailure { Log.e(TAG, "Failed to invoke registerChooserController", it) }
     }
 
-    override fun onDrawerVerticalOffsetChanged(offset: Int) {
+    override fun onSizeChanged(size: Rect) {
         if (!isAlive) return
-        runCatching { delegate.onDrawerVerticalOffsetChanged(offset) }
+        runCatching { delegate.onSizeChanged(size) }
             .onFailure { Log.e(TAG, "Failed to invoke onDrawerVerticalOffsetChanged", it) }
     }
 
