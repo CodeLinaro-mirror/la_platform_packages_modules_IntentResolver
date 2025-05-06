@@ -28,6 +28,7 @@ import android.text.TextUtils
 import android.util.Log
 import androidx.annotation.OpenForTesting
 import androidx.annotation.VisibleForTesting
+import com.android.app.tracing.coroutines.runBlockingTraced as runBlocking
 import com.android.intentresolver.contentpreview.ContentPreviewType.CONTENT_PREVIEW_FILE
 import com.android.intentresolver.contentpreview.ContentPreviewType.CONTENT_PREVIEW_IMAGE
 import com.android.intentresolver.contentpreview.ContentPreviewType.CONTENT_PREVIEW_PAYLOAD_SELECTION
@@ -48,7 +49,6 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
 
 /** Preview-related metadata columns. */
@@ -125,7 +125,7 @@ constructor(
                 CONTENT_PREVIEW_PAYLOAD_SELECTION
             } else {
                 try {
-                    runBlocking(scope.coroutineContext) {
+                    runBlocking(context = scope.coroutineContext) {
                         withTimeoutOrNull(TIMEOUT_MS) { scope.async { loadPreviewType() }.await() }
                             ?: CONTENT_PREVIEW_FILE
                     }
@@ -166,7 +166,7 @@ constructor(
             records.firstOrNull()?.let { record ->
                 val builder = FileInfo.Builder(record.uri)
                 try {
-                    runBlocking(scope.coroutineContext) {
+                    runBlocking(context = scope.coroutineContext) {
                         withTimeoutOrNull(TIMEOUT_MS) {
                             scope.async { builder.readFromRecord(record) }.await()
                         }
