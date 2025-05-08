@@ -19,6 +19,8 @@
 package com.android.intentresolver.ui
 
 const val GSF_TITLE_LARGE_BASELINE = "variable-title-large"
+
+const val GSF_TITLE_SMALL_BASELINE = "variable-title-small"
 const val GSF_LABEL_LARGE_BASELINE = "variable-label-large"
 const val GSF_LABEL_MEDIUM_BASELINE = "variable-label-medium"
 const val GSF_BODY_SMALL_BASELINE = "variable-body-small"
