@@ -52,13 +52,14 @@ constructor(
     private val activityModel = activityModelRepo.value
     private val sessionCallback =
         chooserRequestRepository.initialRequest.interactiveSessionCallback?.let {
-            SafeChooserInteractiveSessionCallback(it)
+            SafeChooserControllerCallback(it)
         }
     val isSessionActive = MutableStateFlow(true)
 
     suspend fun activate() = coroutineScope {
         if (sessionCallback == null || activityModel.isTaskRoot) {
             sessionCallback?.registerChooserController(null)
+            sessionCallback?.onClosed()
             return@coroutineScope
         }
         launch {
@@ -89,7 +90,7 @@ constructor(
     }
 
     fun endSession() {
-        sessionCallback?.registerChooserController(null)
+        sessionCallback?.onClosed()
     }
 
     private fun onIntentUpdated(chooserIntent: Intent?) {
