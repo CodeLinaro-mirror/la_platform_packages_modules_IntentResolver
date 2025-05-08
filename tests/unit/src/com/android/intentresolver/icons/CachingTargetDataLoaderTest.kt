@@ -27,11 +27,16 @@ import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.Icon
 import android.os.UserHandle
+import android.platform.test.annotations.DisableFlags
+import android.platform.test.annotations.EnableFlags
+import android.platform.test.flag.junit.SetFlagsRule
+import com.android.intentresolver.Flags.FLAG_USE_RESOLVE_INFO_USER_HANDLE
 import com.android.intentresolver.ResolverDataProvider.createResolveInfo
 import com.android.intentresolver.chooser.DisplayResolveInfo
 import com.android.intentresolver.chooser.SelectableTargetInfo
 import com.android.intentresolver.chooser.TargetInfo
 import java.util.function.Consumer
+import org.junit.Rule
 import org.junit.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.doAnswer
@@ -42,6 +47,7 @@ import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 
 class CachingTargetDataLoaderTest {
+    @get:Rule val flagRule = SetFlagsRule()
     private val context = mock<Context>()
     private val userHandle = UserHandle.of(1)
 
@@ -180,6 +186,80 @@ class CachingTargetDataLoaderTest {
         }
         verify(targetDataLoader) {
             1 * { getOrLoadAppTargetIcon(eq(hoverBitmapTargetInfo), eq(userHandle), any()) }
+        }
+    }
+
+    @Test
+    @EnableFlags(FLAG_USE_RESOLVE_INFO_USER_HANDLE)
+    fun testResolveInfoUserHandleIsUsed() {
+        val context =
+            mock<Context> {
+                on { userId } doReturn 1
+                on { packageName } doReturn "package"
+            }
+        val resolveInfoUserHandle = UserHandle.of(0)
+        val otherUserHandle = UserHandle.of(10)
+        val targetInfo =
+            DisplayResolveInfo.newDisplayResolveInfo(
+                Intent(),
+                createResolveInfo(2, userHandle.identifier).apply {
+                    userHandle = resolveInfoUserHandle
+                },
+                Intent(),
+            ) as DisplayResolveInfo
+
+        val targetDataLoader = mock<TargetDataLoader>()
+        doAnswer {
+                val callback = it.arguments[2] as Consumer<Drawable>
+                callback.accept(BitmapDrawable(createBitmap()))
+                null
+            }
+            .whenever(targetDataLoader)
+            .getOrLoadAppTargetIcon(any(), any(), any())
+        val testSubject = CachingTargetDataLoader(context, targetDataLoader)
+        val callback = Consumer<Drawable> {}
+
+        testSubject.getOrLoadAppTargetIcon(targetInfo, otherUserHandle, callback)
+
+        verify(targetDataLoader) {
+            1 * { getOrLoadAppTargetIcon(eq(targetInfo), eq(resolveInfoUserHandle), any()) }
+        }
+    }
+
+    @Test
+    @DisableFlags(FLAG_USE_RESOLVE_INFO_USER_HANDLE)
+    fun testResolveInfoUserHandleIsIgnored() {
+        val context =
+            mock<Context> {
+                on { userId } doReturn 1
+                on { packageName } doReturn "package"
+            }
+        val resolveInfoUserHandle = UserHandle.of(0)
+        val otherUserHandle = UserHandle.of(10)
+        val targetInfo =
+            DisplayResolveInfo.newDisplayResolveInfo(
+                Intent(),
+                createResolveInfo(2, userHandle.identifier).apply {
+                    userHandle = resolveInfoUserHandle
+                },
+                Intent(),
+            ) as DisplayResolveInfo
+
+        val targetDataLoader = mock<TargetDataLoader>()
+        doAnswer {
+                val callback = it.arguments[2] as Consumer<Drawable>
+                callback.accept(BitmapDrawable(createBitmap()))
+                null
+            }
+            .whenever(targetDataLoader)
+            .getOrLoadAppTargetIcon(any(), any(), any())
+        val testSubject = CachingTargetDataLoader(context, targetDataLoader)
+        val callback = Consumer<Drawable> {}
+
+        testSubject.getOrLoadAppTargetIcon(targetInfo, otherUserHandle, callback)
+
+        verify(targetDataLoader) {
+            1 * { getOrLoadAppTargetIcon(eq(targetInfo), eq(otherUserHandle), any()) }
         }
     }
 }
