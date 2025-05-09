@@ -72,7 +72,7 @@ constructor(
 
     override fun getOrLoadAppTargetIcon(
         info: DisplayResolveInfo,
-        userHandle: UserHandle,
+        defaultUserHandle: UserHandle,
         callback: Consumer<Drawable>,
     ): Drawable? {
         val taskId = nextTaskId.getAndIncrement()
