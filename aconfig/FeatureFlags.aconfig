@@ -64,16 +64,6 @@ flag {
 }
 
 flag {
-  name: "shareousel_tap_to_scroll_support"
-  namespace: "intentresolver"
-  description: "Whether to enable tap to scroll."
-  bug: "384656926"
-  metadata {
-    purpose: PURPOSE_BUGFIX
-  }
-}
-
-flag {
   name: "sharesheet_esc_exit"
   namespace: "intentresolver"
   description: "Whether to ESC exits sharesheet"
