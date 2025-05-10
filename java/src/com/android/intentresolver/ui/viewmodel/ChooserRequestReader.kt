@@ -39,9 +39,10 @@ import android.content.Intent.FLAG_ACTIVITY_NEW_DOCUMENT
 import android.content.IntentSender
 import android.net.Uri
 import android.os.Bundle
+import android.os.IBinder
 import android.service.chooser.ChooserAction
-import android.service.chooser.ChooserSession
 import android.service.chooser.ChooserTarget
+import android.service.chooser.IChooserControllerCallback
 import com.android.intentresolver.ChooserActivity
 import com.android.intentresolver.ContentTypeHint
 import com.android.intentresolver.Flags.interactiveSession
@@ -164,8 +165,9 @@ fun readChooserRequest(
 
         val interactiveSessionCallback =
             if (interactiveSession()) {
-                optional(value<ChooserSession>(EXTRA_CHOOSER_INTERACTIVE_CALLBACK))
-                    ?.sessionCallbackBinder
+                optional(value<IBinder>(EXTRA_CHOOSER_INTERACTIVE_CALLBACK))?.let {
+                    IChooserControllerCallback.Stub.asInterface(it)
+                }
             } else {
                 null
             }
