@@ -142,6 +142,7 @@ import com.android.intentresolver.ui.ActionTitle;
 import com.android.intentresolver.ui.ProfilePagerResources;
 import com.android.intentresolver.ui.ShareResultSender;
 import com.android.intentresolver.ui.ShareResultSenderFactory;
+import com.android.intentresolver.ui.model.ShareAction;
 import com.android.intentresolver.ui.viewmodel.ChooserViewModel;
 import com.android.intentresolver.widget.ActionRow;
 import com.android.intentresolver.widget.ChooserNestedScrollView;
@@ -635,6 +636,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
 
                     case EDIT_ACTION: {
                         if (usePreferredImageEditor()) {
+                            mShareResultSender.onActionSelected(ShareAction.SYSTEM_EDIT);
                             mImageEditorActionFactory.getImageEditorTargetInfoAsync(
                                     getCoroutineScope(getLifecycle()),
                                     completion.getRefinedIntent(),
@@ -681,6 +683,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                                 getApplication(),
                                 getMainThreadHandler())) {
                             // No refinement needed, launch it.
+                            mShareResultSender.onActionSelected(ShareAction.SYSTEM_EDIT);
                             launchImageEditor(targetInfo);
                         }
                     }));
