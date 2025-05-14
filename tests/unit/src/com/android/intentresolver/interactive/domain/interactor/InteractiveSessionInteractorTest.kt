@@ -52,6 +52,7 @@ import com.android.intentresolver.shared.model.ActivityModel
 import com.google.common.truth.Correspondence
 import com.google.common.truth.Truth.assertThat
 import java.io.FileDescriptor
+import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
@@ -69,7 +70,7 @@ class InteractiveSessionInteractorTest {
                 )
             }
         }
-    private val interactiveSessionCallback = FakeChooserInteractiveSessionCallback()
+    private val interactiveSessionCallback = FakeChooserControllerCallback()
     private val pendingSelectionCallbackRepo = PendingSelectionCallbackRepository()
     private val savedStateHandle = SavedStateHandle()
     private val interactiveCallbackRepo = InteractiveSessionCallbackRepository(savedStateHandle)
@@ -228,8 +229,8 @@ class InteractiveSessionInteractorTest {
 
         testSubject.endSession()
 
-        assertThat(interactiveSessionCallback.registeredIntentUpdaters).hasSize(2)
-        assertThat(interactiveSessionCallback.registeredIntentUpdaters[1]).isNull()
+        assertThat(interactiveSessionCallback.registeredIntentUpdaters).hasSize(1)
+        assertThat(interactiveSessionCallback.onClosedInvocationCounter.get()).isEqualTo(1)
     }
 
     @Test
@@ -371,18 +372,22 @@ class InteractiveSessionInteractorTest {
     }
 }
 
-private class FakeChooserInteractiveSessionCallback :
-    IChooserControllerCallback, IBinder, IInterface {
+private class FakeChooserControllerCallback : IChooserControllerCallback, IBinder, IInterface {
     var isAlive = true
     val registeredIntentUpdaters = ArrayList<IChooserController?>()
     val linkedDeathRecipients = ArrayList<DeathRecipient>()
     val unlinkedDeathRecipients = ArrayList<DeathRecipient>()
+    val onClosedInvocationCounter = AtomicInteger(0)
 
     override fun registerChooserController(intentUpdater: IChooserController?) {
         registeredIntentUpdaters.add(intentUpdater)
     }
 
     override fun onSizeChanged(size: Rect) {}
+
+    override fun onClosed() {
+        onClosedInvocationCounter.incrementAndGet()
+    }
 
     override fun asBinder() = this
 
@@ -393,7 +398,7 @@ private class FakeChooserInteractiveSessionCallback :
     override fun isBinderAlive() = isAlive
 
     override fun queryLocalInterface(descriptor: String): IInterface =
-        this@FakeChooserInteractiveSessionCallback
+        this@FakeChooserControllerCallback
 
     override fun dump(fd: FileDescriptor, args: Array<out String>?) = Unit
 

@@ -20,11 +20,13 @@ import android.graphics.Rect
 import android.service.chooser.IChooserController
 import android.service.chooser.IChooserControllerCallback
 import android.util.Log
+import java.util.concurrent.atomic.AtomicBoolean
 
 private const val TAG = "SessionCallback"
 
-class SafeChooserInteractiveSessionCallback(private val delegate: IChooserControllerCallback) :
+class SafeChooserControllerCallback(private val delegate: IChooserControllerCallback) :
     IChooserControllerCallback by delegate {
+    private val isOnCloseReported = AtomicBoolean(false)
 
     override fun registerChooserController(updater: IChooserController?) {
         if (!isAlive) return
@@ -36,6 +38,16 @@ class SafeChooserInteractiveSessionCallback(private val delegate: IChooserContro
         if (!isAlive) return
         runCatching { delegate.onSizeChanged(size) }
             .onFailure { Log.e(TAG, "Failed to invoke onDrawerVerticalOffsetChanged", it) }
+    }
+
+    override fun onClosed() {
+        if (!isAlive) return
+        if (isOnCloseReported.compareAndSet(false, true)) {
+            runCatching { delegate.onClosed() }
+                .onFailure { Log.e(TAG, "Failed to invoke onClosed", it) }
+        } else {
+            Log.d(TAG, "Session closure has already been reported")
+        }
     }
 
     private val isAlive: Boolean
