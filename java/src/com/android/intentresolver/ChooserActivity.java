@@ -828,7 +828,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
             rdl.getBoundsInWindow(rect, true);
             int left = rect.left;
             int top = rect.top;
-            ResolverDrawerLayoutExt.getVisibleDrawerRect(rdl, rect);
+            ResolverDrawerLayoutExt.getVisibleBoundsInWindow(rdl, rect);
             rect.offset(left, top);
             if (oldTop != rect.top) {
                 Rect r = rect;
