@@ -75,7 +75,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.android.intentresolver.Flags.shareouselScrollOffscreenSelections
 import com.android.intentresolver.Flags.shareouselSelectionShrink
-import com.android.intentresolver.Flags.shareouselTapToScrollSupport
 import com.android.intentresolver.R
 import com.android.intentresolver.contentpreview.payloadtoggle.domain.model.ValueUpdate
 import com.android.intentresolver.contentpreview.payloadtoggle.domain.model.getOrDefault
@@ -174,10 +173,7 @@ private fun PreviewCarouselItems(
                 start = measurements.horizontalPaddingDp,
                 end = measurements.horizontalPaddingDp,
             ),
-        modifier =
-            Modifier.fillMaxSize().conditional(shareouselTapToScrollSupport()) {
-                tapToScroll(scrollableState = state)
-            },
+        modifier = Modifier.fillMaxSize().tapToScroll(scrollableState = state),
     ) {
         itemsIndexed(
             items = previews.previewModels,
