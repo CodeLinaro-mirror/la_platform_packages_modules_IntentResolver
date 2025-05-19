@@ -18,13 +18,13 @@ package com.android.intentresolver;
 
 import static android.app.VoiceInteractor.PickOptionRequest.Option;
 import static android.content.Intent.FLAG_ACTIVITY_NEW_TASK;
+import static android.service.chooser.Flags.interactiveChooser;
 import static android.view.WindowManager.LayoutParams.SYSTEM_FLAG_HIDE_NON_SYSTEM_OVERLAY_WINDOWS;
 
 import static androidx.lifecycle.LifecycleKt.getCoroutineScope;
 
 import static com.android.intentresolver.ChooserActionFactory.EDIT_SOURCE;
 import static com.android.intentresolver.Flags.delayDrawerOffsetCalculation;
-import static com.android.intentresolver.Flags.interactiveSession;
 import static com.android.intentresolver.Flags.rebuildAdaptersOnTargetPinning;
 import static com.android.intentresolver.Flags.refineSystemActions;
 import static com.android.intentresolver.Flags.sharesheetEscExit;
@@ -471,7 +471,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
 
         if (isFinishing()) {
             mLatencyTracker.onActionCancel(ACTION_LOAD_SHARE_SHEET);
-            if (interactiveSession() && mViewModel != null) {
+            if (interactiveChooser() && mViewModel != null) {
                 mViewModel.getInteractiveSessionInteractor().endSession();
             }
         }
@@ -2857,7 +2857,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
     }
 
     private boolean isInteractiveSession() {
-        return interactiveSession() && mRequest.getInteractiveSessionCallback() != null
+        return interactiveChooser() && mRequest.getInteractiveSessionCallback() != null
                 && !isTaskRoot();
     }
 

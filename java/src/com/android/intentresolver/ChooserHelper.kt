@@ -19,6 +19,7 @@ package com.android.intentresolver
 import android.app.Activity
 import android.os.UserHandle
 import android.provider.Settings
+import android.service.chooser.Flags.interactiveChooser
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.viewModels
@@ -27,7 +28,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
-import com.android.intentresolver.Flags.interactiveSession
 import com.android.intentresolver.annotation.JavaInterop
 import com.android.intentresolver.contentpreview.ContentPreviewType.CONTENT_PREVIEW_PAYLOAD_SELECTION
 import com.android.intentresolver.contentpreview.payloadtoggle.data.repository.ActivityResultRepository
@@ -188,7 +188,7 @@ constructor(
             }
         }
 
-        if (interactiveSession()) {
+        if (interactiveChooser()) {
             activity.lifecycleScope.launch {
                 viewModel.interactiveSessionInteractor.isSessionActive
                     .filter { !it }

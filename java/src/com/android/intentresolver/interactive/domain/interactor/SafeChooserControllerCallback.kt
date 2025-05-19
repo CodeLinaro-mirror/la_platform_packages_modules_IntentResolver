@@ -34,9 +34,9 @@ class SafeChooserControllerCallback(private val delegate: IChooserControllerCall
             .onFailure { Log.e(TAG, "Failed to invoke registerChooserController", it) }
     }
 
-    override fun onSizeChanged(size: Rect) {
+    override fun onBoundsChanged(size: Rect) {
         if (!isAlive) return
-        runCatching { delegate.onSizeChanged(size) }
+        runCatching { delegate.onBoundsChanged(size) }
             .onFailure { Log.e(TAG, "Failed to invoke onDrawerVerticalOffsetChanged", it) }
     }
 
