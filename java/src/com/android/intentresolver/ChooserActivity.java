@@ -28,6 +28,7 @@ import static com.android.intentresolver.Flags.interactiveSession;
 import static com.android.intentresolver.Flags.rebuildAdaptersOnTargetPinning;
 import static com.android.intentresolver.Flags.refineSystemActions;
 import static com.android.intentresolver.Flags.sharesheetEscExit;
+import static com.android.intentresolver.Flags.synchronousDrawerOffsetCalculation;
 import static com.android.intentresolver.ext.CreationExtrasExtKt.replaceDefaultArgs;
 import static com.android.intentresolver.profiles.MultiProfilePagerAdapter.PROFILE_PERSONAL;
 import static com.android.intentresolver.profiles.MultiProfilePagerAdapter.PROFILE_WORK;
@@ -697,7 +698,12 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         getEventLog().logChooserActivityShown(
                 isWorkProfile(), mRequest.getTargetType(), systemCost);
         if (mResolverDrawerLayout != null) {
-            mResolverDrawerLayout.addOnLayoutChangeListener(this::handleLayoutChange);
+            if (synchronousDrawerOffsetCalculation()) {
+                mResolverDrawerLayout.setCollapsibleHeightReservedDelegate(
+                        this::syncHandleLayoutChange);
+            } else {
+                mResolverDrawerLayout.addOnLayoutChangeListener(this::handleLayoutChange);
+            }
 
             mResolverDrawerLayout.setOnCollapsedChangedListener(
                     isCollapsed -> {
@@ -2440,8 +2446,61 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
      */
     private void handleLayoutChange(View v, int left, int top, int right, int bottom, int oldLeft,
             int oldTop, int oldRight, int oldBottom) {
-        if (mChooserMultiProfilePagerAdapter == null || !isProfilePagerAdapterAttached()) {
+        if (!shouldUpdateDrawerOffset()) {
             return;
+        }
+
+        final int availableWidth = right - left - v.getPaddingLeft() - v.getPaddingRight();
+        maybeUpdateTabPadding(availableWidth);
+        mCurrAvailableWidth = availableWidth;
+
+        if (mChooserMultiProfilePagerAdapter.getActiveProfile() != mInitialProfile) {
+            return;
+        }
+
+        RecyclerView recyclerView = mChooserMultiProfilePagerAdapter.getActiveAdapterView();
+        ChooserGridAdapter gridAdapter = mChooserMultiProfilePagerAdapter.getCurrentRootAdapter();
+        getMainThreadHandler().post(() -> {
+            if (mResolverDrawerLayout == null) {
+                return;
+            }
+            int offset = calculateDrawerOffset(top, bottom, recyclerView, gridAdapter);
+            mResolverDrawerLayout.setCollapsibleHeightReserved(offset);
+            mEnterTransitionAnimationDelegate.markOffsetCalculated();
+            mLastAppliedInsets = mSystemWindowInsets;
+        });
+    }
+
+    /*
+     * Need to dynamically adjust how many icons can fit per row before we add them,
+     * which also means setting the correct offset to initially show the content
+     * preview area + 2 rows of targets
+     */
+    private int syncHandleLayoutChange(
+            ResolverDrawerLayout drawer, int left, int top, int right, int bottom, int offset) {
+        if (!shouldUpdateDrawerOffset()) {
+            return offset;
+        }
+
+        final int availableWidth = right - left
+                - drawer.getPaddingLeft() - drawer.getPaddingRight();
+        maybeUpdateTabPadding(availableWidth);
+        mCurrAvailableWidth = availableWidth;
+
+        if (mChooserMultiProfilePagerAdapter.getActiveProfile() != mInitialProfile) {
+            return offset;
+        }
+
+        mLastAppliedInsets = mSystemWindowInsets;
+        getMainThreadHandler().post(mEnterTransitionAnimationDelegate::markOffsetCalculated);
+        RecyclerView recyclerView = mChooserMultiProfilePagerAdapter.getActiveAdapterView();
+        ChooserGridAdapter gridAdapter = mChooserMultiProfilePagerAdapter.getCurrentRootAdapter();
+        return calculateDrawerOffset(top, bottom, recyclerView, gridAdapter);
+    }
+
+    private boolean shouldUpdateDrawerOffset() {
+        if (mChooserMultiProfilePagerAdapter == null || !isProfilePagerAdapterAttached()) {
+            return false;
         }
         RecyclerView recyclerView = mChooserMultiProfilePagerAdapter.getActiveAdapterView();
         ChooserGridAdapter gridAdapter = mChooserMultiProfilePagerAdapter.getCurrentRootAdapter();
@@ -2449,23 +2508,26 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         // calculating the height, as the logic below does not account for the scrolled offset.
         if (gridAdapter == null || recyclerView == null
                 || recyclerView.computeVerticalScrollOffset() != 0) {
-            return;
+            return false;
         }
-        if (delayDrawerOffsetCalculation() && !gridAdapter.getListAdapter().areAppTargetsReady()) {
-            return;
-        }
+        return !delayDrawerOffsetCalculation() || gridAdapter.getListAdapter().areAppTargetsReady();
+    }
 
-        final int availableWidth = right - left - v.getPaddingLeft() - v.getPaddingRight();
+    private void maybeUpdateTabPadding(int availableWidth) {
+        if (mChooserMultiProfilePagerAdapter == null) {
+            return;
+        }
         final int maxChooserWidth = getResources().getDimensionPixelSize(R.dimen.chooser_width);
+        RecyclerView recyclerView = mChooserMultiProfilePagerAdapter.getActiveAdapterView();
+        ChooserGridAdapter gridAdapter = mChooserMultiProfilePagerAdapter.getCurrentRootAdapter();
         boolean isLayoutUpdated =
                 gridAdapter.calculateChooserTargetWidth(
                         maxChooserWidth >= 0
                                 ? Math.min(maxChooserWidth, availableWidth)
                                 : availableWidth)
-                || recyclerView.getAdapter() == null
-                || availableWidth != mCurrAvailableWidth;
+                        || recyclerView.getAdapter() == null
+                        || availableWidth != mCurrAvailableWidth;
 
-        mCurrAvailableWidth = availableWidth;
         if (isLayoutUpdated) {
             // It is very important we call setAdapter from here. Otherwise in some cases
             // the resolver list doesn't get populated, such as b/150922090, b/150918223
@@ -2476,20 +2538,6 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
 
             updateTabPadding();
         }
-
-        if (mChooserMultiProfilePagerAdapter.getActiveProfile() != mInitialProfile) {
-            return;
-        }
-
-        getMainThreadHandler().post(() -> {
-            if (mResolverDrawerLayout == null) {
-                return;
-            }
-            int offset = calculateDrawerOffset(top, bottom, recyclerView, gridAdapter);
-            mResolverDrawerLayout.setCollapsibleHeightReserved(offset);
-            mEnterTransitionAnimationDelegate.markOffsetCalculated();
-            mLastAppliedInsets = mSystemWindowInsets;
-        });
     }
 
     private int calculateDrawerOffset(
