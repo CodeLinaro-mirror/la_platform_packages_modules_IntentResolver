@@ -285,7 +285,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
     private ChooserRequest mRequest;
     private ProfileHelper mProfiles;
     private ProfileAvailability mProfileAvailability;
-    @Nullable private ShareResultSender mShareResultSender;
+    private ShareResultSender mShareResultSender;
 
     private ChooserRefinementManager mRefinementManager;
 
@@ -886,12 +886,8 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
 
     private void updateShareResultSender() {
         IntentSender chosenComponentSender = mRequest.getChosenComponentSender();
-        if (chosenComponentSender != null) {
-            mShareResultSender = mShareResultSenderFactory.create(
-                    mViewModel.getActivityModel().getLaunchedFromUid(), chosenComponentSender);
-        } else {
-            mShareResultSender = null;
-        }
+        mShareResultSender = mShareResultSenderFactory.create(
+                mViewModel.getActivityModel().getLaunchedFromUid(), chosenComponentSender);
     }
 
     private boolean shouldUpdateAdapters(
@@ -1849,13 +1845,10 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
     }
 
     private void maybeSendShareResult(TargetInfo cti, UserHandle launchedAsUser) {
-        if (mShareResultSender != null) {
-            final ComponentName target = cti.getResolvedComponentName();
-            if (target != null) {
-                boolean crossProfile = !UserHandle.of(UserHandle.myUserId()).equals(launchedAsUser);
-                mShareResultSender.onComponentSelected(
-                        target, cti.isChooserTargetInfo(), crossProfile);
-            }
+        final ComponentName target = cti.getResolvedComponentName();
+        if (target != null) {
+            boolean crossProfile = !UserHandle.of(UserHandle.myUserId()).equals(launchedAsUser);
+            mShareResultSender.onComponentSelected(target, cti.isChooserTargetInfo(), crossProfile);
         }
     }
 
