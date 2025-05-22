@@ -18,6 +18,7 @@ package com.android.intentresolver
 
 import android.os.UserHandle
 import androidx.annotation.MainThread
+import com.android.app.tracing.coroutines.runBlockingTraced as runBlocking
 import com.android.intentresolver.annotation.JavaInterop
 import com.android.intentresolver.domain.interactor.UserInteractor
 import com.android.intentresolver.shared.model.Profile
@@ -25,7 +26,6 @@ import com.android.intentresolver.shared.model.User
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
 
 @JavaInterop
 @MainThread
@@ -35,9 +35,9 @@ constructor(interactor: UserInteractor, private val background: CoroutineDispatc
     private val launchedByHandle: UserHandle = interactor.launchedAs
 
     val launchedAsProfile by lazy {
-        runBlocking(background) { interactor.launchedAsProfile.first() }
+        runBlocking(context = background) { interactor.launchedAsProfile.first() }
     }
-    val profiles by lazy { runBlocking(background) { interactor.profiles.first() } }
+    val profiles by lazy { runBlocking(context = background) { interactor.profiles.first() } }
 
     // Map UserHandle back to a user within launchedByProfile
     private val launchedByUser: User =
