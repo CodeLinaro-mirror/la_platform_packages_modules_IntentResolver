@@ -518,7 +518,6 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                 mRequest,
                 mProfiles,
                 mProfileAvailability,
-                mRequest.getInitialIntents(),
                 mMaxTargetsPerRow);
 
         maybeDisableRecentsScreenshot(mProfiles, mProfileAvailability);
@@ -788,7 +787,6 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                 mRequest,
                 mProfiles,
                 mProfileAvailability,
-                mRequest.getInitialIntents(),
                 mMaxTargetsPerRow);
         mChooserMultiProfilePagerAdapter.setCurrentPage(currentPage);
         for (int i = 0, count = mChooserMultiProfilePagerAdapter.getItemCount(); i < count; i++) {
@@ -1411,14 +1409,12 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
             ChooserRequest request,
             ProfileHelper profileHelper,
             ProfileAvailability profileAvailability,
-            List<Intent> initialIntents,
             int maxTargetsPerRow) {
         Log.d(TAG, "createMultiProfilePagerAdapter");
 
         Profile launchedAs = profileHelper.getLaunchedAsProfile();
 
-        Intent[] initialIntentArray = initialIntents.toArray(new Intent[0]);
-        List<Intent> payloadIntents = request.getPayloadIntents();
+        Intent[] initialIntentArray = request.getInitialIntents().toArray(new Intent[0]);
 
         List<TabConfig<ChooserGridAdapter>> tabs = new ArrayList<>();
         for (Profile profile : profileHelper.getProfiles()) {
@@ -1426,10 +1422,13 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                     && !profileAvailability.isAvailable(profile)) {
                 continue;
             }
+            boolean isCrossProfile = !profile.equals(launchedAs);
             ChooserGridAdapter adapter = createChooserGridAdapter(
                     context,
-                    payloadIntents,
-                    profile.equals(launchedAs) ? initialIntentArray : null,
+                    isCrossProfile
+                            ? request.getCrossProfilePayloadIntents()
+                            : request.getPayloadIntents(),
+                    isCrossProfile ? null : initialIntentArray,
                     profile.getPrimary().getHandle()
             );
             tabs.add(new TabConfig<>(
