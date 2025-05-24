@@ -137,13 +137,17 @@ public class ResolverDrawerLayout extends ViewGroup {
     @Nullable
     private final ScrollablePreviewFlingLogicDelegate mFlingLogicDelegate;
 
+    private static final CollapsibleHeightReservedDelegate
+            sDefaultCollapsibleHeightReservedDelegate =
+                    (drawer, l, t, r, b, offset) -> offset;
+
+    private CollapsibleHeightReservedDelegate mCollapsibleHeightReservedDelegate =
+            sDefaultCollapsibleHeightReservedDelegate;
+
     private final ViewTreeObserver.OnTouchModeChangeListener mTouchModeChangeListener =
-            new ViewTreeObserver.OnTouchModeChangeListener() {
-                @Override
-                public void onTouchModeChanged(boolean isInTouchMode) {
-                    if (!isInTouchMode && hasFocus() && isDescendantClipped(getFocusedChild())) {
-                        smoothScrollTo(0, 0);
-                    }
+            isInTouchMode -> {
+                if (!isInTouchMode && hasFocus() && isDescendantClipped(getFocusedChild())) {
+                    smoothScrollTo(0, 0);
                 }
             };
 
@@ -244,11 +248,25 @@ public class ResolverDrawerLayout extends ViewGroup {
         }
     }
 
+    /**
+     * Set collapsible height calculation delegate. The delegate will be invoked on layout pass
+     * and the returned value will be used as the collapsible height reserved value
+     * ({@link #setCollapsibleHeightReserved(int)}).
+     */
+    public void setCollapsibleHeightReservedDelegate(
+            @Nullable CollapsibleHeightReservedDelegate delegate) {
+        mCollapsibleHeightReservedDelegate = delegate == null
+                ? sDefaultCollapsibleHeightReservedDelegate
+                : delegate;
+    }
+
     public void setCollapsibleHeightReserved(int heightPixels) {
         final int oldReserved = mCollapsibleHeightReserved;
         mCollapsibleHeightReserved = heightPixels;
         if (oldReserved != mCollapsibleHeightReserved) {
-            requestLayout();
+            if (!isInLayout()) {
+                requestLayout();
+            }
         }
 
         final int dReserved = mCollapsibleHeightReserved - oldReserved;
@@ -261,7 +279,9 @@ public class ResolverDrawerLayout extends ViewGroup {
             return;
         }
 
-        invalidate();
+        if (!isInLayout()) {
+            invalidate();
+        }
     }
 
     /**
@@ -312,7 +332,11 @@ public class ResolverDrawerLayout extends ViewGroup {
             }
             final boolean isCollapsedNew = mCollapseOffset != 0;
             if (isCollapsedOld != isCollapsedNew) {
-                onCollapsedChanged(isCollapsedNew);
+                if (isInLayout()) {
+                    post(() -> onCollapsedChanged(isCollapsedNew));
+                } else {
+                    onCollapsedChanged(isCollapsedNew);
+                }
             }
         } else {
             // Start out collapsed at first unless we restored state for otherwise
@@ -324,7 +348,9 @@ public class ResolverDrawerLayout extends ViewGroup {
     private void setCollapseOffset(float collapseOffset) {
         if (mCollapseOffset != collapseOffset) {
             mCollapseOffset = collapseOffset;
-            requestLayout();
+            if (!isInLayout()) {
+                requestLayout();
+            }
         }
     }
 
@@ -1080,14 +1106,6 @@ public class ResolverDrawerLayout extends ViewGroup {
         }
 
         mHeightUsed = heightUsed;
-        int oldCollapsibleHeight = updateCollapsibleHeight();
-        updateCollapseOffset(oldCollapsibleHeight, !isDragging());
-
-        if (getShowAtTop()) {
-            mTopOffset = 0;
-        } else {
-            mTopOffset = Math.max(0, heightSize - mHeightUsed) + (int) mCollapseOffset;
-        }
 
         setMeasuredDimension(sourceWidth, heightSize);
     }
@@ -1107,6 +1125,25 @@ public class ResolverDrawerLayout extends ViewGroup {
 
     @Override
     protected void onLayout(boolean changed, int l, int t, int r, int b) {
+        onLayoutInternal();
+        int collapsibleHeightReserved = mCollapsibleHeightReservedDelegate.onLayout(
+                this, l, t, r, b, mCollapsibleHeightReserved);
+        if (collapsibleHeightReserved != mCollapsibleHeightReserved) {
+            setCollapsibleHeightReserved(collapsibleHeightReserved);
+            onLayoutInternal();
+        }
+    }
+
+    private void onLayoutInternal() {
+        int oldCollapsibleHeight = updateCollapsibleHeight();
+        updateCollapseOffset(oldCollapsibleHeight, !isDragging());
+
+        if (getShowAtTop()) {
+            mTopOffset = 0;
+        } else {
+            mTopOffset = Math.max(0, getMeasuredHeight() - mHeightUsed) + (int) mCollapseOffset;
+        }
+
         final int width = getWidth();
 
         View indicatorHost = null;
@@ -1325,6 +1362,17 @@ public class ResolverDrawerLayout extends ViewGroup {
         void onCollapsedChanged(boolean isCollapsed);
     }
 
+    /**
+     * A delegate for a synchronous offset calculation.
+     */
+    public interface CollapsibleHeightReservedDelegate {
+        /**
+         * A delegate for a synchronous offset calculation. This method will be called from the
+         * view's onLayout method and is expected to provide the drawer offset value.
+         */
+        int onLayout(ResolverDrawerLayout drawer, int l, int t, int r, int b, int offset);
+    }
+
     private class RunOnDismissedListener implements Runnable {
         @Override
         public void run() {
@@ -1339,10 +1387,6 @@ public class ResolverDrawerLayout extends ViewGroup {
         return mMetricsLogger;
     }
 
-    /**
-     * Controlled by
-     * {@link com.android.intentresolver.Flags#FLAG_SCROLLABLE_PREVIEW}
-     */
     private interface ScrollablePreviewFlingLogicDelegate {
         default boolean onNestedPreFling(
                 ResolverDrawerLayout drawer, View target, float velocityX, float velocityY) {

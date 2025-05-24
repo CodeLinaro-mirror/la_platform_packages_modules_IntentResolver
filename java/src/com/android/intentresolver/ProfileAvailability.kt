@@ -17,6 +17,7 @@
 package com.android.intentresolver
 
 import androidx.annotation.MainThread
+import com.android.app.tracing.coroutines.runBlockingTraced as runBlocking
 import com.android.intentresolver.annotation.JavaInterop
 import com.android.intentresolver.domain.interactor.UserInteractor
 import com.android.intentresolver.shared.model.Profile
@@ -27,7 +28,6 @@ import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 
 /** Provides availability status for profiles */
 @JavaInterop
@@ -48,7 +48,7 @@ class ProfileAvailability(
     /** Query current profile availability. An unavailable profile is one which is not active. */
     @MainThread
     fun isAvailable(profile: Profile?): Boolean {
-        return runBlocking(background) {
+        return runBlocking(context = background) {
             userInteractor.availability.map { it[profile] == true }.first()
         }
     }
@@ -58,7 +58,7 @@ class ProfileAvailability(
      * hidden when locked.
      */
     fun visibleProfileCount() =
-        runBlocking(background) {
+        runBlocking(context = background) {
             val availability = userInteractor.availability.first()
             val profiles = userInteractor.profiles.first()
             profiles
