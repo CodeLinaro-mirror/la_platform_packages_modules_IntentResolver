@@ -35,6 +35,7 @@ import com.android.intentresolver.ResolverDataProvider.createResolveInfo
 import com.android.intentresolver.chooser.DisplayResolveInfo
 import com.android.intentresolver.chooser.SelectableTargetInfo
 import com.android.intentresolver.chooser.TargetInfo
+import com.android.launcher3.icons.FastBitmapDrawable
 import java.util.function.Consumer
 import org.junit.Rule
 import org.junit.Test
@@ -159,7 +160,7 @@ class CachingTargetDataLoaderTest {
                     if (target === bitmapTargetInfo) {
                         BitmapDrawable(createBitmap())
                     } else if (target === hoverBitmapTargetInfo) {
-                        HoverBitmapDrawable(createBitmap())
+                        FastBitmapDrawable(createBitmap())
                     } else {
                         ColorDrawable(Color.RED)
                     }

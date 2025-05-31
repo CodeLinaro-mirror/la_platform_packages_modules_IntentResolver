@@ -42,6 +42,7 @@ import com.android.intentresolver.chooser.SelectableTargetInfo
 import com.android.intentresolver.inject.ActivityOwned
 import com.android.intentresolver.inject.Background
 import com.android.intentresolver.util.hasValidIcon
+import com.android.launcher3.icons.FastBitmapDrawable
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
@@ -170,7 +171,7 @@ constructor(
 
     private fun Bitmap.toDrawable(): Drawable {
         return if (targetHoverAndKeyboardFocusStates()) {
-            HoverBitmapDrawable(this)
+            FastBitmapDrawable(this)
         } else {
             BitmapDrawable(context.resources, this)
         }
