@@ -33,9 +33,7 @@
              top limit the ignoreOffset elements. -->
         <attr name="ignoreOffsetTopLimit" format="reference" />
         <!-- Specifies whether ResolverDrawerLayout should use an alternative nested fling logic
-        adjusted for the scrollable preview feature.
-        Controlled by the flag com.android.intentresolver.Flags#FLAG_SCROLLABLE_PREVIEW.
-        -->
+        adjusted for the scrollable preview feature. -->
         <attr name="useScrollablePreviewNestedFlingLogic" format="boolean" />
     </declare-styleable>
 
