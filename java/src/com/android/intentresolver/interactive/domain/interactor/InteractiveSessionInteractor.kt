@@ -55,6 +55,7 @@ constructor(
             SafeChooserControllerCallback(it)
         }
     val isSessionActive = MutableStateFlow(true)
+    val isTargetEnabled = MutableStateFlow(true)
 
     suspend fun activate() = coroutineScope {
         if (sessionCallback == null || activityModel.isTaskRoot) {
@@ -82,7 +83,8 @@ constructor(
                     interactiveCallbackRepo.setChooserController(it)
                     sessionCallback.registerChooserController(it)
                 }
-        chooserController.chooserIntent.collect { onIntentUpdated(it) }
+        launch { chooserController.chooserIntent.collect { onIntentUpdated(it) } }
+        launch { chooserController.targetStatusFlow.collect(isTargetEnabled) }
     }
 
     fun sendChooserWindowSize(size: Rect) {

@@ -109,7 +109,7 @@ class InteractiveSessionInteractorTest {
 
         testSubject.activate()
 
-        assertThat(interactiveSessionCallback.registeredIntentUpdaters).containsExactly(null)
+        assertThat(interactiveSessionCallback.registeredChooserController).containsExactly(null)
     }
 
     @Test
@@ -225,11 +225,11 @@ class InteractiveSessionInteractorTest {
         backgroundScope.launch { testSubject.activate() }
         testScheduler.runCurrent()
 
-        assertThat(interactiveSessionCallback.registeredIntentUpdaters).hasSize(1)
+        assertThat(interactiveSessionCallback.registeredChooserController).hasSize(1)
 
         testSubject.endSession()
 
-        assertThat(interactiveSessionCallback.registeredIntentUpdaters).hasSize(1)
+        assertThat(interactiveSessionCallback.registeredChooserController).hasSize(1)
         assertThat(interactiveSessionCallback.onClosedInvocationCounter.get()).isEqualTo(1)
     }
 
@@ -256,8 +256,8 @@ class InteractiveSessionInteractorTest {
         backgroundScope.launch { testSubject.activate() }
         testScheduler.runCurrent()
 
-        assertThat(interactiveSessionCallback.registeredIntentUpdaters).hasSize(1)
-        interactiveSessionCallback.registeredIntentUpdaters[0]!!.updateIntent(null)
+        assertThat(interactiveSessionCallback.registeredChooserController).hasSize(1)
+        interactiveSessionCallback.registeredChooserController[0]!!.updateIntent(null)
         testScheduler.runCurrent()
 
         assertThat(testSubject.isSessionActive.value).isFalse()
@@ -286,8 +286,8 @@ class InteractiveSessionInteractorTest {
         backgroundScope.launch { testSubject.activate() }
         testScheduler.runCurrent()
 
-        assertThat(interactiveSessionCallback.registeredIntentUpdaters).hasSize(1)
-        interactiveSessionCallback.registeredIntentUpdaters[0]!!.updateIntent(Intent())
+        assertThat(interactiveSessionCallback.registeredChooserController).hasSize(1)
+        interactiveSessionCallback.registeredChooserController[0]!!.updateIntent(Intent())
         testScheduler.runCurrent()
 
         assertThat(testSubject.isSessionActive.value).isTrue()
@@ -318,7 +318,7 @@ class InteractiveSessionInteractorTest {
         backgroundScope.launch { testSubject.activate() }
         testScheduler.runCurrent()
 
-        assertThat(interactiveSessionCallback.registeredIntentUpdaters).hasSize(1)
+        assertThat(interactiveSessionCallback.registeredChooserController).hasSize(1)
         val newTargetIntent = Intent(ACTION_VIEW).apply { type = "image/png" }
         val newFilteredComponents = arrayOf(ComponentName.unflattenFromString("com.app/.MainA"))
         val newCallerTargets =
@@ -336,7 +336,7 @@ class InteractiveSessionInteractorTest {
         val newInitialIntents = arrayOf(Intent(ACTION_QUICK_VIEW))
         val newResultSender = IntentSender(Binder())
         val newRefinementSender = IntentSender(Binder())
-        interactiveSessionCallback.registeredIntentUpdaters[0]!!.updateIntent(
+        interactiveSessionCallback.registeredChooserController[0]!!.updateIntent(
             Intent.createChooser(newTargetIntent, "").apply {
                 putExtra(EXTRA_EXCLUDE_COMPONENTS, newFilteredComponents)
                 putExtra(EXTRA_CHOOSER_TARGETS, newCallerTargets)
@@ -370,17 +370,54 @@ class InteractiveSessionInteractorTest {
         assertThat(updatedRequest.chosenComponentSender).isEqualTo(newResultSender)
         assertThat(updatedRequest.refinementIntentSender).isEqualTo(newRefinementSender)
     }
+
+    @Test
+    fun targetEnableStateReceived_isTargetEnabledUpdated() = runTest {
+        val chooserRequestRepository =
+            ChooserRequestRepository(
+                initialRequest =
+                    ChooserRequest(
+                        targetIntent = Intent(ACTION_SEND),
+                        interactiveSessionCallback = interactiveSessionCallback,
+                        launchedFromPackage = activityModelRepo.value.launchedFromPackage,
+                    ),
+                initialActions = emptyList(),
+            )
+        val testSubject =
+            InteractiveSessionInteractor(
+                activityModelRepo = activityModelRepo,
+                chooserRequestRepository = chooserRequestRepository,
+                pendingSelectionCallbackRepo,
+                interactiveCallbackRepo,
+            )
+
+        backgroundScope.launch { testSubject.activate() }
+        testScheduler.runCurrent()
+
+        assertThat(testSubject.isTargetEnabled.value).isTrue()
+        assertThat(interactiveSessionCallback.registeredChooserController).hasSize(1)
+
+        interactiveSessionCallback.registeredChooserController[0]!!.setTargetsEnabled(false)
+        testScheduler.runCurrent()
+
+        assertThat(testSubject.isTargetEnabled.value).isFalse()
+
+        interactiveSessionCallback.registeredChooserController[0]!!.setTargetsEnabled(true)
+        testScheduler.runCurrent()
+
+        assertThat(testSubject.isTargetEnabled.value).isTrue()
+    }
 }
 
 private class FakeChooserControllerCallback : IChooserControllerCallback, IBinder, IInterface {
     var isAlive = true
-    val registeredIntentUpdaters = ArrayList<IChooserController?>()
+    val registeredChooserController = ArrayList<IChooserController?>()
     val linkedDeathRecipients = ArrayList<DeathRecipient>()
     val unlinkedDeathRecipients = ArrayList<DeathRecipient>()
     val onClosedInvocationCounter = AtomicInteger(0)
 
     override fun registerChooserController(intentUpdater: IChooserController?) {
-        registeredIntentUpdaters.add(intentUpdater)
+        registeredChooserController.add(intentUpdater)
     }
 
     override fun onBoundsChanged(size: Rect) {}

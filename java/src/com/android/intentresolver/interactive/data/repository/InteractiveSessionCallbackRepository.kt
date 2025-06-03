@@ -32,7 +32,7 @@ class InteractiveSessionCallbackRepository @Inject constructor(savedStateHandle:
         AtomicReference<ChooserController?>(
             savedStateHandle
                 .get<Bundle>(INTERACTIVE_SESSION_CALLBACK_KEY)
-                ?.let { it.getBinder(INTERACTIVE_SESSION_CALLBACK_KEY) }
+                ?.getBinder(INTERACTIVE_SESSION_CALLBACK_KEY)
                 ?.let { binder ->
                     binder.queryLocalInterface(IChooserController.DESCRIPTOR) as? ChooserController
                 }

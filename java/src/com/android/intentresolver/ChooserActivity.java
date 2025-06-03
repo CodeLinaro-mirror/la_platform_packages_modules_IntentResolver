@@ -359,7 +359,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         mChooserHelper.setInitializer(this::initialize);
         mChooserHelper.setOnChooserRequestChanged(this::onChooserRequestChanged);
         mChooserHelper.setOnPendingSelection(this::onPendingSelection);
-        mChooserHelper.setOnHasSelections(this::onHasSelections);
+        mChooserHelper.setOnTargetEnabled(this::onTargetEnabledChanged);
     }
 
     @Override
@@ -825,8 +825,8 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         setTabsViewEnabled(false);
     }
 
-    private void onHasSelections(boolean hasSelections) {
-        mChooserMultiProfilePagerAdapter.setTargetsEnabled(hasSelections);
+    private void onTargetEnabledChanged(boolean isEnabled) {
+        mChooserMultiProfilePagerAdapter.setTargetsEnabled(isEnabled);
     }
 
     private void configureInteractiveSessionWindow() {

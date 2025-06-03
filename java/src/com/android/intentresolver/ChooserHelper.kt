@@ -103,7 +103,7 @@ constructor(
     var onChooserRequestChanged: Consumer<ChooserRequest> = Consumer {}
     /** Invoked when there are a new change to payload selection */
     var onPendingSelection: Runnable = Runnable {}
-    var onHasSelections: Consumer<Boolean> = Consumer {}
+    var onTargetEnabled: Consumer<Boolean> = Consumer {}
 
     init {
         activity.lifecycle.addObserver(this)
@@ -165,13 +165,24 @@ constructor(
                         viewModel.previewDataProvider.previewType ==
                             CONTENT_PREVIEW_PAYLOAD_SELECTION
                     ) {
-                        viewModel.shareouselViewModel.hasSelectedItems.stateIn(scope = this).also {
-                            flow ->
-                            launch { flow.collect { onHasSelections.accept(it) } }
-                        }
+                        viewModel.shareouselViewModel.hasSelectedItems.stateIn(scope = this)
                     } else {
                         MutableStateFlow(true).asStateFlow()
                     }
+                launch {
+                    if (interactiveChooser()) {
+                            hasSelectionFlow
+                                .combine(viewModel.interactiveSessionInteractor.isTargetEnabled) {
+                                    hasSelection,
+                                    isEnabled ->
+                                    hasSelection && isEnabled
+                                }
+                                .distinctUntilChanged()
+                        } else {
+                            hasSelectionFlow
+                        }
+                        .collect { onTargetEnabled.accept(it) }
+                }
                 val requestControlFlow =
                     hasSelectionFlow
                         .combine(hasPendingIntentFlow) { hasSelections, hasPendingIntent ->
