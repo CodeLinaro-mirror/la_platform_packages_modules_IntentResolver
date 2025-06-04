@@ -2503,7 +2503,9 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                 || recyclerView.computeVerticalScrollOffset() != 0) {
             return false;
         }
-        return !delayDrawerOffsetCalculation() || gridAdapter.getListAdapter().areAppTargetsReady();
+        return !delayDrawerOffsetCalculation()
+                || gridAdapter.getListAdapter().isInitialAppTargetLoad()
+                || gridAdapter.getListAdapter().areAppTargetsReady();
     }
 
     private void maybeUpdateTabPadding(int availableWidth) {
