@@ -19,7 +19,7 @@ package com.android.intentresolver.interactive.data.repository
 import android.os.Bundle
 import android.service.chooser.IChooserController
 import androidx.lifecycle.SavedStateHandle
-import com.android.intentresolver.interactive.domain.model.ChooserIntentUpdater
+import com.android.intentresolver.interactive.domain.model.ChooserController
 import dagger.hilt.android.scopes.ViewModelScoped
 import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
@@ -28,27 +28,26 @@ private const val INTERACTIVE_SESSION_CALLBACK_KEY = "interactive-session-callba
 
 @ViewModelScoped
 class InteractiveSessionCallbackRepository @Inject constructor(savedStateHandle: SavedStateHandle) {
-    private val intentUpdaterRef =
-        AtomicReference<ChooserIntentUpdater?>(
+    private val chooserControllerRef =
+        AtomicReference<ChooserController?>(
             savedStateHandle
                 .get<Bundle>(INTERACTIVE_SESSION_CALLBACK_KEY)
                 ?.let { it.getBinder(INTERACTIVE_SESSION_CALLBACK_KEY) }
                 ?.let { binder ->
-                    binder.queryLocalInterface(IChooserController.DESCRIPTOR)
-                        as? ChooserIntentUpdater
+                    binder.queryLocalInterface(IChooserController.DESCRIPTOR) as? ChooserController
                 }
         )
 
-    val intentUpdater: ChooserIntentUpdater?
-        get() = intentUpdaterRef.get()
+    val chooserController: ChooserController?
+        get() = chooserControllerRef.get()
 
     init {
         savedStateHandle.setSavedStateProvider(INTERACTIVE_SESSION_CALLBACK_KEY) {
-            Bundle().apply { putBinder(INTERACTIVE_SESSION_CALLBACK_KEY, intentUpdater) }
+            Bundle().apply { putBinder(INTERACTIVE_SESSION_CALLBACK_KEY, chooserController) }
         }
     }
 
-    fun setChooserIntentUpdater(intentUpdater: ChooserIntentUpdater) {
-        intentUpdaterRef.compareAndSet(null, intentUpdater)
+    fun setChooserController(chooserController: ChooserController) {
+        chooserControllerRef.compareAndSet(null, chooserController)
     }
 }

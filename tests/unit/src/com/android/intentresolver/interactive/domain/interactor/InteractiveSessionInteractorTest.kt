@@ -383,7 +383,7 @@ private class FakeChooserControllerCallback : IChooserControllerCallback, IBinde
         registeredIntentUpdaters.add(intentUpdater)
     }
 
-    override fun onSizeChanged(size: Rect) {}
+    override fun onBoundsChanged(size: Rect) {}
 
     override fun onClosed() {
         onClosedInvocationCounter.incrementAndGet()

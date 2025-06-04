@@ -24,7 +24,7 @@ import kotlinx.coroutines.flow.filter
 
 private val NotSet = Intent()
 
-class ChooserIntentUpdater : IChooserController.Stub() {
+class ChooserController : IChooserController.Stub() {
     private val updates = MutableStateFlow<Intent?>(NotSet)
 
     val chooserIntent: Flow<Intent?>
@@ -32,5 +32,13 @@ class ChooserIntentUpdater : IChooserController.Stub() {
 
     override fun updateIntent(chooserIntent: Intent?) {
         updates.value = chooserIntent
+    }
+
+    override fun collapse() {
+        // TODO (b/404593897)
+    }
+
+    override fun setTargetsEnabled(isEnabled: Boolean) {
+        // TODO (b/404593897)
     }
 }
