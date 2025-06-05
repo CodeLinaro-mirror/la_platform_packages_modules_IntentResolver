@@ -42,10 +42,10 @@ import android.os.Bundle
 import android.os.IBinder
 import android.service.chooser.ChooserAction
 import android.service.chooser.ChooserTarget
+import android.service.chooser.Flags.interactiveChooser
 import android.service.chooser.IChooserControllerCallback
 import com.android.intentresolver.ChooserActivity
 import com.android.intentresolver.ContentTypeHint
-import com.android.intentresolver.Flags.interactiveSession
 import com.android.intentresolver.R
 import com.android.intentresolver.data.model.ChooserRequest
 import com.android.intentresolver.data.model.ColorScheme
@@ -164,7 +164,7 @@ fun readChooserRequest(
         val metadataText = optional(value<CharSequence>(EXTRA_METADATA_TEXT))
 
         val interactiveSessionCallback =
-            if (interactiveSession()) {
+            if (interactiveChooser()) {
                 optional(value<IBinder>(EXTRA_CHOOSER_INTERACTIVE_CALLBACK))?.let {
                     IChooserControllerCallback.Stub.asInterface(it)
                 }
@@ -173,7 +173,7 @@ fun readChooserRequest(
             }
 
         val colorScheme =
-            if (interactiveSession()) {
+            if (interactiveChooser()) {
                 optional(
                     object : Validator<ColorScheme> {
                         override val key = EXTRA_CHOOSER_COLOR_SCHEME

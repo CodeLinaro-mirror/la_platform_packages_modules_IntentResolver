@@ -17,11 +17,11 @@ package com.android.intentresolver.ui.viewmodel
 
 import android.content.ContentInterface
 import android.os.Bundle
+import android.service.chooser.Flags.interactiveChooser
 import android.util.Log
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.android.intentresolver.Flags.interactiveSession
 import com.android.intentresolver.contentpreview.ImageLoader
 import com.android.intentresolver.contentpreview.PreviewDataProvider
 import com.android.intentresolver.contentpreview.payloadtoggle.domain.interactor.FetchPreviewsInteractor
@@ -119,7 +119,7 @@ constructor(
                             ?.saveUpdates(result)
                     }
                 }
-                if (interactiveSession()) {
+                if (interactiveChooser()) {
                     viewModelScope.launch(bgDispatcher) { interactiveSessionInteractor.activate() }
                 }
             }
