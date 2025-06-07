@@ -31,10 +31,10 @@ import android.net.Uri
 import android.platform.test.annotations.DisableFlags
 import android.platform.test.annotations.EnableFlags
 import android.platform.test.flag.junit.SetFlagsRule
+import android.service.chooser.Flags.FLAG_INTERACTIVE_CHOOSER
 import androidx.core.net.toUri
 import androidx.core.os.bundleOf
 import com.android.intentresolver.ContentTypeHint
-import com.android.intentresolver.Flags.FLAG_INTERACTIVE_SESSION
 import com.android.intentresolver.data.model.ChooserRequest
 import com.android.intentresolver.data.model.ColorScheme
 import com.android.intentresolver.shared.model.ActivityModel
@@ -320,7 +320,7 @@ class ChooserRequestTest {
     }
 
     @Test
-    @EnableFlags(FLAG_INTERACTIVE_SESSION)
+    @EnableFlags(FLAG_INTERACTIVE_CHOOSER)
     fun testMissingColorScheme() {
         val intent = Intent().putExtras(bundleOf(EXTRA_INTENT to Intent(ACTION_SEND)))
         val model = createActivityModel(targetIntent = intent)
@@ -332,19 +332,19 @@ class ChooserRequestTest {
     }
 
     @Test
-    @EnableFlags(FLAG_INTERACTIVE_SESSION)
+    @EnableFlags(FLAG_INTERACTIVE_CHOOSER)
     fun testLightColorScheme() {
         testColorScheme(provided = COLOR_SCHEME_LIGHT, expected = ColorScheme.Light)
     }
 
     @Test
-    @EnableFlags(FLAG_INTERACTIVE_SESSION)
+    @EnableFlags(FLAG_INTERACTIVE_CHOOSER)
     fun testDarkColorScheme() {
         testColorScheme(provided = COLOR_SCHEME_DARK, expected = ColorScheme.Dark)
     }
 
     @Test
-    @EnableFlags(FLAG_INTERACTIVE_SESSION)
+    @EnableFlags(FLAG_INTERACTIVE_CHOOSER)
     fun testUnknownColorScheme() {
         testColorScheme(provided = 100, expected = ColorScheme.SystemDefault)
     }

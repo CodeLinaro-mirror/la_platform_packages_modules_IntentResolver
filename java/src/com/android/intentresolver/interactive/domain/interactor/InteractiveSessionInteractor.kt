@@ -25,7 +25,7 @@ import com.android.intentresolver.data.model.ChooserRequest
 import com.android.intentresolver.data.repository.ActivityModelRepository
 import com.android.intentresolver.data.repository.ChooserRequestRepository
 import com.android.intentresolver.interactive.data.repository.InteractiveSessionCallbackRepository
-import com.android.intentresolver.interactive.domain.model.ChooserIntentUpdater
+import com.android.intentresolver.interactive.domain.model.ChooserController
 import com.android.intentresolver.ui.viewmodel.readChooserRequest
 import com.android.intentresolver.validation.Invalid
 import com.android.intentresolver.validation.Valid
@@ -55,6 +55,7 @@ constructor(
             SafeChooserControllerCallback(it)
         }
     val isSessionActive = MutableStateFlow(true)
+    val isTargetEnabled = MutableStateFlow(true)
 
     suspend fun activate() = coroutineScope {
         if (sessionCallback == null || activityModel.isTaskRoot) {
@@ -76,17 +77,18 @@ constructor(
                 isSessionActive.value = false
             }
         }
-        val chooserIntentUpdater =
-            interactiveCallbackRepo.intentUpdater
-                ?: ChooserIntentUpdater().also {
-                    interactiveCallbackRepo.setChooserIntentUpdater(it)
+        val chooserController =
+            interactiveCallbackRepo.chooserController
+                ?: ChooserController().also {
+                    interactiveCallbackRepo.setChooserController(it)
                     sessionCallback.registerChooserController(it)
                 }
-        chooserIntentUpdater.chooserIntent.collect { onIntentUpdated(it) }
+        launch { chooserController.chooserIntent.collect { onIntentUpdated(it) } }
+        launch { chooserController.targetStatusFlow.collect(isTargetEnabled) }
     }
 
     fun sendChooserWindowSize(size: Rect) {
-        sessionCallback?.onSizeChanged(size)
+        sessionCallback?.onBoundsChanged(size)
     }
 
     fun endSession() {

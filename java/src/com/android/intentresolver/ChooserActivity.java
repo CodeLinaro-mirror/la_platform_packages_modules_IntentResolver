@@ -18,13 +18,13 @@ package com.android.intentresolver;
 
 import static android.app.VoiceInteractor.PickOptionRequest.Option;
 import static android.content.Intent.FLAG_ACTIVITY_NEW_TASK;
+import static android.service.chooser.Flags.interactiveChooser;
 import static android.view.WindowManager.LayoutParams.SYSTEM_FLAG_HIDE_NON_SYSTEM_OVERLAY_WINDOWS;
 
 import static androidx.lifecycle.LifecycleKt.getCoroutineScope;
 
 import static com.android.intentresolver.ChooserActionFactory.EDIT_SOURCE;
 import static com.android.intentresolver.Flags.delayDrawerOffsetCalculation;
-import static com.android.intentresolver.Flags.interactiveSession;
 import static com.android.intentresolver.Flags.rebuildAdaptersOnTargetPinning;
 import static com.android.intentresolver.Flags.refineSystemActions;
 import static com.android.intentresolver.Flags.sharesheetEscExit;
@@ -359,7 +359,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         mChooserHelper.setInitializer(this::initialize);
         mChooserHelper.setOnChooserRequestChanged(this::onChooserRequestChanged);
         mChooserHelper.setOnPendingSelection(this::onPendingSelection);
-        mChooserHelper.setOnHasSelections(this::onHasSelections);
+        mChooserHelper.setOnTargetEnabled(this::onTargetEnabledChanged);
     }
 
     @Override
@@ -471,7 +471,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
 
         if (isFinishing()) {
             mLatencyTracker.onActionCancel(ACTION_LOAD_SHARE_SHEET);
-            if (interactiveSession() && mViewModel != null) {
+            if (interactiveChooser() && mViewModel != null) {
                 mViewModel.getInteractiveSessionInteractor().endSession();
             }
         }
@@ -825,8 +825,8 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         setTabsViewEnabled(false);
     }
 
-    private void onHasSelections(boolean hasSelections) {
-        mChooserMultiProfilePagerAdapter.setTargetsEnabled(hasSelections);
+    private void onTargetEnabledChanged(boolean isEnabled) {
+        mChooserMultiProfilePagerAdapter.setTargetsEnabled(isEnabled);
     }
 
     private void configureInteractiveSessionWindow() {
@@ -2503,7 +2503,9 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                 || recyclerView.computeVerticalScrollOffset() != 0) {
             return false;
         }
-        return !delayDrawerOffsetCalculation() || gridAdapter.getListAdapter().areAppTargetsReady();
+        return !delayDrawerOffsetCalculation()
+                || gridAdapter.getListAdapter().isInitialAppTargetLoad()
+                || gridAdapter.getListAdapter().areAppTargetsReady();
     }
 
     private void maybeUpdateTabPadding(int availableWidth) {
@@ -2857,7 +2859,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
     }
 
     private boolean isInteractiveSession() {
-        return interactiveSession() && mRequest.getInteractiveSessionCallback() != null
+        return interactiveChooser() && mRequest.getInteractiveSessionCallback() != null
                 && !isTaskRoot();
     }
 
