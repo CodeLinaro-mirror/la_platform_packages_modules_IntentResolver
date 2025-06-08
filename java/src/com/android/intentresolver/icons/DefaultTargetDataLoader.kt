@@ -16,24 +16,33 @@
 
 package com.android.intentresolver.icons
 
+import android.content.ComponentName
 import android.content.Context
+import android.content.pm.LauncherApps
+import android.content.pm.ShortcutInfo
 import android.graphics.Bitmap
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
+import android.graphics.drawable.Icon
 import android.os.AsyncTask
 import android.os.UserHandle
+import android.util.Log
 import android.util.SparseArray
 import androidx.annotation.GuardedBy
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.coroutineScope
+import com.android.intentresolver.Flags.badgeShortcutIconPlaceholders
 import com.android.intentresolver.Flags.targetHoverAndKeyboardFocusStates
-import com.android.intentresolver.R
 import com.android.intentresolver.SimpleIconFactory
 import com.android.intentresolver.TargetPresentationGetter
 import com.android.intentresolver.chooser.DisplayResolveInfo
 import com.android.intentresolver.chooser.SelectableTargetInfo
 import com.android.intentresolver.inject.ActivityOwned
+import com.android.intentresolver.inject.Background
+import com.android.intentresolver.util.hasValidIcon
+import com.android.launcher3.icons.FastBitmapDrawable
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
@@ -41,8 +50,19 @@ import dagger.hilt.android.qualifiers.ActivityContext
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.function.Consumer
 import javax.inject.Provider
-import kotlinx.coroutines.Dispatchers
+import javax.inject.Qualifier
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.asExecutor
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+
+private const val TAG = "DefaultTargetDataLoader"
+
+@Qualifier
+@MustBeDocumented
+@Retention(AnnotationRetention.BINARY)
+annotation class IconPlaceholder
 
 /** An actual [TargetDataLoader] implementation. */
 // TODO: replace async tasks with coroutines.
@@ -53,11 +73,13 @@ constructor(
     @ActivityOwned private val lifecycle: Lifecycle,
     private val iconFactoryProvider: Provider<SimpleIconFactory>,
     private val presentationFactory: TargetPresentationGetter.Factory,
+    @Background private val bgDispatcher: CoroutineDispatcher,
+    @IconPlaceholder private val iconPlacehoderProvider: Provider<Drawable>,
     @Assisted private val isAudioCaptureDevice: Boolean,
 ) : TargetDataLoader {
     private val nextTaskId = AtomicInteger(0)
     @GuardedBy("self") private val activeTasks = SparseArray<AsyncTask<*, *, *>>()
-    private val executor = Dispatchers.IO.asExecutor()
+    private val executor = bgDispatcher.asExecutor()
 
     init {
         lifecycle.addObserver(
@@ -90,18 +112,22 @@ constructor(
         userHandle: UserHandle,
         callback: Consumer<Drawable>,
     ): Drawable? {
-        val taskId = nextTaskId.getAndIncrement()
-        LoadDirectShareIconTask(
-                context.createContextAsUser(userHandle, 0),
-                info,
-                presentationFactory,
-                iconFactoryProvider,
-            ) { bitmap ->
-                removeTask(taskId)
-                callback.accept(bitmap?.toDrawable() ?: loadIconPlaceholder())
-            }
-            .also { addTask(taskId, it) }
-            .executeOnExecutor(executor)
+        if (badgeShortcutIconPlaceholders()) {
+            loadDirectShareIcon(context.createContextAsUser(userHandle, 0), info, callback)
+        } else {
+            val taskId = nextTaskId.getAndIncrement()
+            LoadDirectShareIconTask(
+                    context.createContextAsUser(userHandle, 0),
+                    info,
+                    presentationFactory,
+                    iconFactoryProvider,
+                ) { bitmap ->
+                    removeTask(taskId)
+                    callback.accept(bitmap?.toDrawable() ?: loadIconPlaceholder())
+                }
+                .also { addTask(taskId, it) }
+                .executeOnExecutor(executor)
+        }
         return null
     }
 
@@ -132,8 +158,7 @@ constructor(
         synchronized(activeTasks) { activeTasks.remove(id) }
     }
 
-    private fun loadIconPlaceholder(): Drawable =
-        requireNotNull(context.getDrawable(R.drawable.resolver_icon_placeholder))
+    private fun loadIconPlaceholder(): Drawable = iconPlacehoderProvider.get()
 
     private fun destroy() {
         synchronized(activeTasks) {
@@ -146,11 +171,62 @@ constructor(
 
     private fun Bitmap.toDrawable(): Drawable {
         return if (targetHoverAndKeyboardFocusStates()) {
-            HoverBitmapDrawable(this)
+            FastBitmapDrawable(this)
         } else {
             BitmapDrawable(context.resources, this)
         }
     }
+
+    private fun loadDirectShareIcon(
+        userContext: Context,
+        info: SelectableTargetInfo,
+        consumer: Consumer<Drawable>,
+    ) {
+        lifecycle.coroutineScope.launch {
+            val iconDrawable =
+                withContext(bgDispatcher) {
+                    val icon = info.chooserTargetIcon?.takeIf { hasValidIcon(it) }
+                    val iconDrawable =
+                        getDirectTargetIconDrawable(userContext, icon, info.directShareShortcutInfo)
+                    val appIcon =
+                        info.chooserTargetComponentName?.let { getAppIcon(userContext, it) }
+                    if (appIcon != null) {
+                        iconFactoryProvider.get().use { sif ->
+                            sif.createAppBadgedIconBitmap(iconDrawable, appIcon).toDrawable()
+                        }
+                    } else {
+                        iconDrawable
+                    }
+                }
+            if (isActive) {
+                consumer.accept(iconDrawable)
+            }
+        }
+    }
+
+    private fun getDirectTargetIconDrawable(
+        userContext: Context,
+        icon: Icon?,
+        shortcutInfo: ShortcutInfo?,
+    ): Drawable {
+        return (if (icon != null) {
+            icon.loadDrawable(userContext)
+        } else if (shortcutInfo != null) {
+            userContext
+                .getSystemService<LauncherApps?>(LauncherApps::class.java)
+                ?.getShortcutIconDrawable(shortcutInfo, 0)
+        } else {
+            null
+        }) ?: return loadIconPlaceholder()
+    }
+
+    private fun getAppIcon(userContext: Context, targetComponentName: ComponentName): Bitmap? =
+        runCatching {
+                val info = userContext.getPackageManager().getActivityInfo(targetComponentName, 0)
+                presentationFactory.makePresentationGetter(info).getIconBitmap(null)
+            }
+            .onFailure { Log.e(TAG, "Could not find activity associated with ChooserTarget") }
+            .getOrNull()
 
     @AssistedFactory
     interface Factory {

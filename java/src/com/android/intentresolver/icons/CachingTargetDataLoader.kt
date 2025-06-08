@@ -27,6 +27,7 @@ import com.android.intentresolver.Flags.targetHoverAndKeyboardFocusStates
 import com.android.intentresolver.Flags.useResolveInfoUserHandle
 import com.android.intentresolver.chooser.DisplayResolveInfo
 import com.android.intentresolver.chooser.SelectableTargetInfo
+import com.android.launcher3.icons.FastBitmapDrawable
 import java.util.function.Consumer
 import javax.annotation.concurrent.GuardedBy
 import javax.inject.Qualifier
@@ -109,7 +110,7 @@ class CachingTargetDataLoader(
 
     private fun Bitmap.toDrawable(): Drawable {
         return if (targetHoverAndKeyboardFocusStates()) {
-            HoverBitmapDrawable(this)
+            FastBitmapDrawable(this)
         } else {
             BitmapDrawable(context.resources, this)
         }
@@ -118,7 +119,7 @@ class CachingTargetDataLoader(
     private fun Drawable.extractBitmap(): Bitmap? {
         return when (this) {
             is BitmapDrawable -> bitmap
-            is HoverBitmapDrawable -> bitmap
+            is FastBitmapDrawable -> bitmapInfo.icon
             else -> null
         }
     }

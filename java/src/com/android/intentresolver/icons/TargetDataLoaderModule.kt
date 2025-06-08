@@ -19,6 +19,8 @@ package com.android.intentresolver.icons
 import android.app.ActivityManager
 import android.content.Context
 import android.content.pm.PackageManager
+import android.graphics.drawable.Drawable
+import com.android.intentresolver.R
 import com.android.intentresolver.SimpleIconFactory
 import com.android.intentresolver.TargetPresentationGetter
 import dagger.Module
@@ -32,6 +34,11 @@ import javax.inject.Provider
 @Module
 @InstallIn(ActivityComponent::class)
 object TargetDataLoaderModule {
+    @Provides
+    @IconPlaceholder
+    fun iconPlaceholder(@ActivityContext context: Context): Drawable =
+        requireNotNull(context.getDrawable(R.drawable.resolver_icon_placeholder))
+
     @Provides
     fun simpleIconFactory(@ActivityContext context: Context): SimpleIconFactory =
         SimpleIconFactory.obtain(context)

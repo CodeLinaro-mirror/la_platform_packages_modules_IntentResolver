@@ -54,7 +54,7 @@ interface ShareResultSender {
 
 @AssistedFactory
 interface ShareResultSenderFactory {
-    fun create(callerUid: Int, chosenComponentSender: IntentSender): ShareResultSenderImpl
+    fun create(callerUid: Int, chosenComponentSender: IntentSender?): ShareResultSenderImpl
 }
 
 /** Dispatches Intents via IntentSender */
@@ -66,8 +66,8 @@ class ShareResultSenderImpl(
     @Main private val scope: CoroutineScope,
     @Background val backgroundDispatcher: CoroutineDispatcher,
     private val callerUid: Int,
-    private val resultSender: IntentSender,
-    private val intentDispatcher: IntentSenderDispatcher
+    private val resultSender: IntentSender?,
+    private val intentDispatcher: IntentSenderDispatcher,
 ) : ShareResultSender {
     @AssistedInject
     constructor(
@@ -75,21 +75,22 @@ class ShareResultSenderImpl(
         @Main scope: CoroutineScope,
         @Background backgroundDispatcher: CoroutineDispatcher,
         @Assisted callerUid: Int,
-        @Assisted chosenComponentSender: IntentSender,
+        @Assisted chosenComponentSender: IntentSender?,
     ) : this(
         scope,
         backgroundDispatcher,
         callerUid,
         chosenComponentSender,
-        IntentSenderDispatcher { sender, intent -> sender.dispatchIntent(context, intent) }
+        IntentSenderDispatcher { sender, intent -> sender.dispatchIntent(context, intent) },
     )
 
     override fun onComponentSelected(
         component: ComponentName,
         directShare: Boolean,
-        crossProfile: Boolean
+        crossProfile: Boolean,
     ) {
         Log.i(TAG, "onComponentSelected: $component directShare=$directShare cross=$crossProfile")
+        resultSender ?: return
         scope.launch {
             val intent = createChosenComponentIntent(component, directShare, crossProfile)
             intent?.let { intentDispatcher.dispatchIntent(resultSender, it) }
@@ -98,13 +99,15 @@ class ShareResultSenderImpl(
 
     override fun onActionSelected(action: ShareAction) {
         Log.i(TAG, "onActionSelected: $action")
-        scope.launch {
-            if (chooserResultSupported(callerUid)) {
-                @ResultType val chosenAction = shareActionToChooserResult(action)
-                val intent: Intent = createSelectedActionIntent(chosenAction)
-                intentDispatcher.dispatchIntent(resultSender, intent)
-            } else {
-                Log.i(TAG, "Not sending SelectedAction")
+        resultSender?.let {
+            scope.launch {
+                if (chooserResultSupported(callerUid)) {
+                    @ResultType val chosenAction = shareActionToChooserResult(action)
+                    val intent: Intent = createSelectedActionIntent(chosenAction)
+                    intentDispatcher.dispatchIntent(resultSender, intent)
+                } else {
+                    Log.i(TAG, "Not sending SelectedAction")
+                }
             }
         }
     }
@@ -120,7 +123,7 @@ class ShareResultSenderImpl(
                 return Intent()
                     .putExtra(
                         Intent.EXTRA_CHOOSER_RESULT,
-                        ChooserResult(CHOOSER_RESULT_UNKNOWN, null, direct)
+                        ChooserResult(CHOOSER_RESULT_UNKNOWN, null, direct),
                     )
             } else {
                 // Add extra with component name for backwards compatibility.
@@ -129,7 +132,7 @@ class ShareResultSenderImpl(
                 // Add ChooserResult value for Android V+
                 intent.putExtra(
                     Intent.EXTRA_CHOOSER_RESULT,
-                    ChooserResult(CHOOSER_RESULT_SELECTED_COMPONENT, component, direct)
+                    ChooserResult(CHOOSER_RESULT_SELECTED_COMPONENT, component, direct),
                 )
                 return intent
             }
@@ -173,7 +176,7 @@ private fun IntentSender.dispatchIntent(context: Context, intent: Intent) {
             /* code = */ Activity.RESULT_OK,
             /* intent = */ intent,
             /* onFinished = */ null,
-            /* handler = */ null
+            /* handler = */ null,
         )
     } catch (e: IntentSender.SendIntentException) {
         Log.e(TAG, "Failed to send intent to IntentSender", e)
