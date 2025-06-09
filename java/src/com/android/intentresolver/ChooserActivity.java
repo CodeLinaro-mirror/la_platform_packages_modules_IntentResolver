@@ -222,7 +222,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
 
     private int mLayoutId;
     private UserHandle mHeaderCreatorUser;
-    private boolean mRegistered;
+    private boolean mPackageMonitorsRegistered;
     private PackageMonitor mPersonalPackageMonitor;
     private PackageMonitor mWorkPackageMonitor;
 
@@ -385,12 +385,12 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         attrs.privateFlags &= ~SYSTEM_FLAG_HIDE_NON_SYSTEM_OVERLAY_WINDOWS;
         window.setAttributes(attrs);
 
-        if (mRegistered) {
+        if (mPackageMonitorsRegistered) {
             mPersonalPackageMonitor.unregister();
             if (mWorkPackageMonitor != null) {
                 mWorkPackageMonitor.unregister();
             }
-            mRegistered = false;
+            mPackageMonitorsRegistered = false;
         }
         final Intent intent = getIntent();
         if ((intent.getFlags() & FLAG_ACTIVITY_NEW_TASK) != 0 && !isVoiceInteraction()
@@ -437,7 +437,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
             return;
         }
 
-        if (!mRegistered) {
+        if (!mPackageMonitorsRegistered) {
             mPersonalPackageMonitor.register(
                     this,
                     getMainLooper(),
@@ -454,7 +454,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                         mProfiles.getWorkHandle(),
                         false);
             }
-            mRegistered = true;
+            mPackageMonitorsRegistered = true;
         }
         mChooserMultiProfilePagerAdapter.getActiveListAdapter().handlePackagesChanged();
     }
@@ -554,7 +554,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                         false
                 );
             }
-            mRegistered = true;
+            mPackageMonitorsRegistered = true;
             final ResolverDrawerLayout rdl = findViewById(
                     com.android.internal.R.id.contentPanel);
             if (rdl != null) {
@@ -944,8 +944,14 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
             mChooserMultiProfilePagerAdapter.getPageAdapterForIndex(i)
                     .getListAdapter().setAnimateItems(false);
         }
-        if (mPersonalPackageMonitor != null) {
-            mPersonalPackageMonitor.unregister();
+
+        if (mPackageMonitorsRegistered) {
+            if (mPersonalPackageMonitor != null) {
+                mPersonalPackageMonitor.unregister();
+            }
+            if (mWorkPackageMonitor != null) {
+                mWorkPackageMonitor.unregister();
+            }
         }
         mPersonalPackageMonitor = createPackageMonitor(
                 mChooserMultiProfilePagerAdapter.getPersonalListAdapter());
@@ -955,9 +961,6 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                 mProfiles.getPersonalHandle(),
                 false);
         if (mProfiles.getWorkProfilePresent()) {
-            if (mWorkPackageMonitor != null) {
-                mWorkPackageMonitor.unregister();
-            }
             mWorkPackageMonitor = createPackageMonitor(
                     mChooserMultiProfilePagerAdapter.getWorkListAdapter());
             mWorkPackageMonitor.register(
@@ -966,6 +969,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                     mProfiles.getWorkHandle(),
                     false);
         }
+        mPackageMonitorsRegistered = true;
         postRebuildList(
                 mChooserMultiProfilePagerAdapter.rebuildTabs(
                     mProfiles.getWorkProfilePresent() || mProfiles.getPrivateProfilePresent()));
@@ -1017,7 +1021,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
     //////////////////////////////////////////////////////////////////////////////////////////////
 
     private boolean isAutolaunching() {
-        return !mRegistered && isFinishing();
+        return !mPackageMonitorsRegistered && isFinishing();
     }
 
     private boolean maybeAutolaunchIfSingleTarget() {
@@ -1241,14 +1245,14 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
             TargetInfo cti, UserHandle user, @Nullable Bundle options) {
         // If the target is suspended, the activity will not be successfully launched.
         // Do not unregister from package manager updates in this case
-        if (!cti.isSuspended() && mRegistered) {
+        if (!cti.isSuspended() && mPackageMonitorsRegistered) {
             if (mPersonalPackageMonitor != null) {
                 mPersonalPackageMonitor.unregister();
             }
             if (mWorkPackageMonitor != null) {
                 mWorkPackageMonitor.unregister();
             }
-            mRegistered = false;
+            mPackageMonitorsRegistered = false;
         }
         // If needed, show that intent is forwarded
         // from managed profile to owner or other way around.
