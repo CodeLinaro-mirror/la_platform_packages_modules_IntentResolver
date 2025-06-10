@@ -486,9 +486,6 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         mViewModel = new ViewModelProvider(this).get(ChooserViewModel.class);
         mRequest = mViewModel.getRequest().getValue();
         mActivityModel = mViewModel.getActivityModel();
-        if (isInteractiveSession()) {
-            maybeUpdateColorScheme();
-        }
 
         mProfiles =  new ProfileHelper(
                 mUserInteractor,
@@ -733,33 +730,6 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
             configureInteractiveSessionWindow();
             updateInteractiveArea();
         }
-    }
-
-    private void maybeUpdateColorScheme() {
-        if (!isInteractiveSession()) {
-            Log.wtf(TAG, "This method should be called for an interactive session");
-            return;
-        }
-        final boolean shouldUseNightMode = switch (mRequest.getColorScheme()) {
-            case SystemDefault ->
-                    // apparently, updating color scheme for an activity invocation can affect
-                    // consequent activity invocations; restore the value from the application
-                    // configuration.
-                    getApplicationContext().getResources().getConfiguration().isNightModeActive();
-            case Dark -> true;
-            case Light -> false;
-        };
-        Configuration currentConfig = getResources().getConfiguration();
-        boolean isNightMode = currentConfig.isNightModeActive();
-        if (isNightMode == shouldUseNightMode) {
-            return;
-        }
-        Configuration newConfig = new Configuration(currentConfig);
-        int nightModeConfig = shouldUseNightMode
-                ? Configuration.UI_MODE_NIGHT_YES
-                : Configuration.UI_MODE_NIGHT_NO;
-        newConfig.uiMode = (~Configuration.UI_MODE_NIGHT_MASK & newConfig.uiMode) | nightModeConfig;
-        getResources().updateConfiguration(newConfig, getResources().getDisplayMetrics());
     }
 
     private void launchImageEditor(TargetInfo editorTargetInfo) {
