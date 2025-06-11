@@ -702,10 +702,10 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                 mResolverDrawerLayout.addOnLayoutChangeListener(this::handleLayoutChange);
             }
 
-            mResolverDrawerLayout.setOnCollapsedChangedListener(
-                    isCollapsed -> {
-                        mChooserMultiProfilePagerAdapter.setIsCollapsed(isCollapsed);
-                        getEventLog().logSharesheetExpansionChanged(isCollapsed);
+            mResolverDrawerLayout.setOnExpandedChangedListener(
+                    isExpanded -> {
+                        mChooserMultiProfilePagerAdapter.setIsCollapsed(!isExpanded);
+                        getEventLog().logSharesheetExpansionChanged(!isExpanded);
                     });
         }
         if (DEBUG) {
