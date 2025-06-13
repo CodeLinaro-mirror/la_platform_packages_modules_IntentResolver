@@ -20,32 +20,41 @@ package com.android.intentresolver.widget
 
 import android.graphics.Rect
 import android.view.View
-import android.view.ViewGroup.MarginLayoutParams
+import androidx.core.view.isGone
 
-fun ResolverDrawerLayout.getVisibleDrawerRect(outRect: Rect) {
-    if (!isLaidOut) {
-        outRect.set(0, 0, 0, 0)
-        return
-    }
-    val firstChild = firstNonGoneChild()
-    val lp = firstChild?.layoutParams as? MarginLayoutParams
-    val margin = lp?.topMargin ?: 0
-    val top = maxOf(paddingTop, topOffset + margin)
-    val leftEdge = paddingLeft
-    val rightEdge = width - paddingRight
-    val widthAvailable = rightEdge - leftEdge
-    val childWidth = firstChild?.width ?: 0
-    val left = leftEdge + (widthAvailable - childWidth) / 2
-    val right = left + childWidth
-    outRect.set(left, top, right, height - paddingBottom)
+private val defaultViewBoundsInParentProvider: View.(Rect) -> Unit = { rect ->
+    rect.set(left, top, right, bottom)
 }
 
-fun ResolverDrawerLayout.firstNonGoneChild(): View? {
-    for (i in 0 until childCount) {
-        val view = getChildAt(i)
-        if (view.visibility != View.GONE) {
-            return view
-        }
+@JvmOverloads
+fun ResolverDrawerLayout.getVisibleBoundsInWindow(
+    outRect: Rect,
+    viewBoundsInParentProvider: View.(Rect) -> Unit = defaultViewBoundsInParentProvider,
+) {
+    outRect.set(0, 0, 0, 0)
+    if (!isLaidOut) {
+        return
     }
-    return null
+    var minL = Int.MAX_VALUE
+    var minT = Int.MAX_VALUE
+    var maxR = Int.MIN_VALUE
+    var maxB = Int.MIN_VALUE
+    for (i in 0 until childCount) {
+        val child = getChildAt(i)
+        if (child.isGone) continue
+        // get each child's position relative to the parent instead of calling `getBoundsInWindow`
+        // (as it traverses the view hierarchy up).
+        child.viewBoundsInParentProvider(outRect)
+        minL = minOf(minL, outRect.left)
+        minT = minOf(minT, outRect.top)
+        maxR = maxOf(maxR, outRect.right)
+        maxB = maxOf(maxB, outRect.bottom)
+    }
+    getBoundsInWindow(outRect, true)
+    outRect.set(
+        maxOf(outRect.left, minL + outRect.left),
+        maxOf(outRect.top, minT + outRect.top),
+        minOf(outRect.right, maxR + outRect.left),
+        minOf(outRect.bottom, maxB + outRect.top),
+    )
 }
