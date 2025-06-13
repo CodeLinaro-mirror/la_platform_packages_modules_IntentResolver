@@ -25,6 +25,7 @@ import static androidx.lifecycle.LifecycleKt.getCoroutineScope;
 
 import static com.android.intentresolver.ChooserActionFactory.EDIT_SOURCE;
 import static com.android.intentresolver.Flags.delayDrawerOffsetCalculation;
+import static com.android.intentresolver.Flags.launchEditorAsCurrentUser;
 import static com.android.intentresolver.Flags.rebuildAdaptersOnTargetPinning;
 import static com.android.intentresolver.Flags.refineSystemActions;
 import static com.android.intentresolver.Flags.sharesheetEscExit;
@@ -741,12 +742,14 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                     this, imageViewForTransition, ChooserActionFactory.IMAGE_EDITOR_SHARED_ELEMENT);
             safelyStartActivityAsUser(
                     editorTargetInfo,
-                    mProfiles.getPersonalHandle(),
+                    launchEditorAsCurrentUser() ? mUserInteractor.getLaunchedAs()
+                            : mProfiles.getPersonalHandle(),
                     options.toBundle());
         } else {
             safelyStartActivityAsUser(
                     editorTargetInfo,
-                    mProfiles.getPersonalHandle()
+                    launchEditorAsCurrentUser() ? mUserInteractor.getLaunchedAs()
+                            : mProfiles.getPersonalHandle()
             );
         }
         finish();
