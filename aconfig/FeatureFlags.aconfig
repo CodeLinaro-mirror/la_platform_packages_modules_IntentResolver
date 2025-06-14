@@ -105,3 +105,13 @@ flag {
     purpose: PURPOSE_BUGFIX
   }
 }
+
+flag {
+  name: "launch_editor_as_current_user"
+  namespace: "intentresolver"
+    description: "Launch the image editor as the current user instead of always-personal"
+    bug: "407991863"
+    metadata {
+      purpose: PURPOSE_BUGFIX
+    }
+}
