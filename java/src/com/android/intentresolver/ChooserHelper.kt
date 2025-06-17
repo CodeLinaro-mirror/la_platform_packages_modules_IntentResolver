@@ -19,6 +19,7 @@ package com.android.intentresolver
 import android.app.Activity
 import android.os.UserHandle
 import android.provider.Settings
+import android.service.chooser.Flags.interactiveChooser
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.viewModels
@@ -27,7 +28,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
-import com.android.intentresolver.Flags.interactiveSession
 import com.android.intentresolver.annotation.JavaInterop
 import com.android.intentresolver.contentpreview.ContentPreviewType.CONTENT_PREVIEW_PAYLOAD_SELECTION
 import com.android.intentresolver.contentpreview.payloadtoggle.data.repository.ActivityResultRepository
@@ -103,7 +103,7 @@ constructor(
     var onChooserRequestChanged: Consumer<ChooserRequest> = Consumer {}
     /** Invoked when there are a new change to payload selection */
     var onPendingSelection: Runnable = Runnable {}
-    var onHasSelections: Consumer<Boolean> = Consumer {}
+    var onTargetEnabled: Consumer<Boolean> = Consumer {}
 
     init {
         activity.lifecycle.addObserver(this)
@@ -165,13 +165,24 @@ constructor(
                         viewModel.previewDataProvider.previewType ==
                             CONTENT_PREVIEW_PAYLOAD_SELECTION
                     ) {
-                        viewModel.shareouselViewModel.hasSelectedItems.stateIn(scope = this).also {
-                            flow ->
-                            launch { flow.collect { onHasSelections.accept(it) } }
-                        }
+                        viewModel.shareouselViewModel.hasSelectedItems.stateIn(scope = this)
                     } else {
                         MutableStateFlow(true).asStateFlow()
                     }
+                launch {
+                    if (interactiveChooser()) {
+                            hasSelectionFlow
+                                .combine(viewModel.interactiveSessionInteractor.isTargetEnabled) {
+                                    hasSelection,
+                                    isEnabled ->
+                                    hasSelection && isEnabled
+                                }
+                                .distinctUntilChanged()
+                        } else {
+                            hasSelectionFlow
+                        }
+                        .collect { onTargetEnabled.accept(it) }
+                }
                 val requestControlFlow =
                     hasSelectionFlow
                         .combine(hasPendingIntentFlow) { hasSelections, hasPendingIntent ->
@@ -188,7 +199,7 @@ constructor(
             }
         }
 
-        if (interactiveSession()) {
+        if (interactiveChooser()) {
             activity.lifecycleScope.launch {
                 viewModel.interactiveSessionInteractor.isSessionActive
                     .filter { !it }

@@ -141,6 +141,7 @@ public class ChooserListAdapter extends ResolverListAdapter {
      * Yeah.
      */
     private boolean mAppTargetsReady = false;
+    private boolean mIsInitialAppTargetLoad = true;
 
     // For pinned direct share labels, if the text spans multiple lines, the TextView will consume
     // the full width, even if the characters actually take up less than that. Measure the actual
@@ -334,6 +335,15 @@ public class ChooserListAdapter extends ResolverListAdapter {
      */
     public final boolean areAppTargetsReady() {
         return mAppTargetsReady;
+    }
+
+    public final boolean isInitialAppTargetLoad() {
+        return mIsInitialAppTargetLoad;
+    }
+
+    private void markAppTargetsLoaded() {
+        mAppTargetsReady = true;
+        mIsInitialAppTargetLoad = false;
     }
 
     /**
@@ -561,7 +571,7 @@ public class ChooserListAdapter extends ResolverListAdapter {
         if (getDisplayResolveInfoCount() == 0) {
             Log.d(TAG, "getDisplayResolveInfoCount() == 0");
             if (rebuildComplete) {
-                mAppTargetsReady = true;
+                markAppTargetsLoaded();
                 onCompleted.run();
             }
             notifyDataSetChanged();
@@ -630,7 +640,7 @@ public class ChooserListAdapter extends ResolverListAdapter {
             protected void onPostExecute(List<DisplayResolveInfo> newList) {
                 mSortedList.clear();
                 mSortedList.addAll(newList);
-                mAppTargetsReady = true;
+                markAppTargetsLoaded();
                 notifyDataSetChanged();
                 onCompleted.run();
             }

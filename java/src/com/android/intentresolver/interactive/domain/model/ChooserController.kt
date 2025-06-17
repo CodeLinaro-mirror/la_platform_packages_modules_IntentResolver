@@ -21,16 +21,35 @@ import android.service.chooser.IChooserController
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.map
 
 private val NotSet = Intent()
 
-class ChooserIntentUpdater : IChooserController.Stub() {
+class ChooserController : IChooserController.Stub() {
     private val updates = MutableStateFlow<Intent?>(NotSet)
+    private val _targetStatusFlow = MutableStateFlow(TargetStatus.NotSet)
 
     val chooserIntent: Flow<Intent?>
         get() = updates.filter { it !== NotSet }
 
+    val targetStatusFlow: Flow<Boolean> =
+        _targetStatusFlow.filter { it != TargetStatus.NotSet }.map { it == TargetStatus.Enabled }
+
     override fun updateIntent(chooserIntent: Intent?) {
         updates.value = chooserIntent
+    }
+
+    override fun collapse() {
+        // TODO (b/404593897)
+    }
+
+    override fun setTargetsEnabled(isEnabled: Boolean) {
+        _targetStatusFlow.value = if (isEnabled) TargetStatus.Enabled else TargetStatus.Disabled
+    }
+
+    private enum class TargetStatus {
+        NotSet,
+        Enabled,
+        Disabled,
     }
 }
