@@ -105,6 +105,8 @@ constructor(
     var onPendingSelection: Runnable = Runnable {}
     var onTargetEnabled: Consumer<Boolean> = Consumer {}
 
+    var onMinimizeDrawerRequested: Consumer<Boolean> = Consumer {}
+
     init {
         activity.lifecycle.addObserver(this)
     }
@@ -204,6 +206,11 @@ constructor(
                 viewModel.interactiveSessionInteractor.isSessionActive
                     .filter { !it }
                     .collect { activity.finish() }
+            }
+            activity.lifecycleScope.launch {
+                for (isMinimized in viewModel.interactiveSessionInteractor.minimizeRequests) {
+                    onMinimizeDrawerRequested.accept(isMinimized)
+                }
             }
         }
     }

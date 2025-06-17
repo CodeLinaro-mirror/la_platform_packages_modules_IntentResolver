@@ -18,6 +18,7 @@ package com.android.intentresolver.interactive.domain.model
 
 import android.content.Intent
 import android.service.chooser.IChooserController
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.filter
@@ -34,13 +35,14 @@ class ChooserController : IChooserController.Stub() {
 
     val targetStatusFlow: Flow<Boolean> =
         _targetStatusFlow.filter { it != TargetStatus.NotSet }.map { it == TargetStatus.Enabled }
+    val minimizeRequests = Channel<Boolean>()
 
     override fun updateIntent(chooserIntent: Intent?) {
         updates.value = chooserIntent
     }
 
-    override fun collapse() {
-        // TODO (b/404593897)
+    override fun setMinimized(isMinimized: Boolean) {
+        minimizeRequests.trySend(isMinimized)
     }
 
     override fun setTargetsEnabled(isEnabled: Boolean) {
