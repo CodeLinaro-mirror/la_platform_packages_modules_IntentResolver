@@ -31,12 +31,10 @@ import android.net.Uri
 import android.platform.test.annotations.DisableFlags
 import android.platform.test.annotations.EnableFlags
 import android.platform.test.flag.junit.SetFlagsRule
-import android.service.chooser.Flags.FLAG_INTERACTIVE_CHOOSER
 import androidx.core.net.toUri
 import androidx.core.os.bundleOf
 import com.android.intentresolver.ContentTypeHint
 import com.android.intentresolver.data.model.ChooserRequest
-import com.android.intentresolver.data.model.ColorScheme
 import com.android.intentresolver.shared.model.ActivityModel
 import com.android.intentresolver.validation.Importance
 import com.android.intentresolver.validation.Invalid
@@ -52,13 +50,11 @@ private fun createActivityModel(
     referrer: Uri? = null,
     additionalIntents: List<Intent>? = null,
     launchedFromPackage: String = "com.android.example",
-    colorScheme: Int? = null,
 ) =
     ActivityModel(
         Intent(ACTION_CHOOSER).apply {
             targetIntent?.also { putExtra(EXTRA_INTENT, it) }
             additionalIntents?.also { putExtra(EXTRA_ALTERNATE_INTENTS, it.toTypedArray()) }
-            colorScheme?.let { putExtra(EXTRA_CHOOSER_COLOR_SCHEME, it) }
         },
         launchedFromUid = 10000,
         launchedFromPackage = launchedFromPackage,
@@ -317,44 +313,5 @@ class ChooserRequestTest {
         result as Valid<ChooserRequest>
 
         assertThat(result.value.callerAllowsTextToggle).isFalse()
-    }
-
-    @Test
-    @EnableFlags(FLAG_INTERACTIVE_CHOOSER)
-    fun testMissingColorScheme() {
-        val intent = Intent().putExtras(bundleOf(EXTRA_INTENT to Intent(ACTION_SEND)))
-        val model = createActivityModel(targetIntent = intent)
-        val result = readChooserRequest(model)
-
-        assertThat(result).isInstanceOf(Valid::class.java)
-        assertThat((result as Valid<ChooserRequest>).value.colorScheme)
-            .isEqualTo(ColorScheme.SystemDefault)
-    }
-
-    @Test
-    @EnableFlags(FLAG_INTERACTIVE_CHOOSER)
-    fun testLightColorScheme() {
-        testColorScheme(provided = COLOR_SCHEME_LIGHT, expected = ColorScheme.Light)
-    }
-
-    @Test
-    @EnableFlags(FLAG_INTERACTIVE_CHOOSER)
-    fun testDarkColorScheme() {
-        testColorScheme(provided = COLOR_SCHEME_DARK, expected = ColorScheme.Dark)
-    }
-
-    @Test
-    @EnableFlags(FLAG_INTERACTIVE_CHOOSER)
-    fun testUnknownColorScheme() {
-        testColorScheme(provided = 100, expected = ColorScheme.SystemDefault)
-    }
-
-    private fun testColorScheme(provided: Int, expected: ColorScheme) {
-        val intent = Intent().putExtras(bundleOf(EXTRA_INTENT to Intent(ACTION_SEND)))
-        val model = createActivityModel(targetIntent = intent, colorScheme = provided)
-        val result = readChooserRequest(model)
-
-        assertThat(result).isInstanceOf(Valid::class.java)
-        assertThat((result as Valid<ChooserRequest>).value.colorScheme).isEqualTo(expected)
     }
 }
