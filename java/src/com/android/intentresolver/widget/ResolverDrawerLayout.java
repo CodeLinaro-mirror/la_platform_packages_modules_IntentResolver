@@ -83,17 +83,25 @@ public class ResolverDrawerLayout extends ViewGroup {
     private boolean mSmallCollapsed;
 
     /**
-     * Move views down from the top by this much in px
+     * Move views down from the top by this much in px.
+     * The value is in range [0, {@link #mCollapsibleHeight}] where 0 means that no content is
+     * pushed off-screen (the drawer is expanded) and {link #mCollapsibleHeight} means that the
+     * maximum amount of allowed space is pushed off the screen (the drawer is collapsed).
      */
     private float mCollapseOffset;
 
     /**
-      * Track fractions of pixels from drag calculations. Without this, the view offsets get
-      * out of sync due to frequently dropping fractions of a pixel from '(int) dy' casts.
-      */
+     * Track fractions of pixels from drag calculations. Without this, the view offsets get
+     * out of sync due to frequently dropping fractions of a pixel from '(int) dy' casts.
+     */
     private float mDragRemainder = 0.0f;
+    /** The total height of the drawer (not the view! i.e. the visible drawer) */
     private int mHeightUsed;
+    /** A portion of the drawer total height {@link #mHeightUsed} that can be pushed off-screen. */
     private int mCollapsibleHeight;
+    /**
+     * A portion of the drawer total height {@link #mHeightUsed} that can not be pushed off-screen.
+     */
     private int mAlwaysShowHeight;
 
     /**
@@ -120,7 +128,7 @@ public class ResolverDrawerLayout extends ViewGroup {
 
     private OnDismissedListener mOnDismissedListener;
     private RunOnDismissedListener mRunOnDismissedListener;
-    private OnCollapsedChangedListener mOnCollapsedChangedListener;
+    private OnExpandedChangedListener mOnExpandedChangedListener;
 
     private boolean mDismissLocked;
 
@@ -225,8 +233,12 @@ public class ResolverDrawerLayout extends ViewGroup {
         return mSmallCollapsed;
     }
 
-    public boolean isCollapsed() {
-        return mCollapseOffset > 0;
+    public boolean isExpanded() {
+        return mCollapseOffset == 0;
+    }
+
+    private boolean isCollapsed() {
+        return mCollapseOffset == mCollapsibleHeight;
     }
 
     public void setShowAtTop(boolean showOnTop) {
@@ -318,7 +330,7 @@ public class ResolverDrawerLayout extends ViewGroup {
         }
 
         if (isLaidOut()) {
-            final boolean isCollapsedOld = mCollapseOffset != 0;
+            final boolean isExpandedOld = isExpanded();
             if (remainClosed && (oldCollapsibleHeight < mCollapsibleHeight
                     && mCollapseOffset == oldCollapsibleHeight)) {
                 // Stay closed even at the new height.
@@ -326,12 +338,12 @@ public class ResolverDrawerLayout extends ViewGroup {
             } else {
                 setCollapseOffset(Math.min(mCollapseOffset, mCollapsibleHeight));
             }
-            final boolean isCollapsedNew = mCollapseOffset != 0;
-            if (isCollapsedOld != isCollapsedNew) {
+            final boolean isExpandedNew = isExpanded();
+            if (isExpandedOld != isExpandedNew) {
                 if (isInLayout()) {
-                    post(() -> onCollapsedChanged(isCollapsedNew));
+                    post(() -> onExpandedChanged(isExpandedNew));
                 } else {
-                    onCollapsedChanged(isCollapsedNew);
+                    onExpandedChanged(isExpandedNew);
                 }
             }
         } else {
@@ -363,8 +375,8 @@ public class ResolverDrawerLayout extends ViewGroup {
         return mOnDismissedListener != null && !mDismissLocked;
     }
 
-    public void setOnCollapsedChangedListener(OnCollapsedChangedListener listener) {
-        mOnCollapsedChangedListener = listener;
+    public void setOnExpandedChangedListener(OnExpandedChangedListener listener) {
+        mOnExpandedChangedListener = listener;
     }
 
     @Override
@@ -538,7 +550,7 @@ public class ResolverDrawerLayout extends ViewGroup {
                             smoothScrollTo(yvel < 0 ? 0 : mCollapsibleHeight, yvel);
                         }
                     }
-                }else {
+                } else {
                     smoothScrollTo(
                             mCollapseOffset < mCollapsibleHeight / 2 ? 0 : mCollapsibleHeight, 0);
                 }
@@ -662,15 +674,15 @@ public class ResolverDrawerLayout extends ViewGroup {
                     ignoreOffsetLimit = child.getBottom() + lp.bottomMargin;
                 }
             }
-            final boolean isCollapsedOld = mCollapseOffset != 0;
+            final boolean isExpandedOld = isExpanded();
             mCollapseOffset = newPos;
             mTopOffset += dy;
-            final boolean isCollapsedNew = newPos != 0;
-            if (isCollapsedOld != isCollapsedNew) {
-                onCollapsedChanged(isCollapsedNew);
+            final boolean isExpandedNew = isExpanded();
+            if (isExpandedOld != isExpandedNew) {
+                onExpandedChanged(isExpandedNew);
                 getMetricsLogger().write(
                         new LogMaker(MetricsEvent.ACTION_SHARESHEET_COLLAPSED_CHANGED)
-                        .setSubtype(isCollapsedNew ? 1 : 0));
+                        .setSubtype(isExpandedNew ? 0 : 1));
             }
             onScrollChanged(0, (int) newPos, 0, (int) (newPos - dy));
             postInvalidateOnAnimation();
@@ -679,16 +691,16 @@ public class ResolverDrawerLayout extends ViewGroup {
         return 0;
     }
 
-    private void onCollapsedChanged(boolean isCollapsed) {
+    private void onExpandedChanged(boolean isExpanded) {
         notifyViewAccessibilityStateChangedIfNeeded(
                 AccessibilityEvent.CONTENT_CHANGE_TYPE_UNDEFINED);
 
         if (mScrollIndicatorDrawable != null) {
-            setWillNotDraw(!isCollapsed);
+            setWillNotDraw(isExpanded);
         }
 
-        if (mOnCollapsedChangedListener != null) {
-            mOnCollapsedChangedListener.onCollapsedChanged(isCollapsed);
+        if (mOnExpandedChangedListener != null) {
+            mOnExpandedChangedListener.onExpandedChanged(isExpanded);
         }
     }
 
@@ -1200,7 +1212,7 @@ public class ResolverDrawerLayout extends ViewGroup {
                 final int bottom = indicatorHost.getTop();
                 final int top = bottom - mScrollIndicatorDrawable.getIntrinsicHeight();
                 mScrollIndicatorDrawable.setBounds(left, top, right, bottom);
-                setWillNotDraw(!isCollapsed());
+                setWillNotDraw(isExpanded());
             } else {
                 mScrollIndicatorDrawable = null;
                 setWillNotDraw(true);
@@ -1350,12 +1362,14 @@ public class ResolverDrawerLayout extends ViewGroup {
     /**
      * Listener for sheet collapsed / expanded events.
      */
-    public interface OnCollapsedChangedListener {
+    public interface OnExpandedChangedListener {
+        // TODO: generalize this to report all 4 states (i.e. a combination of isExpanded and
+        //  isCollapsed)
         /**
-         * Callback when the sheet is either fully expanded or collapsed.
-         * @param isCollapsed true when collapsed, false when expanded.
+         * Callback when the sheet is either gets or stop being fully expanded.
+         * @param isExpanded true when the drawer is fully expanded.
          */
-        void onCollapsedChanged(boolean isCollapsed);
+        void onExpandedChanged(boolean isExpanded);
     }
 
     /**
