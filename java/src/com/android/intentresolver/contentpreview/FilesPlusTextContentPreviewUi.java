@@ -23,7 +23,6 @@ import static com.android.intentresolver.contentpreview.ContentPreviewType.CONTE
 import android.content.res.Resources;
 import android.graphics.Typeface;
 import android.net.Uri;
-import android.text.util.Linkify;
 import android.util.PluralsMessageFormatter;
 import android.util.Size;
 import android.view.LayoutInflater;
@@ -226,7 +225,6 @@ class FilesPlusTextContentPreviewUi extends ContentPreviewUi {
         }
         CheckBox includeText = headlineView.requireViewById(R.id.include_text_action);
         boolean isLink = HttpUriMatcher.isHttpUri(mText.toString());
-        textView.setAutoLinkMask(isLink ? Linkify.WEB_URLS : 0);
         textView.setText(mText);
 
         final Consumer<Boolean> shareTextAction = actionFactory.getExcludeSharedTextAction();
