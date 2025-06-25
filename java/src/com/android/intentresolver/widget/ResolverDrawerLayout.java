@@ -18,6 +18,7 @@
 package com.android.intentresolver.widget;
 
 import static android.content.res.Resources.ID_NULL;
+import static android.service.chooser.Flags.interactiveChooser;
 
 import android.content.Context;
 import android.content.res.TypedArray;
@@ -280,14 +281,38 @@ public class ResolverDrawerLayout extends ViewGroup {
             }
         }
 
-        final int dReserved = mCollapsibleHeightReserved - oldReserved;
-        if (dReserved != 0 && mIsDragging) {
-            mLastTouchY -= dReserved;
-        }
-
+        final boolean wasCollapsed = isCollapsed();
         final int oldCollapsibleHeight = updateCollapsibleHeight();
-        if (updateCollapseOffset(oldCollapsibleHeight, !isDragging())) {
-            return;
+        if (interactiveChooser()) {
+            if (!isDragging() && oldCollapsibleHeight != mCollapsibleHeight) {
+                final boolean isExpandedOld = isExpanded();
+                float newCollapseOffset = constrainCollapseOffset(wasCollapsed);
+                final boolean isExpandedNew = isExpanded();
+                if (isExpandedOld != isExpandedNew) {
+                    if (isInLayout()) {
+                        post(() -> onExpandedChanged(isExpandedNew));
+                    } else {
+                        onExpandedChanged(isExpandedNew);
+                    }
+                }
+                if (newCollapseOffset == mCollapseOffset) {
+                    return;
+                }
+                if (isInLayout()) {
+                    mCollapseOffset = newCollapseOffset;
+                } else {
+                    smoothScrollTo((int) newCollapseOffset, 0);
+                }
+            }
+        } else {
+            final int dReserved = mCollapsibleHeightReserved - oldReserved;
+            if (dReserved != 0 && mIsDragging) {
+                mLastTouchY -= dReserved;
+            }
+
+            if (updateCollapseOffset(oldCollapsibleHeight, !isDragging())) {
+                return;
+            }
         }
 
         if (!isInLayout()) {
@@ -359,6 +384,27 @@ public class ResolverDrawerLayout extends ViewGroup {
                 requestLayout();
             }
         }
+    }
+
+    private float constrainCollapseOffset(boolean wasCollapsed) {
+        if (getShowAtTop()) {
+            // Keep the drawer fully open.
+            return 0f;
+        }
+
+        float newCollapseOffset;
+        if (isLaidOut()) {
+            if (wasCollapsed) {
+                // Stay closed even at the new height.
+                newCollapseOffset = mCollapsibleHeight;
+            } else {
+                newCollapseOffset = Math.min(mCollapseOffset, mCollapsibleHeight);
+            }
+        } else {
+            // Start out collapsed at first unless we restored state for otherwise
+            newCollapseOffset = mOpenOnLayout ? 0 : mCollapsibleHeight;
+        }
+        return newCollapseOffset;
     }
 
     private int getMaxCollapsedHeight() {
@@ -481,8 +527,10 @@ public class ResolverDrawerLayout extends ViewGroup {
                 if (!mIsDragging) {
                     final float dy = y - mInitialTouchY;
                     if (Math.abs(dy) > mTouchSlop && findChildUnder(x, y) != null) {
-                        handled = mIsDragging = true;
-                        mLastTouchY = Math.max(mLastTouchY - mTouchSlop,
+                        handled = true;
+                        mIsDragging = true;
+                        mLastTouchY = Math.max(
+                                mLastTouchY - mTouchSlop,
                                 Math.min(mLastTouchY + dy, mLastTouchY + mTouchSlop));
                     }
                 }
@@ -855,6 +903,7 @@ public class ResolverDrawerLayout extends ViewGroup {
             if (target instanceof RecyclerView) {
                 mNestedRecyclerChild = (RecyclerView) target;
             }
+            abortAnimation();
             return true;
         }
         return false;
@@ -1141,14 +1190,41 @@ public class ResolverDrawerLayout extends ViewGroup {
     }
 
     private void onLayoutInternal() {
+        final boolean isCollapsed = isCollapsed();
         int oldCollapsibleHeight = updateCollapsibleHeight();
-        updateCollapseOffset(oldCollapsibleHeight, !isDragging());
+        if (interactiveChooser()) {
+            if (!isDragging() && oldCollapsibleHeight != mCollapsibleHeight) {
+                final boolean isExpandedOld = isExpanded();
+                float newCollapseOffset = constrainCollapseOffset(isCollapsed);
+                final boolean isExpandedNew = isExpanded();
+                if (isExpandedOld != isExpandedNew) {
+                    post(() -> onExpandedChanged(isExpandedNew));
+                }
+                mCollapseOffset = newCollapseOffset;
+            } else if (isDragging() && !getShowAtTop() && isLaidOut()) {
+                // keep the drawer position intact after a layout while dragging
+                for (int i = 0, childCount = getChildCount(); i < childCount; i++) {
+                    View child = getChildAt(i);
+                    if (child.getVisibility() == View.GONE) {
+                        continue;
+                    }
+                    int oldTop = child.getTop();
+                    int newTop =
+                            calculateDrawerTop(getMeasuredHeight(), mHeightUsed, mCollapseOffset);
+                    int d = oldTop - newTop;
+                    mCollapseOffset += d;
+                    break;
+                }
+            }
+        } else {
+            updateCollapseOffset(oldCollapsibleHeight, !isDragging());
+        }
 
         int topOffset;
         if (getShowAtTop()) {
             topOffset = 0;
         } else {
-            topOffset = Math.max(0, getMeasuredHeight() - mHeightUsed) + (int) mCollapseOffset;
+            topOffset = calculateDrawerTop(getMeasuredHeight(), mHeightUsed, mCollapseOffset);
         }
 
         final int width = getWidth();
@@ -1217,6 +1293,10 @@ public class ResolverDrawerLayout extends ViewGroup {
                 setWillNotDraw(true);
             }
         }
+    }
+
+    private static int calculateDrawerTop(int viewHeight, int drawerHeight, float offset) {
+        return Math.max(0, viewHeight - drawerHeight) + (int) offset;
     }
 
     @Override
