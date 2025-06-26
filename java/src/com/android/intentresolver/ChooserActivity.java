@@ -28,7 +28,6 @@ import static com.android.intentresolver.Flags.delayDrawerOffsetCalculation;
 import static com.android.intentresolver.Flags.launchEditorAsCurrentUser;
 import static com.android.intentresolver.Flags.rebuildAdaptersOnTargetPinning;
 import static com.android.intentresolver.Flags.refineSystemActions;
-import static com.android.intentresolver.Flags.sharesheetEscExit;
 import static com.android.intentresolver.Flags.synchronousDrawerOffsetCalculation;
 import static com.android.intentresolver.ext.CreationExtrasExtKt.replaceDefaultArgs;
 import static com.android.intentresolver.profiles.MultiProfilePagerAdapter.PROFILE_PERSONAL;
@@ -757,7 +756,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
 
     @Override
     public boolean onKeyUp(int keyCode, KeyEvent event) {
-        if (sharesheetEscExit() && keyCode == KeyEvent.KEYCODE_ESCAPE) {
+        if (keyCode == KeyEvent.KEYCODE_ESCAPE) {
             finish();
             return true;
         }
