@@ -110,7 +110,6 @@ public class ResolverDrawerLayout extends ViewGroup {
      */
     private int mCollapsibleHeightReserved;
 
-    private int mTopOffset;
     private boolean mShowAtTop;
     @IdRes
     private int mIgnoreOffsetTopLimitViewId = ID_NULL;
@@ -676,7 +675,6 @@ public class ResolverDrawerLayout extends ViewGroup {
             }
             final boolean isExpandedOld = isExpanded();
             mCollapseOffset = newPos;
-            mTopOffset += dy;
             final boolean isExpandedNew = isExpanded();
             if (isExpandedOld != isExpandedNew) {
                 onExpandedChanged(isExpandedNew);
@@ -1146,17 +1144,18 @@ public class ResolverDrawerLayout extends ViewGroup {
         int oldCollapsibleHeight = updateCollapsibleHeight();
         updateCollapseOffset(oldCollapsibleHeight, !isDragging());
 
+        int topOffset;
         if (getShowAtTop()) {
-            mTopOffset = 0;
+            topOffset = 0;
         } else {
-            mTopOffset = Math.max(0, getMeasuredHeight() - mHeightUsed) + (int) mCollapseOffset;
+            topOffset = Math.max(0, getMeasuredHeight() - mHeightUsed) + (int) mCollapseOffset;
         }
 
         final int width = getWidth();
 
         View indicatorHost = null;
 
-        int ypos = mTopOffset;
+        int ypos = topOffset;
         final int leftEdge = getPaddingLeft();
         final int rightEdge = width - getPaddingRight();
         final int widthAvailable = rightEdge - leftEdge;
