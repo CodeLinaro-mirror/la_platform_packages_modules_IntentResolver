@@ -19,7 +19,7 @@
     <string name="whichApplication" msgid="2309561338625872614">"Что использовать?"</string>
     <string name="whichApplicationNamed" msgid="8514249643796783492">"Выполнить действие с помощью приложения \"<xliff:g id="APP">%1$s</xliff:g>\""</string>
     <string name="whichApplicationLabel" msgid="4312929689807826793">"Выполнить действие"</string>
-    <string name="whichViewApplication" msgid="7660051361612888119">"Открыть с помощью приложения:"</string>
+    <string name="whichViewApplication" msgid="7660051361612888119">"Открыть в приложении"</string>
     <string name="whichViewApplicationNamed" msgid="8231810543224200555">"Открыть с помощью приложения \"<xliff:g id="APP">%1$s</xliff:g>\""</string>
     <string name="whichViewApplicationLabel" msgid="9123647023323311663">"Открыть"</string>
     <string name="whichOpenHostLinksWith" msgid="6664206254809230738">"Открывать ссылки <xliff:g id="HOST">%1$s</xliff:g> с помощью:"</string>
