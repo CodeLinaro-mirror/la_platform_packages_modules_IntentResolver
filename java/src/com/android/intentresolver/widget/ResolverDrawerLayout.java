@@ -143,6 +143,9 @@ public class ResolverDrawerLayout extends ViewGroup {
     private RecyclerView mNestedRecyclerChild;
 
     @Nullable
+    private Runnable mOnInteractedListener;
+
+    @Nullable
     private final ScrollablePreviewFlingLogicDelegate mFlingLogicDelegate;
 
     private static final CollapsibleHeightReservedDelegate
@@ -272,6 +275,16 @@ public class ResolverDrawerLayout extends ViewGroup {
                 : delegate;
     }
 
+    public void setOnInteractedListener(@Nullable Runnable listener) {
+        mOnInteractedListener = listener;
+    }
+
+    private void notifyInteracted() {
+        if (mOnInteractedListener != null) {
+            mOnInteractedListener.run();
+        }
+    }
+
     public void setCollapsibleHeightReserved(int heightPixels) {
         final int oldReserved = mCollapsibleHeightReserved;
         mCollapsibleHeightReserved = heightPixels;
@@ -338,7 +351,7 @@ public class ResolverDrawerLayout extends ViewGroup {
         return mIsDragging || !mScroller.isFinished();
     }
 
-    private boolean isDragging() {
+    public boolean isDragging() {
         return mIsDragging || getNestedScrollAxes() == SCROLL_AXIS_VERTICAL;
     }
 
@@ -678,6 +691,9 @@ public class ResolverDrawerLayout extends ViewGroup {
     private float performDrag(float dy) {
         if (getShowAtTop()) {
             return 0;
+        }
+        if (isDragging()) {
+            notifyInteracted();
         }
 
         final float newPos = Math.max(0, Math.min(mCollapseOffset + dy, mHeightUsed));
