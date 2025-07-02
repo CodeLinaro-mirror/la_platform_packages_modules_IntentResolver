@@ -1,4 +1,5 @@
 package com.android.intentresolver.logging
+
 /*
  * Copyright (C) 2023 The Android Open Source Project
  *
@@ -29,7 +30,8 @@ internal data class ShareSheetStarted(
     val previewType: Int,
     val intentType: Int,
     val numCustomActions: Int,
-    val modifyShareActionProvided: Boolean
+    val modifyShareActionProvided: Boolean,
+    val isInteractiveMode: Boolean,
 )
 
 internal data class RankingSelected(
@@ -38,12 +40,13 @@ internal data class RankingSelected(
     val packageName: String?,
     val instanceId: Int,
     val positionPicked: Int,
-    val isPinned: Boolean
+    val isPinned: Boolean,
 )
 
 internal class FakeFrameworkStatsLogger : FrameworkStatsLogger {
     var shareSheetStarted: ShareSheetStarted? = null
     var rankingSelected: RankingSelected? = null
+
     override fun write(
         frameworkEventId: Int,
         appEventId: Int,
@@ -56,7 +59,8 @@ internal class FakeFrameworkStatsLogger : FrameworkStatsLogger {
         previewType: Int,
         intentType: Int,
         numCustomActions: Int,
-        modifyShareActionProvided: Boolean
+        modifyShareActionProvided: Boolean,
+        isInteractiveMode: Boolean,
     ) {
         shareSheetStarted =
             ShareSheetStarted(
@@ -71,16 +75,18 @@ internal class FakeFrameworkStatsLogger : FrameworkStatsLogger {
                 previewType,
                 intentType,
                 numCustomActions,
-                modifyShareActionProvided
+                modifyShareActionProvided,
+                isInteractiveMode,
             )
     }
+
     override fun write(
         frameworkEventId: Int,
         appEventId: Int,
         packageName: String?,
         instanceId: Int,
         positionPicked: Int,
-        isPinned: Boolean
+        isPinned: Boolean,
     ) {
         rankingSelected =
             RankingSelected(
@@ -89,7 +95,7 @@ internal class FakeFrameworkStatsLogger : FrameworkStatsLogger {
                 packageName,
                 instanceId,
                 positionPicked,
-                isPinned
+                isPinned,
             )
     }
 }
