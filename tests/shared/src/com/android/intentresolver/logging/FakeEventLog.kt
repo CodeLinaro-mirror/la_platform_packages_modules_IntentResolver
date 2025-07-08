@@ -31,6 +31,7 @@ class FakeEventLog @Inject constructor(private val instanceId: InstanceId) : Eve
     var chooserActivityShown: ChooserActivityShown? = null
     var actionSelected: ActionSelected? = null
     var customActionSelected: CustomActionSelected? = null
+    var shareStarted: ShareStarted? = null
     var actionShareWithPreview: ActionShareWithPreview? = null
     val shareTargetSelected: MutableList<ShareTargetSelected> = mutableListOf()
 
@@ -43,7 +44,7 @@ class FakeEventLog @Inject constructor(private val instanceId: InstanceId) : Eve
     override fun logChooserActivityShown(
         isWorkProfile: Boolean,
         targetMimeType: String?,
-        systemCost: Long
+        systemCost: Long,
     ) {
         chooserActivityShown = ChooserActivityShown(isWorkProfile, targetMimeType, systemCost)
         log { chooserActivityShown }
@@ -58,9 +59,10 @@ class FakeEventLog @Inject constructor(private val instanceId: InstanceId) : Eve
         previewType: Int,
         intent: String?,
         customActionCount: Int,
-        modifyShareActionProvided: Boolean
+        modifyShareActionProvided: Boolean,
+        isInteractiveMode: Boolean,
     ) {
-        log {
+        val event =
             ShareStarted(
                 packageName,
                 mimeType,
@@ -70,9 +72,11 @@ class FakeEventLog @Inject constructor(private val instanceId: InstanceId) : Eve
                 previewType,
                 intent,
                 customActionCount,
-                modifyShareActionProvided
+                modifyShareActionProvided,
+                isInteractiveMode,
             )
-        }
+        shareStarted = event
+        log { event }
     }
 
     override fun logCustomActionSelected(positionPicked: Int) {
@@ -89,7 +93,7 @@ class FakeEventLog @Inject constructor(private val instanceId: InstanceId) : Eve
         directTargetHashed: HashedStringCache.HashResult?,
         isPinned: Boolean,
         successfullySelected: Boolean,
-        selectionCost: Long
+        selectionCost: Long,
     ) {
         shareTargetSelected.add(
             ShareTargetSelected(
@@ -101,7 +105,7 @@ class FakeEventLog @Inject constructor(private val instanceId: InstanceId) : Eve
                 directTargetHashed,
                 isPinned,
                 successfullySelected,
-                selectionCost
+                selectionCost,
             )
         )
         log { shareTargetSelected.last() }
@@ -177,7 +181,7 @@ class FakeEventLog @Inject constructor(private val instanceId: InstanceId) : Eve
     data class ChooserActivityShown(
         val isWorkProfile: Boolean,
         val targetMimeType: String?,
-        val systemCost: Long
+        val systemCost: Long,
     )
 
     data class ShareStarted(
@@ -189,7 +193,8 @@ class FakeEventLog @Inject constructor(private val instanceId: InstanceId) : Eve
         val previewType: Int,
         val intent: String?,
         val customActionCount: Int,
-        val modifyShareActionProvided: Boolean
+        val modifyShareActionProvided: Boolean,
+        val isInteractiveMode: Boolean,
     )
 
     data class ShareTargetSelected(
@@ -201,6 +206,6 @@ class FakeEventLog @Inject constructor(private val instanceId: InstanceId) : Eve
         val directTargetHashed: HashedStringCache.HashResult?,
         val pinned: Boolean,
         val successfullySelected: Boolean,
-        val selectionCost: Long
+        val selectionCost: Long,
     )
 }

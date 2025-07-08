@@ -17,6 +17,7 @@
 package com.android.intentresolver;
 
 import static android.app.Activity.RESULT_OK;
+import static android.service.chooser.Flags.FLAG_INTERACTIVE_CHOOSER;
 
 import static androidx.test.espresso.Espresso.onView;
 import static androidx.test.espresso.action.ViewActions.click;
@@ -86,13 +87,18 @@ import android.graphics.Typeface;
 import android.graphics.drawable.Icon;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.RemoteException;
 import android.os.UserHandle;
+import android.platform.test.annotations.EnableFlags;
 import android.platform.test.flag.junit.CheckFlagsRule;
 import android.platform.test.flag.junit.DeviceFlagsValueProvider;
 import android.provider.DeviceConfig;
 import android.provider.Settings;
 import android.service.chooser.ChooserAction;
+import android.service.chooser.ChooserSession;
 import android.service.chooser.ChooserTarget;
+import android.service.chooser.IChooserController;
+import android.service.chooser.IChooserControllerCallback;
 import android.text.Spannable;
 import android.text.SpannableStringBuilder;
 import android.text.Spanned;
@@ -1390,6 +1396,58 @@ public class ChooserActivityTest {
         assertThat(eventLog.getActionShareWithPreview())
                 .isEqualTo(new FakeEventLog.ActionShareWithPreview(
                         /* previewType = */ CONTENT_PREVIEW_IMAGE));
+    }
+
+    @EnableFlags(FLAG_INTERACTIVE_CHOOSER)
+    @Test
+    public void testInteractiveSessionModeOnReported() {
+        testInteractiveSessionModeReported(true);
+    }
+
+    @Test
+    public void testInteractiveSessionModeOffReported() {
+        testInteractiveSessionModeReported(false);
+    }
+
+    private void testInteractiveSessionModeReported(boolean isInteractiveSession) {
+        Uri uri = createTestContentProviderUri("image/png", null);
+
+        ArrayList<Uri> uris = new ArrayList<>();
+        uris.add(uri);
+
+        Intent sendIntent = createSendUriIntentWithPreview(uris);
+        mFakeImageLoader.setBitmap(uri, createBitmap());
+
+        List<ResolvedComponentInfo> resolvedComponentInfos = createResolvedComponentsForTest(2);
+
+        setupResolverControllers(resolvedComponentInfos);
+        Intent chooserIntent = Intent.createChooser(sendIntent, null);
+        if (isInteractiveSession) {
+            IChooserControllerCallback sessionCallback = new IChooserControllerCallback.Stub() {
+                @Override
+                public void registerChooserController(IChooserController updater) {
+                }
+
+                @Override
+                public void onBoundsChanged(Rect bounds) throws RemoteException {
+                }
+
+                @Override
+                public void onClosed() throws RemoteException {
+                }
+            };
+            Bundle binderExtra = new Bundle();
+            binderExtra.putBinder(ChooserSession.EXTRA_CHOOSER_SESSION, sessionCallback.asBinder());
+            chooserIntent.putExtras(binderExtra);
+            chooserIntent.putExtra(ChooserWrapperActivity.TEST_PARAM_IS_TASK_ROOT_OVERRIDE, false);
+        }
+        ChooserWrapperActivity activity = mActivityRule.launchActivity(chooserIntent);
+        waitForIdle();
+
+        FakeEventLog eventLog = getEventLog(activity);
+        FakeEventLog.ShareStarted shareStartedEvent = eventLog.getShareStarted();
+        assertThat(shareStartedEvent).isNotNull();
+        assertThat(shareStartedEvent.isInteractiveMode()).isEqualTo(isInteractiveSession);
     }
 
     @Test
