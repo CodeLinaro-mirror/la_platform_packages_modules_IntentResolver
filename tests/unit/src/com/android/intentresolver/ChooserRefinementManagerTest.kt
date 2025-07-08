@@ -17,7 +17,9 @@
 package com.android.intentresolver
 
 import android.app.Activity
+import android.app.ActivityOptions
 import android.app.Application
+import android.content.Context
 import android.content.Intent
 import android.content.IntentSender
 import android.os.Bundle
@@ -37,7 +39,7 @@ import java.util.concurrent.TimeUnit
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.mockito.kotlin.any
+import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
@@ -99,11 +101,27 @@ class ChooserRefinementManagerTest {
             .isTrue()
 
         val intentCaptor = argumentCaptor<Intent>()
-        verify(intentSender).sendIntent(any(), eq(0), intentCaptor.capture(), eq(null), eq(null))
+        val optionsCaptor = argumentCaptor<Bundle>()
+        verify(intentSender)
+            .sendIntent(
+                anyOrNull<Context>(),
+                eq(0),
+                intentCaptor.capture(),
+                eq(null),
+                optionsCaptor.capture(),
+                eq(null),
+                eq(null),
+            )
 
         val intent = intentCaptor.firstValue
         assertThat(intent.getParcelableExtra(Intent.EXTRA_INTENT, Intent::class.java))
             .isEqualTo(exampleSourceIntents[0])
+
+        val options = optionsCaptor.firstValue
+        assertThat(
+                ActivityOptions.fromBundle(options).getPendingIntentBackgroundActivityStartMode()
+            )
+            .isEqualTo(ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED)
 
         val alternates =
             intent.getParcelableArrayExtra(Intent.EXTRA_ALTERNATE_INTENTS, Intent::class.java)
@@ -133,9 +151,24 @@ class ChooserRefinementManagerTest {
             .isTrue()
 
         val intentCaptor = argumentCaptor<Intent>()
-        verify(intentSender).sendIntent(any(), eq(0), intentCaptor.capture(), eq(null), eq(null))
+        val optionsCaptor = argumentCaptor<Bundle>()
+        verify(intentSender)
+            .sendIntent(
+                anyOrNull<Context>(),
+                eq(0),
+                intentCaptor.capture(),
+                eq(null),
+                optionsCaptor.capture(),
+                eq(null),
+                eq(null),
+            )
 
         val intent = intentCaptor.firstValue
+        val options = optionsCaptor.firstValue
+        assertThat(
+                ActivityOptions.fromBundle(options).getPendingIntentBackgroundActivityStartMode()
+            )
+            .isEqualTo(ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED)
 
         // Complete the refinement
         val receiver =

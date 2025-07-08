@@ -388,6 +388,8 @@ public final class ChooserActionFactory implements ChooserContentPreviewUi.Actio
                                                 context,
                                                 R.anim.slide_in_right,
                                                 R.anim.slide_out_left)
+                                        .setPendingIntentBackgroundActivityStartMode(
+                                            ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED)
                                         .toBundle());
                     } catch (PendingIntent.CanceledException e) {
                         Log.d(TAG, "Custom action, " + action.getLabel() + ", has been cancelled");
