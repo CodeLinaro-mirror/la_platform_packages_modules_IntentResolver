@@ -1906,6 +1906,39 @@
     </issue>
 
     <issue
+        id="RunBlockingUsage"
+        message="Importing com.android.app.tracing.coroutines.runBlockingTraced is not allowed."
+        errorLine1="import com.android.app.tracing.coroutines.runBlockingTraced as runBlocking"
+        errorLine2="~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="packages/modules/IntentResolver/java/src/com/android/intentresolver/contentpreview/PreviewDataProvider.kt"
+            line="31"
+            column="1"/>
+    </issue>
+
+    <issue
+        id="RunBlockingUsage"
+        message="Importing com.android.app.tracing.coroutines.runBlockingTraced is not allowed."
+        errorLine1="import com.android.app.tracing.coroutines.runBlockingTraced as runBlocking"
+        errorLine2="~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="packages/modules/IntentResolver/java/src/com/android/intentresolver/ProfileAvailability.kt"
+            line="20"
+            column="1"/>
+    </issue>
+
+    <issue
+        id="RunBlockingUsage"
+        message="Importing com.android.app.tracing.coroutines.runBlockingTraced is not allowed."
+        errorLine1="import com.android.app.tracing.coroutines.runBlockingTraced as runBlocking"
+        errorLine2="~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="packages/modules/IntentResolver/java/src/com/android/intentresolver/ProfileHelper.kt"
+            line="21"
+            column="1"/>
+    </issue>
+
+    <issue
         id="SharedFlowCreation"
         message="`MutableSharedFlow()` creates a new shared flow, which has poor performance characteristics"
         errorLine1="        MutableSharedFlow&lt;FileInfo>(replay = records.size).apply {"
