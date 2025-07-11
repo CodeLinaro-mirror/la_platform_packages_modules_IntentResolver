@@ -77,16 +77,6 @@ flag {
 }
 
 flag {
-  name: "sharesheet_esc_exit"
-  namespace: "intentresolver"
-  description: "Whether to ESC exits sharesheet"
-  bug: "409766579"
-  metadata {
-    purpose: PURPOSE_BUGFIX
-  }
-}
-
-flag {
   name: "use_google_sans_flex"
   namespace: "intentresolver"
   description: "Use Google Sans Flex font."

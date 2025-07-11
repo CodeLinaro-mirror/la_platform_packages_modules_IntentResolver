@@ -407,6 +407,51 @@ class InteractiveSessionInteractorTest {
 
         assertThat(testSubject.isTargetEnabled.value).isTrue()
     }
+
+    @Test
+    fun setMinimizedReceived_minimizeRequestsUpdated() = runTest {
+        val chooserRequestRepository =
+            ChooserRequestRepository(
+                initialRequest =
+                    ChooserRequest(
+                        targetIntent = Intent(ACTION_SEND),
+                        interactiveSessionCallback = interactiveSessionCallback,
+                        launchedFromPackage = activityModelRepo.value.launchedFromPackage,
+                    ),
+                initialActions = emptyList(),
+            )
+        val testSubject =
+            InteractiveSessionInteractor(
+                activityModelRepo = activityModelRepo,
+                chooserRequestRepository = chooserRequestRepository,
+                pendingSelectionCallbackRepo,
+                interactiveCallbackRepo,
+            )
+
+        backgroundScope.launch { testSubject.activate() }
+        testScheduler.runCurrent()
+
+        assertThat(interactiveSessionCallback.registeredChooserController).hasSize(1)
+        val chooserController = interactiveSessionCallback.registeredChooserController[0]!!
+
+        val minimizeRequestsReceived = mutableListOf<Boolean>()
+        val collapseRequestJob = launch {
+            for (isMinimized in testSubject.minimizeRequests) {
+                minimizeRequestsReceived.add(isMinimized)
+            }
+        }
+        chooserController.setMinimized(true)
+        testScheduler.runCurrent()
+
+        assertThat(minimizeRequestsReceived).containsExactly(true)
+
+        chooserController.setMinimized(false)
+        testScheduler.runCurrent()
+
+        assertThat(minimizeRequestsReceived).containsExactly(true, false)
+
+        collapseRequestJob.cancel()
+    }
 }
 
 private class FakeChooserControllerCallback : IChooserControllerCallback, IBinder, IInterface {

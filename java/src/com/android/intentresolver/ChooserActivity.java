@@ -28,7 +28,6 @@ import static com.android.intentresolver.Flags.delayDrawerOffsetCalculation;
 import static com.android.intentresolver.Flags.launchEditorAsCurrentUser;
 import static com.android.intentresolver.Flags.rebuildAdaptersOnTargetPinning;
 import static com.android.intentresolver.Flags.refineSystemActions;
-import static com.android.intentresolver.Flags.sharesheetEscExit;
 import static com.android.intentresolver.Flags.synchronousDrawerOffsetCalculation;
 import static com.android.intentresolver.ext.CreationExtrasExtKt.replaceDefaultArgs;
 import static com.android.intentresolver.profiles.MultiProfilePagerAdapter.PROFILE_PERSONAL;
@@ -228,6 +227,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
     private PackageMonitor mWorkPackageMonitor;
 
     protected ResolverDrawerLayout mResolverDrawerLayout;
+    private DrawerCollapseReservedHeightDelegate mDrawerOffsetDelegate;
     private TabHost mTabHost;
     private ResolverViewPager mViewPager;
     protected ChooserMultiProfilePagerAdapter mChooserMultiProfilePagerAdapter;
@@ -298,8 +298,6 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
     protected boolean mIsSuccessfullySelected;
 
     private int mCurrAvailableWidth = 0;
-    private Insets mLastAppliedInsets = null;
-    private int mLastNumberOfChildren = -1;
     private int mMaxTargetsPerRow = 1;
 
     private static final int MAX_LOG_RANK_POSITION = 12;
@@ -361,6 +359,9 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         mChooserHelper.setOnChooserRequestChanged(this::onChooserRequestChanged);
         mChooserHelper.setOnPendingSelection(this::onPendingSelection);
         mChooserHelper.setOnTargetEnabled(this::onTargetEnabledChanged);
+        if (interactiveChooser()) {
+            mChooserHelper.setOnMinimizeDrawerRequested(this::onMinimizeDrawerRequested);
+        }
     }
 
     @Override
@@ -575,6 +576,10 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                 rdl.setOnApplyWindowInsetsListener(this::onApplyWindowInsets);
 
                 mResolverDrawerLayout = rdl;
+                mDrawerOffsetDelegate = new DrawerCollapseReservedHeightDelegate(
+                        getResources().getDimensionPixelSize(
+                                R.dimen.chooser_minimized_collapsed_height),
+                        this::calculateDrawerOffset);
             }
 
             Intent intent = mRequest.getTargetIntent();
@@ -708,6 +713,9 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                         mChooserMultiProfilePagerAdapter.setIsCollapsed(!isExpanded);
                         getEventLog().logSharesheetExpansionChanged(!isExpanded);
                     });
+            if (interactiveChooser()) {
+                mResolverDrawerLayout.setOnInteractedListener(this::onDrawerInteracted);
+            }
         }
         if (DEBUG) {
             Log.d(TAG, "System Time Cost is " + systemCost);
@@ -757,7 +765,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
 
     @Override
     public boolean onKeyUp(int keyCode, KeyEvent event) {
-        if (sharesheetEscExit() && keyCode == KeyEvent.KEYCODE_ESCAPE) {
+        if (keyCode == KeyEvent.KEYCODE_ESCAPE) {
             finish();
             return true;
         }
@@ -1446,6 +1454,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
             stub.addView(textView);
         }
     }
+
     private void setupViewVisibilities() {
         ChooserListAdapter activeListAdapter =
                 mChooserMultiProfilePagerAdapter.getActiveListAdapter();
@@ -1453,6 +1462,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
             addUseDifferentAppLabelIfNecessary(activeListAdapter);
         }
     }
+
     /**
      * Finishing procedures to be performed after the list has been rebuilt.
      * @param rebuildCompleted
@@ -2434,10 +2444,10 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
             if (mResolverDrawerLayout == null) {
                 return;
             }
-            int offset = calculateDrawerOffset(top, bottom, recyclerView, gridAdapter);
+            int offset = mDrawerOffsetDelegate.getReservedHeight(
+                    bottom - top, recyclerView, gridAdapter, mSystemWindowInsets);
             mResolverDrawerLayout.setCollapsibleHeightReserved(offset);
             mEnterTransitionAnimationDelegate.markOffsetCalculated();
-            mLastAppliedInsets = mSystemWindowInsets;
         });
     }
 
@@ -2461,11 +2471,11 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
             return offset;
         }
 
-        mLastAppliedInsets = mSystemWindowInsets;
         getMainThreadHandler().post(mEnterTransitionAnimationDelegate::markOffsetCalculated);
         RecyclerView recyclerView = mChooserMultiProfilePagerAdapter.getActiveAdapterView();
         ChooserGridAdapter gridAdapter = mChooserMultiProfilePagerAdapter.getCurrentRootAdapter();
-        return calculateDrawerOffset(top, bottom, recyclerView, gridAdapter);
+        return mDrawerOffsetDelegate.getReservedHeight(
+                bottom - top, recyclerView, gridAdapter, mSystemWindowInsets);
     }
 
     private boolean shouldUpdateDrawerOffset() {
@@ -2513,9 +2523,12 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
     }
 
     private int calculateDrawerOffset(
-            int top, int bottom, RecyclerView recyclerView, ChooserGridAdapter gridAdapter) {
+            int viewHeight,
+            RecyclerView recyclerView,
+            ChooserGridAdapter gridAdapter,
+            @Nullable Insets systemWindowInsets) {
 
-        int offset = mSystemWindowInsets != null ? mSystemWindowInsets.bottom : 0;
+        int offset = systemWindowInsets != null ? systemWindowInsets.bottom : 0;
         int rowsToShow = gridAdapter.getServiceTargetRowCount()
                 + gridAdapter.getCallerAndRankedTargetRowCount();
 
@@ -2545,7 +2558,6 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         if (recyclerView.getVisibility() == View.VISIBLE) {
             rowsToShow = Math.min(4, rowsToShow);
             boolean shouldShowExtraRow = shouldShowExtraRow(rowsToShow);
-            mLastNumberOfChildren = recyclerView.getChildCount();
             for (int i = 0, childCount = recyclerView.getChildCount();
                     i < childCount && rowsToShow > 0; i++) {
                 View child = recyclerView.getChildAt(i);
@@ -2568,7 +2580,31 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
             }
         }
 
-        return Math.min(offset, bottom - top);
+        return Math.min(offset, viewHeight);
+    }
+
+    private void onDrawerInteracted() {
+        onMinimizeDrawerRequested(false);
+    }
+
+    private void onMinimizeDrawerRequested(boolean isMinimized) {
+        if (mDrawerOffsetDelegate.isMinimized() == isMinimized) {
+            return;
+        }
+        mDrawerOffsetDelegate.setMinimized(isMinimized);
+        if (mResolverDrawerLayout == null) {
+            Log.wtf(TAG, "Not supposed to be called");
+            return;
+        }
+        if (isMinimized) {
+            mResolverDrawerLayout.setCollapsibleHeightReserved(
+                    mDrawerOffsetDelegate.getMinimizedReservedHeight(mSystemWindowInsets));
+            if (!mResolverDrawerLayout.isDragging()) {
+                mResolverDrawerLayout.setCollapsed(true);
+            }
+        } else {
+            mResolverDrawerLayout.requestLayout();
+        }
     }
 
     private boolean isProfilePagerAdapterAttached() {
