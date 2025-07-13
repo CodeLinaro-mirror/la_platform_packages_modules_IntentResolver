@@ -33,6 +33,7 @@ import com.android.intentresolver.validation.log
 import dagger.hilt.android.scopes.ViewModelScoped
 import javax.inject.Inject
 import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
@@ -56,6 +57,14 @@ constructor(
         }
     val isSessionActive = MutableStateFlow(true)
     val isTargetEnabled = MutableStateFlow(true)
+
+    // Since minimize requests generally do not need to be cached, a Channel is used here
+    // as a lightweight, non-caching mechanism.
+    // As a consequence, requests that arrive when the UI is not actively collecting from this
+    // channel will be lost. A more robust solution could be implemented later if guaranteed
+    // delivery is needed, for example, by uniquely marking each request so it persists
+    // until processed.
+    val minimizeRequests = Channel<Boolean>()
 
     suspend fun activate() = coroutineScope {
         if (sessionCallback == null || activityModel.isTaskRoot) {
@@ -85,6 +94,11 @@ constructor(
                 }
         launch { chooserController.chooserIntent.collect { onIntentUpdated(it) } }
         launch { chooserController.targetStatusFlow.collect(isTargetEnabled) }
+        launch {
+            for (isMinimized in chooserController.minimizeRequests) {
+                minimizeRequests.trySend(isMinimized)
+            }
+        }
     }
 
     fun sendChooserWindowSize(size: Rect) {
