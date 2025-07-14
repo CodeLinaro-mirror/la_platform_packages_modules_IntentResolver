@@ -31,9 +31,7 @@ import javax.inject.Qualifier
 /** [PendingIntentSender] for Shareousel custom actions. */
 class CustomActionPendingIntentSender
 @Inject
-constructor(
-    @ApplicationContext private val context: Context,
-) : PendingIntentSender {
+constructor(@ApplicationContext private val context: Context) : PendingIntentSender {
     override fun send(pendingIntent: PendingIntent) {
         pendingIntent.send(
             /* context = */ null,
@@ -47,7 +45,10 @@ constructor(
                     R.anim.slide_in_right,
                     R.anim.slide_out_left,
                 )
-                .toBundle()
+                .setPendingIntentBackgroundActivityStartMode(
+                    ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED
+                )
+                .toBundle(),
         )
     }
 

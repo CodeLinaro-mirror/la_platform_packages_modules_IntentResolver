@@ -134,7 +134,8 @@ public final class EventLogImplTest {
                 previewType,
                 intentAction,
                 numCustomActions,
-                modifyShareProvided);
+                modifyShareProvided,
+                true);
 
         verify(mFrameworkLog).write(
                 eq(FrameworkStatsLog.SHARESHEET_STARTED),
@@ -148,7 +149,8 @@ public final class EventLogImplTest {
                 eq(FrameworkStatsLog.SHARESHEET_STARTED__PREVIEW_TYPE__CONTENT_PREVIEW_FILE),
                 eq(FrameworkStatsLog.SHARESHEET_STARTED__INTENT_TYPE__INTENT_ACTION_SENDTO),
                 /* custom actions provided */ eq(numCustomActions),
-                /* reselection action provided */ eq(modifyShareProvided));
+                /* reselection action provided */ eq(modifyShareProvided),
+                /* is_interactive_mode */ eq(true));
     }
 
     @Test
@@ -172,7 +174,8 @@ public final class EventLogImplTest {
                 previewType,
                 intentAction,
                 numCustomActions,
-                modifyShareProvided);
+                modifyShareProvided,
+                false);
 
         verify(mFrameworkLog).write(
                 eq(FrameworkStatsLog.SHARESHEET_STARTED),
@@ -187,7 +190,8 @@ public final class EventLogImplTest {
                         .SHARESHEET_STARTED__PREVIEW_TYPE__CONTENT_PREVIEW_TOGGLEABLE_MEDIA),
                 eq(FrameworkStatsLog.SHARESHEET_STARTED__INTENT_TYPE__INTENT_ACTION_SENDTO),
                 /* custom actions provided */ eq(numCustomActions),
-                /* reselection action provided */ eq(modifyShareProvided));
+                /* reselection action provided */ eq(modifyShareProvided),
+                /* is_interactive_mode */ eq(false));
     }
 
     @Test

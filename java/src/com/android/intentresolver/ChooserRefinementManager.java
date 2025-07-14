@@ -16,7 +16,9 @@
 
 package com.android.intentresolver;
 
+
 import android.app.Activity;
+import android.app.ActivityOptions;
 import android.app.Application;
 import android.content.Intent;
 import android.content.IntentSender;
@@ -205,8 +207,12 @@ public final class ChooserRefinementManager extends ViewModel {
                 mainHandler);
 
         Intent refinementRequest = makeRefinementRequest(mRefinementResultReceiver, sourceIntents);
+        ActivityOptions options = ActivityOptions.makeBasic()
+                .setPendingIntentBackgroundActivityStartMode(
+                        ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED);
         try {
-            refinementIntentSender.sendIntent(application, 0, refinementRequest, null, null);
+            refinementIntentSender.sendIntent(application, 0, refinementRequest, null,
+                    options.toBundle(), null, null);
             return true;
         } catch (IntentSender.SendIntentException e) {
             Log.e(TAG, "Refinement IntentSender failed to send", e);

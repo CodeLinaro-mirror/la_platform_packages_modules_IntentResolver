@@ -89,8 +89,10 @@ public class EventLogImpl implements EventLog {
             int previewType,
             String intent,
             int customActionCount,
-            boolean modifyShareActionProvided) {
-        mFrameworkStatsLogger.write(FrameworkStatsLog.SHARESHEET_STARTED,
+            boolean modifyShareActionProvided,
+            boolean isInteractiveMode) {
+        mFrameworkStatsLogger.write(
+                FrameworkStatsLog.SHARESHEET_STARTED,
                 /* event_id = 1 */ SharesheetStartedEvent.SHARE_STARTED.getId(),
                 /* package_name = 2 */ packageName,
                 /* instance_id = 3 */ mInstanceId.getId(),
@@ -101,7 +103,8 @@ public class EventLogImpl implements EventLog {
                 /* previewType = 8 */ typeFromPreviewInt(previewType),
                 /* intentType = 9 */ typeFromIntentString(intent),
                 /* num_provided_custom_actions = 10 */ customActionCount,
-                /* modify_share_action_provided = 11 */ modifyShareActionProvided);
+                /* modify_share_action_provided = 11 */ modifyShareActionProvided,
+                /* is_interactive_mode = 12 */ isInteractiveMode);
     }
 
     /**
