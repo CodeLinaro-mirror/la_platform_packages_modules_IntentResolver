@@ -6,16 +6,6 @@ container: "system"
 # bug: "Feature_Bug_#" or "<none>"
 
 flag {
-  name: "delay_drawer_offset_calculation"
-  namespace: "intentresolver"
-  description: "Do not update the drawer offset until app targets are ready."
-  bug: "338229069"
-  metadata {
-    purpose: PURPOSE_BUGFIX
-  }
-}
-
-flag {
   name: "refine_system_actions"
   namespace: "intentresolver"
   description: "This flag enables sending system actions to the caller refinement flow"
