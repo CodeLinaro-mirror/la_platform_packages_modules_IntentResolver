@@ -57,16 +57,6 @@ flag {
 }
 
 flag {
-  name: "use_google_sans_flex"
-  namespace: "intentresolver"
-  description: "Use Google Sans Flex font."
-  bug: "393610034"
-  metadata {
-    purpose: PURPOSE_BUGFIX
-  }
-}
-
-flag {
   name: "launch_editor_as_current_user"
   namespace: "intentresolver"
     description: "Launch the image editor as the current user instead of always-personal"

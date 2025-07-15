@@ -16,7 +16,6 @@
 
 package com.android.intentresolver.contentpreview;
 
-import static com.android.intentresolver.Flags.useGoogleSansFlex;
 import static com.android.intentresolver.ui.FontStyles.GSF_BODY_SMALL_BASELINE;
 import static com.android.intentresolver.ui.FontStyles.GSF_LABEL_MEDIUM_BASELINE;
 import static com.android.intentresolver.util.UriFilters.isOwnedByCurrentUser;
@@ -117,18 +116,14 @@ class TextContentPreviewUi extends ContentPreviewUi {
         TextView textView = contentPreviewLayout.requireViewById(
                 com.android.internal.R.id.content_preview_text);
 
-        if (useGoogleSansFlex()) {
-            textView.setTypeface(Typeface.create(GSF_BODY_SMALL_BASELINE, Typeface.NORMAL));
-        }
+        textView.setTypeface(Typeface.create(GSF_BODY_SMALL_BASELINE, Typeface.NORMAL));
         textView.setText(
                 textView.getMaxLines() == 1 ? replaceLineBreaks(mSharingText) : mSharingText);
 
         TextView previewTitleView = contentPreviewLayout.requireViewById(
                 com.android.internal.R.id.content_preview_title);
-        if (useGoogleSansFlex()) {
-            previewTitleView.setTypeface(
-                    Typeface.create(GSF_LABEL_MEDIUM_BASELINE, Typeface.NORMAL));
-        }
+        previewTitleView.setTypeface(
+                Typeface.create(GSF_LABEL_MEDIUM_BASELINE, Typeface.NORMAL));
         if (TextUtils.isEmpty(mPreviewTitle)) {
             previewTitleView.setVisibility(View.GONE);
         } else {
