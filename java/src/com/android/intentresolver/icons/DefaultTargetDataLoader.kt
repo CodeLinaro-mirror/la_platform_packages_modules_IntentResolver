@@ -33,7 +33,6 @@ import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.coroutineScope
-import com.android.intentresolver.Flags.badgeShortcutIconPlaceholders
 import com.android.intentresolver.Flags.targetHoverAndKeyboardFocusStates
 import com.android.intentresolver.SimpleIconFactory
 import com.android.intentresolver.TargetPresentationGetter
@@ -112,22 +111,7 @@ constructor(
         userHandle: UserHandle,
         callback: Consumer<Drawable>,
     ): Drawable? {
-        if (badgeShortcutIconPlaceholders()) {
-            loadDirectShareIcon(context.createContextAsUser(userHandle, 0), info, callback)
-        } else {
-            val taskId = nextTaskId.getAndIncrement()
-            LoadDirectShareIconTask(
-                    context.createContextAsUser(userHandle, 0),
-                    info,
-                    presentationFactory,
-                    iconFactoryProvider,
-                ) { bitmap ->
-                    removeTask(taskId)
-                    callback.accept(bitmap?.toDrawable() ?: loadIconPlaceholder())
-                }
-                .also { addTask(taskId, it) }
-                .executeOnExecutor(executor)
-        }
+        loadDirectShareIcon(context.createContextAsUser(userHandle, 0), info, callback)
         return null
     }
 

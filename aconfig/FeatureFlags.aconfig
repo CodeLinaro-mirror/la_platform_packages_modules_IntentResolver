@@ -6,16 +6,6 @@ container: "system"
 # bug: "Feature_Bug_#" or "<none>"
 
 flag {
-  name: "badge_shortcut_icon_placeholders"
-  namespace: "intentresolver"
-  description: "Badge shortcut icon placeholders with app icon."
-  bug: "349847176"
-  metadata {
-    purpose: PURPOSE_BUGFIX
-  }
-}
-
-flag {
   name: "delay_drawer_offset_calculation"
   namespace: "intentresolver"
   description: "Do not update the drawer offset until app targets are ready."
