@@ -87,16 +87,6 @@ flag {
 }
 
 flag {
-  name: "use_resolve_info_user_handle"
-  namespace: "intentresolver"
-  description: "Expect that some OEM customizations (Dual apps) may have targets with different user handle in the list."
-  bug: "406053567"
-  metadata {
-    purpose: PURPOSE_BUGFIX
-  }
-}
-
-flag {
   name: "launch_editor_as_current_user"
   namespace: "intentresolver"
     description: "Launch the image editor as the current user instead of always-personal"
