@@ -24,7 +24,6 @@ import android.graphics.drawable.Drawable
 import android.os.UserHandle
 import androidx.collection.LruCache
 import com.android.intentresolver.Flags.targetHoverAndKeyboardFocusStates
-import com.android.intentresolver.Flags.useResolveInfoUserHandle
 import com.android.intentresolver.chooser.DisplayResolveInfo
 import com.android.intentresolver.chooser.SelectableTargetInfo
 import com.android.launcher3.icons.FastBitmapDrawable
@@ -49,12 +48,7 @@ class CachingTargetDataLoader(
         callback: Consumer<Drawable>,
     ): Drawable? {
         val cacheKey = info.toCacheKey()
-        val userHandle =
-            if (useResolveInfoUserHandle()) {
-                info.resolveInfo.userHandle ?: defaultUserHandle
-            } else {
-                defaultUserHandle
-            }
+        val userHandle = info.resolveInfo.userHandle ?: defaultUserHandle
         return getCachedAppIcon(cacheKey, userHandle)?.toDrawable()
             ?: targetDataLoader.getOrLoadAppTargetIcon(info, userHandle) { drawable ->
                 drawable.extractBitmap()?.let { getProfileIconCache(userHandle).put(cacheKey, it) }

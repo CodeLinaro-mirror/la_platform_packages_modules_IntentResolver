@@ -19,7 +19,6 @@ package com.android.intentresolver;
 import static com.android.intentresolver.ChooserActivity.TARGET_TYPE_SHORTCUTS_FROM_PREDICTION_SERVICE;
 import static com.android.intentresolver.ChooserActivity.TARGET_TYPE_SHORTCUTS_FROM_SHORTCUT_MANAGER;
 import static com.android.intentresolver.Flags.targetHoverAndKeyboardFocusStates;
-import static com.android.intentresolver.Flags.useGoogleSansFlex;
 
 import android.app.ActivityManager;
 import android.app.prediction.AppTarget;
@@ -408,17 +407,15 @@ public class ChooserListAdapter extends ResolverListAdapter {
                 ? R.layout.chooser_grid_item_hover
                 : R.layout.chooser_grid_item;
         View view = mInflater.inflate(layout, parent, false);
-        if (useGoogleSansFlex()) {
-            TextView textOne = view.findViewById(com.android.internal.R.id.text1);
-            TextView textTwo = view.findViewById(com.android.internal.R.id.text2);
-            if (textOne != null) {
-                textOne.setTypeface(
-                        Typeface.create(FontStyles.GSF_TITLE_SMALL_BASELINE, Typeface.NORMAL));
-            }
-            if (textTwo != null) {
-                textTwo.setTypeface(
-                        Typeface.create(FontStyles.GSF_TITLE_SMALL_BASELINE, Typeface.NORMAL));
-            }
+        TextView textOne = view.findViewById(com.android.internal.R.id.text1);
+        TextView textTwo = view.findViewById(com.android.internal.R.id.text2);
+        if (textOne != null) {
+            textOne.setTypeface(
+                    Typeface.create(FontStyles.GSF_TITLE_SMALL_BASELINE, Typeface.NORMAL));
+        }
+        if (textTwo != null) {
+            textTwo.setTypeface(
+                    Typeface.create(FontStyles.GSF_TITLE_SMALL_BASELINE, Typeface.NORMAL));
         }
         return view;
     }

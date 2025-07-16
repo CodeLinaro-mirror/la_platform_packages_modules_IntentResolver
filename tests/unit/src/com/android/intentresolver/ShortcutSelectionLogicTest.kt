@@ -21,12 +21,10 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ShortcutInfo
 import android.os.UserHandle
-import android.platform.test.annotations.EnableFlags
 import android.platform.test.flag.junit.SetFlagsRule
 import android.service.chooser.ChooserTarget
 import androidx.test.filters.SmallTest
 import androidx.test.platform.app.InstrumentationRegistry
-import com.android.intentresolver.Flags.FLAG_REBUILD_ADAPTERS_ON_TARGET_PINNING
 import com.android.intentresolver.chooser.DisplayResolveInfo
 import com.android.intentresolver.chooser.TargetInfo
 import com.google.common.truth.Correspondence
@@ -317,7 +315,6 @@ class ShortcutSelectionLogicTest {
     }
 
     @Test
-    @EnableFlags(FLAG_REBUILD_ADAPTERS_ON_TARGET_PINNING)
     fun addServiceResults_sameShortcutWithDifferentPinnedStatus_shortcutUpdated() {
         val serviceResults = ArrayList<TargetInfo>()
         val sc1 =
