@@ -43,7 +43,8 @@ interface EventLog {
         previewType: Int,
         intent: String?,
         customActionCount: Int,
-        modifyShareActionProvided: Boolean
+        modifyShareActionProvided: Boolean,
+        isInteractiveMode: Boolean,
     )
 
     fun logCustomActionSelected(positionPicked: Int)
@@ -57,7 +58,7 @@ interface EventLog {
         directTargetHashed: HashedStringCache.HashResult?,
         isPinned: Boolean,
         successfullySelected: Boolean,
-        selectionCost: Long
+        selectionCost: Long,
     )
 
     fun logDirectShareTargetReceived(category: Int, latency: Int)

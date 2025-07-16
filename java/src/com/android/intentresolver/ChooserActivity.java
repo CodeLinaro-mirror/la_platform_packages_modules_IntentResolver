@@ -729,7 +729,8 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                 mChooserContentPreviewUi.getPreferredContentPreview(),
                 mRequest.getTargetAction(),
                 mRequest.getChooserActions().size(),
-                mRequest.getModifyShareAction() != null
+                mRequest.getModifyShareAction() != null,
+                isInteractiveSession()
         );
         mEnterTransitionAnimationDelegate.postponeTransition();
         mInitialProfile = findSelectedProfile();
