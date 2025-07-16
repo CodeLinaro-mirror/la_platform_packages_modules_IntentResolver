@@ -16,8 +16,6 @@
 
 package com.android.intentresolver;
 
-import static com.android.intentresolver.Flags.rebuildAdaptersOnTargetPinning;
-
 import android.app.prediction.AppTarget;
 import android.content.Context;
 import android.content.Intent;
@@ -176,8 +174,7 @@ public class ShortcutSelectionLogic {
         for (int i = 0; i < serviceTargets.size(); i++) {
             TargetInfo otherTargetInfo = serviceTargets.get(i);
             if (chooserTargetInfo.isSimilar(otherTargetInfo)) {
-                if (rebuildAdaptersOnTargetPinning()
-                        && chooserTargetInfo.isPinned() != otherTargetInfo.isPinned()) {
+                if (chooserTargetInfo.isPinned() != otherTargetInfo.isPinned()) {
                     serviceTargets.set(i, chooserTargetInfo);
                     return true;
                 }
