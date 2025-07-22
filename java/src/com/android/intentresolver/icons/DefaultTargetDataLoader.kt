@@ -51,6 +51,7 @@ import java.util.function.Consumer
 import javax.inject.Provider
 import javax.inject.Qualifier
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.asExecutor
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -73,7 +74,7 @@ constructor(
     private val iconFactoryProvider: Provider<SimpleIconFactory>,
     private val presentationFactory: TargetPresentationGetter.Factory,
     @Background private val bgDispatcher: CoroutineDispatcher,
-    @IconPlaceholder private val iconPlacehoderProvider: Provider<Drawable>,
+    @IconPlaceholder private val iconPlaceholderProvider: Provider<Drawable>,
     @Assisted private val isAudioCaptureDevice: Boolean,
 ) : TargetDataLoader {
     private val nextTaskId = AtomicInteger(0)
@@ -142,7 +143,7 @@ constructor(
         synchronized(activeTasks) { activeTasks.remove(id) }
     }
 
-    private fun loadIconPlaceholder(): Drawable = iconPlacehoderProvider.get()
+    private fun loadIconPlaceholder(): Drawable = iconPlaceholderProvider.get()
 
     private fun destroy() {
         synchronized(activeTasks) {
@@ -166,7 +167,7 @@ constructor(
         info: SelectableTargetInfo,
         consumer: Consumer<Drawable>,
     ) {
-        lifecycle.coroutineScope.launch {
+        lifecycle.coroutineScope.launch(Dispatchers.Main) {
             val iconDrawable =
                 withContext(bgDispatcher) {
                     val icon = info.chooserTargetIcon?.takeIf { hasValidIcon(it) }
