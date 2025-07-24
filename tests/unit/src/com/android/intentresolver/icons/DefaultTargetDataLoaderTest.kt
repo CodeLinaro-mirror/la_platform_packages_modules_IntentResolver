@@ -24,12 +24,10 @@ import android.graphics.Bitmap
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import android.os.UserHandle
-import android.platform.test.annotations.EnableFlags
 import android.platform.test.flag.junit.SetFlagsRule
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.testing.TestLifecycleOwner
 import androidx.test.filters.SmallTest
-import com.android.intentresolver.Flags
 import com.android.intentresolver.ResolverDataProvider
 import com.android.intentresolver.SimpleIconFactory
 import com.android.intentresolver.TargetPresentationGetter
@@ -100,7 +98,6 @@ class DefaultTargetDataLoaderTest {
         Dispatchers.resetMain()
     }
 
-    @EnableFlags(Flags.FLAG_BADGE_SHORTCUT_ICON_PLACEHOLDERS)
     @Test
     fun test_ShortcutIconFailedToLoad_placeholderIsBadged() = runTest {
         lifecycleOwner.currentState = Lifecycle.State.RESUMED
