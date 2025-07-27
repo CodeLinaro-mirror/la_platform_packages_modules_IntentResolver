@@ -24,9 +24,7 @@ import static android.view.WindowManager.LayoutParams.SYSTEM_FLAG_HIDE_NON_SYSTE
 import static androidx.lifecycle.LifecycleKt.getCoroutineScope;
 
 import static com.android.intentresolver.ChooserActionFactory.EDIT_SOURCE;
-import static com.android.intentresolver.Flags.delayDrawerOffsetCalculation;
 import static com.android.intentresolver.Flags.launchEditorAsCurrentUser;
-import static com.android.intentresolver.Flags.rebuildAdaptersOnTargetPinning;
 import static com.android.intentresolver.Flags.refineSystemActions;
 import static com.android.intentresolver.Flags.synchronousDrawerOffsetCalculation;
 import static com.android.intentresolver.ext.CreationExtrasExtKt.replaceDefaultArgs;
@@ -1687,15 +1685,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
     private void handlePackagesChanged(@Nullable ResolverListAdapter listAdapter) {
         // Refresh pinned items
         mPinnedSharedPrefs = getPinnedSharedPrefs(this);
-        if (rebuildAdaptersOnTargetPinning()) {
-            recreatePagerAdapter();
-        } else {
-            if (listAdapter == null) {
-                mChooserMultiProfilePagerAdapter.refreshPackagesInAllTabs();
-            } else {
-                listAdapter.handlePackagesChanged();
-            }
-        }
+        recreatePagerAdapter();
     }
 
     @Override
@@ -2491,8 +2481,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                 || recyclerView.computeVerticalScrollOffset() != 0) {
             return false;
         }
-        return !delayDrawerOffsetCalculation()
-                || gridAdapter.getListAdapter().isInitialAppTargetLoad()
+        return gridAdapter.getListAdapter().isInitialAppTargetLoad()
                 || gridAdapter.getListAdapter().areAppTargetsReady();
     }
 
