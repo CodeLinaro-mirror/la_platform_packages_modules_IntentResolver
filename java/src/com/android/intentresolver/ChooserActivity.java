@@ -576,6 +576,11 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                 rdl.setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
                         | View.SYSTEM_UI_FLAG_LAYOUT_STABLE);
                 rdl.setOnApplyWindowInsetsListener(this::onApplyWindowInsets);
+                if (isInteractiveSession()) {
+                    rdl.setReservedCollapsedTopSpace(
+                            getResources().getDimensionPixelSize(
+                                    R.dimen.chooser_min_collapsed_drawer_top_offset));
+                }
 
                 mResolverDrawerLayout = rdl;
                 mDrawerOffsetDelegate = new DrawerCollapseReservedHeightDelegate(
@@ -2547,7 +2552,9 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
             ChooserGridAdapter gridAdapter,
             @Nullable Insets systemWindowInsets) {
 
-        int offset = systemWindowInsets != null ? systemWindowInsets.bottom : 0;
+        int offset = (interactiveChooser() || systemWindowInsets == null)
+                ? 0
+                : systemWindowInsets.bottom;
         int rowsToShow = gridAdapter.getServiceTargetRowCount()
                 + gridAdapter.getCallerAndRankedTargetRowCount();
 
@@ -2570,7 +2577,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
             offset += stickyContentPreview.getHeight();
         }
 
-        if (mProfiles.getWorkProfilePresent()) {
+        if (mProfiles.getProfiles().size() > 1) {
             offset += findViewById(com.android.internal.R.id.tabs).getHeight();
         }
 
@@ -2905,6 +2912,9 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                 mSystemWindowInsets.top,
                 mSystemWindowInsets.right,
                 0);
+        if (interactiveChooser()) {
+            mResolverDrawerLayout.setMaxCollapsedHeight(mSystemWindowInsets.bottom);
+        }
 
         // Need extra padding so the list can fully scroll up
         // To accommodate for window insets
