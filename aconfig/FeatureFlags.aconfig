@@ -49,9 +49,19 @@ flag {
 flag {
   name: "launch_editor_as_current_user"
   namespace: "intentresolver"
-    description: "Launch the image editor as the current user instead of always-personal"
-    bug: "407991863"
-    metadata {
-      purpose: PURPOSE_BUGFIX
-    }
+  description: "Launch the image editor as the current user instead of always-personal"
+  bug: "407991863"
+  metadata {
+    purpose: PURPOSE_BUGFIX
+  }
+}
+
+flag {
+  name: "limit_target_data_loading_threads"
+  namespace: "intentresolver"
+  description: "Limit the number of background threads (currently 4) that can be used to load per-target resources"
+  bug: "420992996"
+  metadata {
+    purpose: PURPOSE_BUGFIX
+  }
 }

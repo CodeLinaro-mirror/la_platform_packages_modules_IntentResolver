@@ -57,7 +57,7 @@ object ConcurrencyModule {
         thread.start()
         thread.looper.setSlowLogThresholdMs(
             BROADCAST_SLOW_DISPATCH_THRESHOLD,
-            BROADCAST_SLOW_DELIVERY_THRESHOLD
+            BROADCAST_SLOW_DELIVERY_THRESHOLD,
         )
         return thread.looper
     }

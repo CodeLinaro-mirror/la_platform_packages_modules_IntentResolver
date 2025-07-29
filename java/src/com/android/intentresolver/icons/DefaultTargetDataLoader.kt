@@ -39,7 +39,7 @@ import com.android.intentresolver.TargetPresentationGetter
 import com.android.intentresolver.chooser.DisplayResolveInfo
 import com.android.intentresolver.chooser.SelectableTargetInfo
 import com.android.intentresolver.inject.ActivityOwned
-import com.android.intentresolver.inject.Background
+import com.android.intentresolver.inject.TargetDataLoading
 import com.android.intentresolver.util.hasValidIcon
 import com.android.launcher3.icons.FastBitmapDrawable
 import dagger.assisted.Assisted
@@ -73,7 +73,7 @@ constructor(
     @ActivityOwned private val lifecycle: Lifecycle,
     private val iconFactoryProvider: Provider<SimpleIconFactory>,
     private val presentationFactory: TargetPresentationGetter.Factory,
-    @Background private val bgDispatcher: CoroutineDispatcher,
+    @TargetDataLoading private val bgDispatcher: CoroutineDispatcher,
     @IconPlaceholder private val iconPlaceholderProvider: Provider<Drawable>,
     @Assisted private val isAudioCaptureDevice: Boolean,
 ) : TargetDataLoader {

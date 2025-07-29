@@ -44,3 +44,8 @@ annotation class ApplicationUser
 @Qualifier @MustBeDocumented @Retention(AnnotationRetention.RUNTIME) annotation class Default
 
 @Qualifier @MustBeDocumented @Retention(AnnotationRetention.RUNTIME) annotation class Main
+
+@Qualifier
+@MustBeDocumented
+@Retention(AnnotationRetention.RUNTIME)
+annotation class TargetDataLoading
