@@ -135,7 +135,8 @@ public final class EventLogImplTest {
                 intentAction,
                 numCustomActions,
                 modifyShareProvided,
-                true);
+                /* isInteractiveMode= */ true,
+                /* isTextToggleShown= */ true);
 
         verify(mFrameworkLog).write(
                 eq(FrameworkStatsLog.SHARESHEET_STARTED),
@@ -150,7 +151,8 @@ public final class EventLogImplTest {
                 eq(FrameworkStatsLog.SHARESHEET_STARTED__INTENT_TYPE__INTENT_ACTION_SENDTO),
                 /* custom actions provided */ eq(numCustomActions),
                 /* reselection action provided */ eq(modifyShareProvided),
-                /* is_interactive_mode */ eq(true));
+                /* is_interactive_mode */ eq(true),
+                /* is_text_toggle_shown */ eq(true));
     }
 
     @Test
@@ -175,7 +177,8 @@ public final class EventLogImplTest {
                 intentAction,
                 numCustomActions,
                 modifyShareProvided,
-                false);
+                /* isInteractiveMode= */ false,
+                /* isTextToggleShown= */ false);
 
         verify(mFrameworkLog).write(
                 eq(FrameworkStatsLog.SHARESHEET_STARTED),
@@ -191,7 +194,8 @@ public final class EventLogImplTest {
                 eq(FrameworkStatsLog.SHARESHEET_STARTED__INTENT_TYPE__INTENT_ACTION_SENDTO),
                 /* custom actions provided */ eq(numCustomActions),
                 /* reselection action provided */ eq(modifyShareProvided),
-                /* is_interactive_mode */ eq(false));
+                /* is_interactive_mode */ eq(false),
+                /* is_text_toggle_shown */ eq(false));
     }
 
     @Test
