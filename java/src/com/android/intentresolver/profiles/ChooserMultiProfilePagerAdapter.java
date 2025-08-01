@@ -35,6 +35,7 @@ import com.android.intentresolver.measurements.Tracer;
 import com.google.common.collect.ImmutableList;
 
 import java.util.Optional;
+import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 
 /**
@@ -55,7 +56,8 @@ public class ChooserMultiProfilePagerAdapter extends MultiProfilePagerAdapter<
             @ProfileType int defaultProfile,
             UserHandle workProfileUserHandle,
             UserHandle cloneProfileUserHandle,
-            int maxTargetsPerRow) {
+            int maxTargetsPerRow,
+            BooleanSupplier expandDrawerDelegate) {
         this(
                 context,
                 new ChooserProfileAdapterBinder(maxTargetsPerRow),
@@ -65,6 +67,7 @@ public class ChooserMultiProfilePagerAdapter extends MultiProfilePagerAdapter<
                 defaultProfile,
                 workProfileUserHandle,
                 cloneProfileUserHandle,
+                expandDrawerDelegate,
                 new BottomPaddingOverrideSupplier(context));
     }
 
@@ -77,6 +80,7 @@ public class ChooserMultiProfilePagerAdapter extends MultiProfilePagerAdapter<
             @ProfileType int defaultProfile,
             UserHandle workProfileUserHandle,
             UserHandle cloneProfileUserHandle,
+            BooleanSupplier expandDrawerDelegate,
             BottomPaddingOverrideSupplier bottomPaddingOverrideSupplier) {
         super(
                 gridAdapter -> gridAdapter.getListAdapter(),
@@ -87,7 +91,7 @@ public class ChooserMultiProfilePagerAdapter extends MultiProfilePagerAdapter<
                 defaultProfile,
                 workProfileUserHandle,
                 cloneProfileUserHandle,
-                () -> makeProfileView(context),
+                () -> makeProfileView(context, expandDrawerDelegate),
                 bottomPaddingOverrideSupplier);
         mAdapterBinder = adapterBinder;
         mBottomPaddingOverrideSupplier = bottomPaddingOverrideSupplier;
@@ -121,13 +125,14 @@ public class ChooserMultiProfilePagerAdapter extends MultiProfilePagerAdapter<
         }
     }
 
-    private static ViewGroup makeProfileView(Context context) {
+    private static ViewGroup makeProfileView(
+            Context context, BooleanSupplier expandDrawerDelegate) {
         LayoutInflater inflater = LayoutInflater.from(context);
         ViewGroup rootView =
                 (ViewGroup) inflater.inflate(R.layout.chooser_list_per_profile_wrap, null, false);
         RecyclerView recyclerView = rootView.findViewById(com.android.internal.R.id.resolver_list);
         recyclerView.setAccessibilityDelegateCompat(
-                new ChooserRecyclerViewAccessibilityDelegate(recyclerView));
+                new ChooserRecyclerViewAccessibilityDelegate(recyclerView, expandDrawerDelegate));
         return rootView;
     }
 

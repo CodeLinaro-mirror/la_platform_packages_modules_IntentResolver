@@ -22,15 +22,23 @@ import android.view.ViewGroup;
 import android.view.accessibility.AccessibilityEvent;
 
 import androidx.annotation.NonNull;
+import androidx.core.view.ViewCompat;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.recyclerview.widget.RecyclerViewAccessibilityDelegate;
 
-public class ChooserRecyclerViewAccessibilityDelegate extends RecyclerViewAccessibilityDelegate {
-    private final Rect mTempRect = new Rect();
-    private final int[] mConsumed = new int[2];
+import java.util.function.BooleanSupplier;
 
-    public ChooserRecyclerViewAccessibilityDelegate(RecyclerView recyclerView) {
+public class ChooserRecyclerViewAccessibilityDelegate extends RecyclerViewAccessibilityDelegate {
+    private final Rect mRecyclerBounds = new Rect();
+    private final Rect mChildBounds = new Rect();
+    private final int[] mConsumed = new int[2];
+    private final BooleanSupplier mExpandDrawerDelegate;
+
+    public ChooserRecyclerViewAccessibilityDelegate(
+            RecyclerView recyclerView,
+            BooleanSupplier expandDrawerDelegate) {
         super(recyclerView);
+        mExpandDrawerDelegate = expandDrawerDelegate;
     }
 
     @Override
@@ -60,20 +68,23 @@ public class ChooserRecyclerViewAccessibilityDelegate extends RecyclerViewAccess
         if (child == null) {
             return;
         }
-        recyclerView.getBoundsOnScreen(mTempRect, true);
-        int recyclerOnScreenTop = mTempRect.top;
-        int recyclerOnScreenBottom = mTempRect.bottom;
-        child.getBoundsOnScreen(mTempRect);
+        recyclerView.getBoundsOnScreen(mRecyclerBounds, true);
+        child.getBoundsOnScreen(mChildBounds);
+        if (mChildBounds.bottom > mRecyclerBounds.bottom && mExpandDrawerDelegate.getAsBoolean()) {
+            // the drawer was expanded and we need to re-read views' positions
+            recyclerView.getBoundsOnScreen(mRecyclerBounds, true);
+            child.getBoundsOnScreen(mChildBounds);
+        }
         int dy = 0;
         // if needed, do the page-length scroll instead of just a row-length scroll as
         // ResolverDrawerLayout snaps to the compact view and the row-length scroll can be snapped
         // back right away.
-        if (mTempRect.top < recyclerOnScreenTop) {
+        if (mChildBounds.top < mRecyclerBounds.top) {
             // snap to the bottom
-            dy = mTempRect.bottom - recyclerOnScreenBottom;
-        } else if (mTempRect.bottom > recyclerOnScreenBottom) {
+            dy = mChildBounds.bottom - mRecyclerBounds.bottom;
+        } else if (mChildBounds.bottom > mRecyclerBounds.bottom) {
             // snap to the top
-            dy = mTempRect.top - recyclerOnScreenTop;
+            dy = mChildBounds.top - mRecyclerBounds.top;
         }
         nestedVerticalScrollBy(recyclerView, dy);
     }
@@ -83,7 +94,8 @@ public class ChooserRecyclerViewAccessibilityDelegate extends RecyclerViewAccess
             return;
         }
         recyclerView.startNestedScroll(View.SCROLL_AXIS_VERTICAL);
-        if (recyclerView.dispatchNestedPreScroll(0, dy, mConsumed, null)) {
+        if (recyclerView.dispatchNestedPreScroll(
+                0, dy, mConsumed, null, ViewCompat.TYPE_NON_TOUCH)) {
             dy -= mConsumed[1];
         }
         recyclerView.scrollBy(0, dy);
