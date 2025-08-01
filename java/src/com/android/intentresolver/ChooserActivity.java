@@ -219,7 +219,6 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
     private static final String LAST_SHOWN_PROFILE = "last_shown_tab_key";
     public static final String METRICS_CATEGORY_CHOOSER = "intent_chooser";
 
-    private int mLayoutId;
     private UserHandle mHeaderCreatorUser;
     private boolean mPackageMonitorsRegistered;
     private PackageMonitor mPersonalPackageMonitor;
@@ -556,38 +555,12 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                 );
             }
             mPackageMonitorsRegistered = true;
-            final ResolverDrawerLayout rdl = findViewById(
-                    com.android.internal.R.id.contentPanel);
-            if (rdl != null) {
-                rdl.setOnDismissedListener(new ResolverDrawerLayout.OnDismissedListener() {
-                    @Override
-                    public void onDismissed() {
-                        finish();
-                    }
-                });
 
-                boolean hasTouchScreen = mPackageManager
-                        .hasSystemFeature(PackageManager.FEATURE_TOUCHSCREEN);
-
-                if (isVoiceInteraction() || !hasTouchScreen) {
-                    rdl.expand(false);
-                }
-
-                rdl.setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-                        | View.SYSTEM_UI_FLAG_LAYOUT_STABLE);
-                rdl.setOnApplyWindowInsetsListener(this::onApplyWindowInsets);
-                if (isInteractiveSession()) {
-                    rdl.setReservedCollapsedTopSpace(
-                            getResources().getDimensionPixelSize(
-                                    R.dimen.chooser_min_collapsed_drawer_top_offset));
-                }
-
-                mResolverDrawerLayout = rdl;
-                mDrawerOffsetDelegate = new DrawerCollapseReservedHeightDelegate(
-                        getResources().getDimensionPixelSize(
-                                R.dimen.chooser_minimized_collapsed_height),
-                        this::calculateDrawerOffset);
-            }
+            mResolverDrawerLayout = initializeResolverDrawerLayout();
+            mDrawerOffsetDelegate = new DrawerCollapseReservedHeightDelegate(
+                    getResources().getDimensionPixelSize(
+                            R.dimen.chooser_minimized_collapsed_height),
+                    this::calculateDrawerOffset);
 
             Intent intent = mRequest.getTargetIntent();
             final Set<String> categories = intent.getCategories();
@@ -707,23 +680,6 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         final long systemCost = mChooserShownTime - mIntentReceivedTime.get();
         getEventLog().logChooserActivityShown(
                 isWorkProfile(), mRequest.getTargetType(), systemCost);
-        if (mResolverDrawerLayout != null) {
-            if (synchronousDrawerOffsetCalculation()) {
-                mResolverDrawerLayout.setCollapsibleHeightReservedDelegate(
-                        this::syncHandleLayoutChange);
-            } else {
-                mResolverDrawerLayout.addOnLayoutChangeListener(this::handleLayoutChange);
-            }
-
-            mResolverDrawerLayout.setOnExpandedChangedListener(
-                    isExpanded -> {
-                        mChooserMultiProfilePagerAdapter.setIsCollapsed(!isExpanded);
-                        getEventLog().logSharesheetExpansionChanged(!isExpanded);
-                    });
-            if (interactiveChooser()) {
-                mResolverDrawerLayout.setOnInteractedListener(this::onDrawerInteracted);
-            }
-        }
         if (DEBUG) {
             Log.d(TAG, "System Time Cost is " + systemCost);
         }
@@ -749,6 +705,43 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
             configureInteractiveSessionWindow();
             updateInteractiveArea();
         }
+    }
+
+    private ResolverDrawerLayout initializeResolverDrawerLayout() {
+        final ResolverDrawerLayout rdl = requireViewById(com.android.internal.R.id.contentPanel);
+        rdl.setOnDismissedListener(() -> finish());
+
+        boolean hasTouchScreen =
+                mPackageManager.hasSystemFeature(PackageManager.FEATURE_TOUCHSCREEN);
+
+        if (isVoiceInteraction() || !hasTouchScreen) {
+            rdl.expand(false);
+        }
+
+        rdl.setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                | View.SYSTEM_UI_FLAG_LAYOUT_STABLE);
+        rdl.setOnApplyWindowInsetsListener(this::onApplyWindowInsets);
+        if (isInteractiveSession()) {
+            rdl.setReservedCollapsedTopSpace(
+                    getResources().getDimensionPixelSize(
+                            R.dimen.chooser_min_collapsed_drawer_top_offset));
+            rdl.setOnInteractedListener(this::onDrawerInteracted);
+        }
+
+        if (synchronousDrawerOffsetCalculation()) {
+            rdl.setCollapsibleHeightReservedDelegate(
+                    this::syncHandleLayoutChange);
+        } else {
+            rdl.addOnLayoutChangeListener(this::handleLayoutChange);
+        }
+
+        rdl.setOnExpandedChangedListener(
+                isExpanded -> {
+                    mChooserMultiProfilePagerAdapter.setIsCollapsed(!isExpanded);
+                    getEventLog().logSharesheetExpansionChanged(!isExpanded);
+                });
+
+        return rdl;
     }
 
     private void launchImageEditor(TargetInfo editorTargetInfo) {
@@ -1426,9 +1419,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         boolean rebuildCompleted = mChooserMultiProfilePagerAdapter.rebuildTabs(
                 mProfiles.getWorkProfilePresent());
 
-        mLayoutId = R.layout.chooser_grid_scrollable_preview;
-
-        setContentView(mLayoutId);
+        setContentView(R.layout.chooser_grid_scrollable_preview);
         mTabHost = findViewById(com.android.internal.R.id.profile_tabhost);
         mViewPager = requireViewById(com.android.internal.R.id.profile_pager);
         mChooserMultiProfilePagerAdapter.setupViewPager(mViewPager);
