@@ -922,6 +922,10 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                 mProfileAvailability,
                 mMaxTargetsPerRow,
                 this::expandDrawer);
+        if (interactiveChooser()) {
+            mChooserMultiProfilePagerAdapter.setTargetsEnabled(
+                    mChooserHelper.getAreTargetsEnabled());
+        }
         mChooserMultiProfilePagerAdapter.setCurrentPage(currentPage);
         for (int i = 0, count = mChooserMultiProfilePagerAdapter.getItemCount(); i < count; i++) {
             mChooserMultiProfilePagerAdapter.getPageAdapterForIndex(i)
