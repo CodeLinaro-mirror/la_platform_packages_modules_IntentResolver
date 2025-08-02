@@ -255,11 +255,25 @@ public class ResolverDrawerLayout extends ViewGroup {
         return mShowAtTop;
     }
 
-    public void setCollapsed(boolean collapsed) {
+    /** Expand the drawer **/
+    public void expand(boolean animate) {
+        setCollapsed(false, animate);
+    }
+
+    /** Collapse the drawer */
+    public void collapse(boolean animate) {
+        setCollapsed(true, animate);
+    }
+
+    private void setCollapsed(boolean collapsed, boolean animate) {
         if (!isLaidOut()) {
             mOpenOnLayout = !collapsed;
-        } else {
-            smoothScrollTo(collapsed ? mCollapsibleHeight : 0, 0);
+        } else if (!isDragging()) {
+            if (animate) {
+                smoothScrollTo(collapsed ? mCollapsibleHeight : 0, 0);
+            } else {
+                performDrag(collapsed ? mCollapsibleHeight - mCollapseOffset : -mCollapseOffset);
+            }
         }
     }
 
