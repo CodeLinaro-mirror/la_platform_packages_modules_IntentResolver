@@ -299,7 +299,7 @@ public class ResolverDrawerLayout extends ViewGroup {
         if (interactiveChooser()) {
             if (!isDragging() && oldCollapsibleHeight != mCollapsibleHeight) {
                 final boolean isExpandedOld = isExpanded();
-                float newCollapseOffset = constrainCollapseOffset(wasCollapsed);
+                float newCollapseOffset = constrainCollapseOffset(mCollapseOffset, wasCollapsed);
                 final boolean isExpandedNew = isExpanded();
                 if (isExpandedOld != isExpandedNew) {
                     if (isInLayout()) {
@@ -399,7 +399,7 @@ public class ResolverDrawerLayout extends ViewGroup {
         }
     }
 
-    private float constrainCollapseOffset(boolean wasCollapsed) {
+    private float constrainCollapseOffset(float collapseOffset, boolean wasCollapsed) {
         if (getShowAtTop()) {
             // Keep the drawer fully open.
             return 0f;
@@ -411,7 +411,7 @@ public class ResolverDrawerLayout extends ViewGroup {
                 // Stay closed even at the new height.
                 newCollapseOffset = mCollapsibleHeight;
             } else {
-                newCollapseOffset = Math.min(mCollapseOffset, mCollapsibleHeight);
+                newCollapseOffset = Math.min(collapseOffset, mCollapsibleHeight);
             }
         } else {
             // Start out collapsed at first unless we restored state for otherwise
@@ -696,7 +696,11 @@ public class ResolverDrawerLayout extends ViewGroup {
             notifyInteracted();
         }
 
-        final float newPos = Math.max(0, Math.min(mCollapseOffset + dy, mHeightUsed));
+        float newPos = Math.max(0, Math.min(mCollapseOffset + dy, mHeightUsed));
+        if (interactiveChooser() && !isDragging()) {
+            // If not dragging, watch out for changed constraints
+            newPos = constrainCollapseOffset(newPos, false);
+        }
         if (newPos != mCollapseOffset) {
             dy = newPos - mCollapseOffset;
 
@@ -1211,7 +1215,7 @@ public class ResolverDrawerLayout extends ViewGroup {
         if (interactiveChooser()) {
             if (!isDragging() && oldCollapsibleHeight != mCollapsibleHeight) {
                 final boolean isExpandedOld = isExpanded();
-                float newCollapseOffset = constrainCollapseOffset(isCollapsed);
+                float newCollapseOffset = constrainCollapseOffset(mCollapseOffset, isCollapsed);
                 final boolean isExpandedNew = isExpanded();
                 if (isExpandedOld != isExpandedNew) {
                     post(() -> onExpandedChanged(isExpandedNew));
