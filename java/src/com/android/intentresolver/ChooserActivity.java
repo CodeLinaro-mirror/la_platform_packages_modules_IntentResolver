@@ -590,7 +590,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         mRefinementManager.getRefinementCompletion().observe(this, completion -> {
             if (completion.consume()) {
                 if (completion.getRefinedIntent() == null) {
-                    finish();
+                    dismissDrawerAndFinish();
                     return;
                 }
 
@@ -646,7 +646,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                     break;
                 }
 
-                finish();
+                dismissDrawerAndFinish();
             }
         });
         ChooserContentPreviewUi.ActionFactory actionFactory =
@@ -714,6 +714,8 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         Tracer.INSTANCE.markLaunched();
 
         if (isInteractiveSession()) {
+            getOnBackInvokedDispatcher().registerOnBackInvokedCallback(
+                    0, this::dismissDrawerAndFinish);
             configureInteractiveSessionWindow();
             updateInteractiveArea();
         }
@@ -721,7 +723,11 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
 
     private ResolverDrawerLayout initializeResolverDrawerLayout() {
         final ResolverDrawerLayout rdl = requireViewById(com.android.internal.R.id.contentPanel);
-        rdl.setOnDismissedListener(() -> finish());
+        rdl.setOnDismissedListener(() -> {
+            // the drawer is already animated out, no need to run the window animation.
+            disableActivityCloseAnimation();
+            finish();
+        });
 
         boolean hasTouchScreen =
                 mPackageManager.hasSystemFeature(PackageManager.FEATURE_TOUCHSCREEN);
@@ -784,7 +790,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
     @Override
     public boolean onKeyUp(int keyCode, KeyEvent event) {
         if (keyCode == KeyEvent.KEYCODE_ESCAPE) {
-            finish();
+            dismissDrawerAndFinish();
             return true;
         }
 
@@ -3012,6 +3018,20 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
 
     protected void maybeLogProfileChange() {
         getEventLog().logSharesheetProfileChanged();
+    }
+
+    private void dismissDrawerAndFinish() {
+        if (isInteractiveSession() && mResolverDrawerLayout != null) {
+            disableActivityCloseAnimation();
+            mResolverDrawerLayout.setEnabled(false);
+            mResolverDrawerLayout.dismiss();
+        } else {
+            finish();
+        }
+    }
+
+    private void disableActivityCloseAnimation() {
+        overrideActivityTransition(OVERRIDE_TRANSITION_CLOSE, -1, -1);
     }
 
     private static class ProfileRecord {
