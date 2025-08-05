@@ -24,7 +24,6 @@
     android:layout_height="match_parent"
     android:layout_gravity="center"
     app:maxCollapsedHeight="0dp"
-    app:maxCollapsedHeightSmall="56dp"
     app:useScrollablePreviewNestedFlingLogic="true"
     app:showAtTop="@bool/show_preview_at_top"
     android:maxWidth="@dimen/chooser_width"
