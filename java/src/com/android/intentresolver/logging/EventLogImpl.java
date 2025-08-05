@@ -122,7 +122,8 @@ public class EventLogImpl implements EventLog {
                 /* package_name = 2 */ null,
                 /* instance_id = 3 */ mInstanceId.getId(),
                 /* position_picked = 4 */ positionPicked,
-                /* is_pinned = 5 */ false);
+                /* is_pinned = 5 */ false,
+                /* included_extra_text_when_sharing_file = 6 */ false);
     }
 
     /**
@@ -140,13 +141,15 @@ public class EventLogImpl implements EventLog {
             @Nullable HashedStringCache.HashResult directTargetHashed,
             boolean isPinned,
             boolean successfullySelected,
-            long selectionCost) {
+            long selectionCost,
+            boolean includedExtraTextWhenSharingFile) {
         mFrameworkStatsLogger.write(FrameworkStatsLog.RANKING_SELECTED,
                 /* event_id = 1 */ SharesheetTargetSelectedEvent.fromTargetType(targetType).getId(),
                 /* package_name = 2 */ packageName,
                 /* instance_id = 3 */ mInstanceId.getId(),
                 /* position_picked = 4 */ positionPicked,
-                /* is_pinned = 5 */ isPinned);
+                /* is_pinned = 5 */ isPinned,
+                /* included_extra_text_when_sharing_file = 6 */ includedExtraTextWhenSharingFile);
 
         int category = getTargetSelectionCategory(targetType);
         if (category != 0) {
@@ -204,7 +207,8 @@ public class EventLogImpl implements EventLog {
                 /* package_name = 2 */ "",
                 /* instance_id = 3 */ mInstanceId.getId(),
                 /* position_picked = 4 */ -1,
-                /* is_pinned = 5 */ false);
+                /* is_pinned = 5 */ false,
+                /* included_extra_text_when_sharing_file = 6 */ false);
     }
 
     /** Log a warning that we couldn't display the content preview from the supplied {@code uri}. */
