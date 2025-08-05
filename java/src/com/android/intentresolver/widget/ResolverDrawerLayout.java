@@ -70,20 +70,6 @@ public class ResolverDrawerLayout extends ViewGroup {
     private int mMaxCollapsedHeight;
 
     /**
-     * Max total visible height of views not marked always-show when in the closed/initial state
-     * when a default option is present
-     */
-    private int mMaxCollapsedHeightSmall;
-
-    /**
-     * Whether {@code mMaxCollapsedHeightSmall} was set explicitly as a layout attribute or
-     * inferred by {@code mMaxCollapsedHeight}.
-     */
-    private final boolean mIsMaxCollapsedHeightSmallExplicit;
-
-    private boolean mSmallCollapsed;
-
-    /**
      * Move views down from the top by this much in px.
      * The value is in range [0, {@link #mCollapsibleHeight}] where 0 means that no content is
      * pushed off-screen (the drawer is expanded) and {link #mCollapsibleHeight} means that the
@@ -178,11 +164,6 @@ public class ResolverDrawerLayout extends ViewGroup {
         mMaxWidth = a.getDimensionPixelSize(R.styleable.ResolverDrawerLayout_android_maxWidth, -1);
         mMaxCollapsedHeight = a.getDimensionPixelSize(
                 R.styleable.ResolverDrawerLayout_maxCollapsedHeight, 0);
-        mMaxCollapsedHeightSmall = a.getDimensionPixelSize(
-                R.styleable.ResolverDrawerLayout_maxCollapsedHeightSmall,
-                mMaxCollapsedHeight);
-        mIsMaxCollapsedHeightSmallExplicit =
-                a.hasValue(R.styleable.ResolverDrawerLayout_maxCollapsedHeightSmall);
         mShowAtTop = a.getBoolean(R.styleable.ResolverDrawerLayout_showAtTop, false);
         if (a.hasValue(R.styleable.ResolverDrawerLayout_ignoreOffsetTopLimit)) {
             mIgnoreOffsetTopLimitViewId = a.getResourceId(
@@ -219,21 +200,7 @@ public class ResolverDrawerLayout extends ViewGroup {
             return;
         }
         mMaxCollapsedHeight = heightInPixels;
-        if (!mIsMaxCollapsedHeightSmallExplicit) {
-            mMaxCollapsedHeightSmall = mMaxCollapsedHeight;
-        }
         requestLayout();
-    }
-
-    public void setSmallCollapsed(boolean smallCollapsed) {
-        if (mSmallCollapsed != smallCollapsed) {
-            mSmallCollapsed = smallCollapsed;
-            requestLayout();
-        }
-    }
-
-    public boolean isSmallCollapsed() {
-        return mSmallCollapsed;
     }
 
     public boolean isExpanded() {
@@ -435,8 +402,7 @@ public class ResolverDrawerLayout extends ViewGroup {
     }
 
     private int getMaxCollapsedHeight() {
-        return (isSmallCollapsed() ? mMaxCollapsedHeightSmall : mMaxCollapsedHeight)
-                + mCollapsibleHeightReserved;
+        return mMaxCollapsedHeight + mCollapsibleHeightReserved;
     }
 
     public void setOnDismissedListener(OnDismissedListener listener) {
@@ -711,8 +677,8 @@ public class ResolverDrawerLayout extends ViewGroup {
         }
 
         float newPos = Math.max(0, Math.min(mCollapseOffset + dy, mHeightUsed));
-        if (interactiveChooser() && !isDragging()) {
-            // If not dragging, watch out for changed constraints
+        if (interactiveChooser() && !isDragging() && !mDismissOnScrollerFinished) {
+            // If not dragging and not dismissing, watch out for changed constraints
             newPos = constrainCollapseOffset(newPos, false);
         }
         if (newPos != mCollapseOffset) {
