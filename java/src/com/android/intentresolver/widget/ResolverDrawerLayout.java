@@ -677,8 +677,8 @@ public class ResolverDrawerLayout extends ViewGroup {
         }
 
         float newPos = Math.max(0, Math.min(mCollapseOffset + dy, mHeightUsed));
-        if (interactiveChooser() && !isDragging()) {
-            // If not dragging, watch out for changed constraints
+        if (interactiveChooser() && !isDragging() && !mDismissOnScrollerFinished) {
+            // If not dragging and not dismissing, watch out for changed constraints
             newPos = constrainCollapseOffset(newPos, false);
         }
         if (newPos != mCollapseOffset) {
