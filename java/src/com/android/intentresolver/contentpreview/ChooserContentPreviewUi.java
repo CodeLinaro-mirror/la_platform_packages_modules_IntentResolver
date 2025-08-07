@@ -215,6 +215,14 @@ public final class ChooserContentPreviewUi {
         return mContentPreviewUi.getType();
     }
 
+    /**
+     * Returns true if the current content preview UI is for files plus text. This is currently
+     * used by ChooserActivity to determine if the text toggle is shown.
+     */
+    public boolean hasFilesPlusTextContentPreviewUi() {
+        return mContentPreviewUi instanceof FilesPlusTextContentPreviewUi;
+    }
+
     /** Provide callback for image editor invocation. */
     public void setImageEditorCallback(Runnable callback) {
         mContentPreviewUi.setImageEditorCallback(callback);

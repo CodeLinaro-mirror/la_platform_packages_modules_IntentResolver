@@ -32,6 +32,7 @@ internal data class ShareSheetStarted(
     val numCustomActions: Int,
     val modifyShareActionProvided: Boolean,
     val isInteractiveMode: Boolean,
+    val isTextToggleShown: Boolean,
 )
 
 internal data class RankingSelected(
@@ -61,6 +62,7 @@ internal class FakeFrameworkStatsLogger : FrameworkStatsLogger {
         numCustomActions: Int,
         modifyShareActionProvided: Boolean,
         isInteractiveMode: Boolean,
+        isTextToggleShown: Boolean,
     ) {
         shareSheetStarted =
             ShareSheetStarted(
@@ -77,6 +79,7 @@ internal class FakeFrameworkStatsLogger : FrameworkStatsLogger {
                 numCustomActions,
                 modifyShareActionProvided,
                 isInteractiveMode,
+                isTextToggleShown,
             )
     }
 

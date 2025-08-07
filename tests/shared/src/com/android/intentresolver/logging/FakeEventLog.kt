@@ -61,6 +61,7 @@ class FakeEventLog @Inject constructor(private val instanceId: InstanceId) : Eve
         customActionCount: Int,
         modifyShareActionProvided: Boolean,
         isInteractiveMode: Boolean,
+        isTextToggleShown: Boolean,
     ) {
         val event =
             ShareStarted(
@@ -74,6 +75,7 @@ class FakeEventLog @Inject constructor(private val instanceId: InstanceId) : Eve
                 customActionCount,
                 modifyShareActionProvided,
                 isInteractiveMode,
+                isTextToggleShown,
             )
         shareStarted = event
         log { event }
@@ -195,6 +197,7 @@ class FakeEventLog @Inject constructor(private val instanceId: InstanceId) : Eve
         val customActionCount: Int,
         val modifyShareActionProvided: Boolean,
         val isInteractiveMode: Boolean,
+        val isTextToggleShown: Boolean,
     )
 
     data class ShareTargetSelected(

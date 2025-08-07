@@ -90,7 +90,8 @@ public class EventLogImpl implements EventLog {
             String intent,
             int customActionCount,
             boolean modifyShareActionProvided,
-            boolean isInteractiveMode) {
+            boolean isInteractiveMode,
+            boolean isTextToggleShown) {
         mFrameworkStatsLogger.write(
                 FrameworkStatsLog.SHARESHEET_STARTED,
                 /* event_id = 1 */ SharesheetStartedEvent.SHARE_STARTED.getId(),
@@ -104,7 +105,8 @@ public class EventLogImpl implements EventLog {
                 /* intentType = 9 */ typeFromIntentString(intent),
                 /* num_provided_custom_actions = 10 */ customActionCount,
                 /* modify_share_action_provided = 11 */ modifyShareActionProvided,
-                /* is_interactive_mode = 12 */ isInteractiveMode);
+                /* is_interactive_mode = 12 */ isInteractiveMode,
+                /* is_text_toggle_shown = 13 */ isTextToggleShown);
     }
 
     /**
