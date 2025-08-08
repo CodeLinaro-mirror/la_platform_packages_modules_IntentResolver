@@ -174,6 +174,7 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
@@ -528,7 +529,8 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                 mProfiles,
                 mProfileRecords.values(),
                 mProfileAvailability,
-                mMaxTargetsPerRow);
+                mMaxTargetsPerRow,
+                this::expandDrawer);
 
         maybeDisableRecentsScreenshot(mProfiles, mProfileAvailability);
 
@@ -566,7 +568,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                         .hasSystemFeature(PackageManager.FEATURE_TOUCHSCREEN);
 
                 if (isVoiceInteraction() || !hasTouchScreen) {
-                    rdl.setCollapsed(false);
+                    rdl.expand(false);
                 }
 
                 rdl.setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
@@ -918,7 +920,12 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                 mProfiles,
                 mProfileRecords.values(),
                 mProfileAvailability,
-                mMaxTargetsPerRow);
+                mMaxTargetsPerRow,
+                this::expandDrawer);
+        if (interactiveChooser()) {
+            mChooserMultiProfilePagerAdapter.setTargetsEnabled(
+                    mChooserHelper.getAreTargetsEnabled());
+        }
         mChooserMultiProfilePagerAdapter.setCurrentPage(currentPage);
         for (int i = 0, count = mChooserMultiProfilePagerAdapter.getItemCount(); i < count; i++) {
             mChooserMultiProfilePagerAdapter.getPageAdapterForIndex(i)
@@ -970,6 +977,15 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         if (mSystemWindowInsets != null) {
             applyFooterView(mSystemWindowInsets.bottom);
         }
+    }
+
+    private boolean expandDrawer() {
+        if (interactiveChooser() && mResolverDrawerLayout != null
+                && !mResolverDrawerLayout.isExpanded()) {
+            mResolverDrawerLayout.expand(false);
+            return true;
+        }
+        return false;
     }
 
     private void setTabsViewEnabled(boolean isEnabled) {
@@ -1592,7 +1608,8 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
             ProfileHelper profileHelper,
             Collection<ProfileRecord> profileRecords,
             ProfileAvailability profileAvailability,
-            int maxTargetsPerRow) {
+            int maxTargetsPerRow,
+            BooleanSupplier expandDrawerDelegate) {
         Log.d(TAG, "createMultiProfilePagerAdapter");
 
         Profile launchedAs = profileHelper.getLaunchedAsProfile();
@@ -1635,7 +1652,8 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                 launchedAs.getType().ordinal(),
                 profileHelper.getWorkHandle(),
                 profileHelper.getCloneHandle(),
-                maxTargetsPerRow);
+                maxTargetsPerRow,
+                expandDrawerDelegate);
     }
 
     protected EmptyStateProvider createBlockerEmptyStateProvider() {
@@ -2590,7 +2608,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
             mResolverDrawerLayout.setCollapsibleHeightReserved(
                     mDrawerOffsetDelegate.getMinimizedReservedHeight(mSystemWindowInsets));
             if (!mResolverDrawerLayout.isDragging()) {
-                mResolverDrawerLayout.setCollapsed(true);
+                mResolverDrawerLayout.collapse(true);
             }
         } else {
             mResolverDrawerLayout.requestLayout();
