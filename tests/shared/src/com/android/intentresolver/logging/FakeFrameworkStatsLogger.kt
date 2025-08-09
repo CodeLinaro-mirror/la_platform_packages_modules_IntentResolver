@@ -42,6 +42,7 @@ internal data class RankingSelected(
     val instanceId: Int,
     val positionPicked: Int,
     val isPinned: Boolean,
+    val includedExtraTextWhenSharingFile: Boolean,
 )
 
 internal class FakeFrameworkStatsLogger : FrameworkStatsLogger {
@@ -90,6 +91,7 @@ internal class FakeFrameworkStatsLogger : FrameworkStatsLogger {
         instanceId: Int,
         positionPicked: Int,
         isPinned: Boolean,
+        includedExtraTextWhenSharingFile: Boolean,
     ) {
         rankingSelected =
             RankingSelected(
@@ -99,6 +101,7 @@ internal class FakeFrameworkStatsLogger : FrameworkStatsLogger {
                 instanceId,
                 positionPicked,
                 isPinned,
+                includedExtraTextWhenSharingFile,
             )
     }
 }
