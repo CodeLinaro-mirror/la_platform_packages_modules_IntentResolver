@@ -66,14 +66,16 @@ interface FrameworkStatsLogger {
         instanceId: Int,
         positionPicked: Int,
         isPinned: Boolean,
+        includedExtraTextWhenSharingFile: Boolean,
     ) {
         FrameworkStatsLog.write(
-            frameworkEventId, /* event_id = 1 */
-            appEventId, /* package_name = 2 */
-            packageName, /* instance_id = 3 */
-            instanceId, /* position_picked = 4 */
-            positionPicked, /* is_pinned = 5 */
-            isPinned,
+            frameworkEventId,
+            appEventId, /* event_id = 1 */
+            packageName, /* package_name = 2 */
+            instanceId, /* instance_id = 3 */
+            positionPicked, /* position_picked = 4 */
+            isPinned, /* is_pinned = 5 */
+            includedExtraTextWhenSharingFile, /* included_extra_text_when_sharing_file = 6 */
         )
     }
 }

@@ -1800,6 +1800,83 @@ public class ChooserActivityTest {
     }
 
     @Test
+    @EnableFlags(FLAG_SCREENSHOT_CONTEXT_URL)
+    public void testFilePlusTextShare_selectTarget_logIncludedText_isTrue() {
+        Uri uri = createTestContentProviderUri("image/png", null);
+        Intent sendIntent = createSendImageIntent(uri);
+        mFakeImageLoader.setBitmap(uri, createBitmap());
+        sendIntent.putExtra(Intent.EXTRA_TEXT, "https://google.com/search?q=google");
+
+        List<ResolvedComponentInfo> resolvedComponentInfos = Arrays.asList(
+                ResolverDataProvider.createResolvedComponentInfo(
+                        new ComponentName("org.imageviewer", "ImageTarget"),
+                        sendIntent, PERSONAL_USER_HANDLE),
+                ResolverDataProvider.createResolvedComponentInfo(
+                        new ComponentName("org.textviewer", "UriTarget"),
+                        new Intent("VIEW_TEXT"), PERSONAL_USER_HANDLE)
+        );
+
+        setupResolverControllers(resolvedComponentInfos);
+
+        ChooserActivityOverrideData.getInstance().onSafelyStartInternalCallback = (target) -> true;
+
+        Intent chooserIntent = Intent.createChooser(sendIntent, null);
+        Uri referrer = Uri.parse("android-app://com.android.systemui");
+        chooserIntent.putExtra(Intent.EXTRA_REFERRER, referrer);
+        ChooserWrapperActivity activity = mActivityRule.launchActivity(chooserIntent);
+        waitForIdle();
+
+        ResolveInfo toChoose = resolvedComponentInfos.get(0).getResolveInfoAt(0);
+        onView(withText(toChoose.activityInfo.name)).perform(click());
+        waitForIdle();
+
+        FakeEventLog eventLog = getEventLog(activity);
+        assertThat(eventLog.getShareTargetSelected()).hasSize(1);
+        FakeEventLog.ShareTargetSelected call = eventLog.getShareTargetSelected().get(0);
+        assertThat(call.getIncludedExtraTextWhenSharingFile()).isTrue();
+    }
+
+    @Test
+    @EnableFlags(FLAG_SCREENSHOT_CONTEXT_URL)
+    public void testFilePlusTextShare_selectTarget_uncheckTextToggle_logIncludedText_isFalse() {
+        Uri uri = createTestContentProviderUri("image/png", null);
+        Intent sendIntent = createSendImageIntent(uri);
+        mFakeImageLoader.setBitmap(uri, createBitmap());
+        sendIntent.putExtra(Intent.EXTRA_TEXT, "https://google.com/search?q=google");
+
+        List<ResolvedComponentInfo> resolvedComponentInfos = Arrays.asList(
+                ResolverDataProvider.createResolvedComponentInfo(
+                        new ComponentName("org.imageviewer", "ImageTarget"),
+                        sendIntent, PERSONAL_USER_HANDLE),
+                ResolverDataProvider.createResolvedComponentInfo(
+                        new ComponentName("org.textviewer", "UriTarget"),
+                        new Intent("VIEW_TEXT"), PERSONAL_USER_HANDLE)
+        );
+
+        setupResolverControllers(resolvedComponentInfos);
+
+        ChooserActivityOverrideData.getInstance().onSafelyStartInternalCallback = (target) -> true;
+
+        Intent chooserIntent = Intent.createChooser(sendIntent, null);
+        Uri referrer = Uri.parse("android-app://com.android.systemui");
+        chooserIntent.putExtra(Intent.EXTRA_REFERRER, referrer);
+        ChooserWrapperActivity activity = mActivityRule.launchActivity(chooserIntent);
+        waitForIdle();
+
+        onView(withId(R.id.include_text_action)).perform(click());
+        waitForIdle();
+
+        ResolveInfo toChoose = resolvedComponentInfos.get(0).getResolveInfoAt(0);
+        onView(withText(toChoose.activityInfo.name)).perform(click());
+        waitForIdle();
+
+        FakeEventLog eventLog = getEventLog(activity);
+        assertThat(eventLog.getShareTargetSelected()).hasSize(1);
+        FakeEventLog.ShareTargetSelected call = eventLog.getShareTargetSelected().get(0);
+        assertThat(call.getIncludedExtraTextWhenSharingFile()).isFalse();
+    }
+
+    @Test
     public void testShortcutTargetWithApplyAppLimits() {
         // Set up resources
         Resources resources = Mockito.spy(

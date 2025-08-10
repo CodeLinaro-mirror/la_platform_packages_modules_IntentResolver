@@ -60,6 +60,7 @@ interface EventLog {
         isPinned: Boolean,
         successfullySelected: Boolean,
         selectionCost: Long,
+        includedExtraTextWhenSharingFile: Boolean,
     )
 
     fun logDirectShareTargetReceived(category: Int, latency: Int)
