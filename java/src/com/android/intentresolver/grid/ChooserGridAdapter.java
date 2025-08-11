@@ -16,6 +16,8 @@
 
 package com.android.intentresolver.grid;
 
+import static com.android.intentresolver.Flags.useSingleRowForShortcuts;
+
 import android.animation.AnimatorSet;
 import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
@@ -302,7 +304,9 @@ public final class ChooserGridAdapter extends RecyclerView.Adapter<RecyclerView.
         int countSum = count;
 
         countSum += (count = getServiceTargetRowCount());
-        if (count > 0 && position < countSum) return VIEW_TYPE_DIRECT_SHARE;
+        if (count > 0 && position < countSum) {
+            return useSingleRowForShortcuts() ? VIEW_TYPE_CALLER_AND_RANK : VIEW_TYPE_DIRECT_SHARE;
+        }
 
         countSum += (count = getCallerAndRankedTargetRowCount());
         if (count > 0 && position < countSum) return VIEW_TYPE_CALLER_AND_RANK;
