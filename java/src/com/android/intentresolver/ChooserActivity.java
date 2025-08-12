@@ -327,6 +327,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
     private boolean mFinishWhenStopped = false;
 
     private final AtomicLong mIntentReceivedTime = new AtomicLong(-1);
+    private boolean mIsLaunchedAsTaskRoot = false;
 
     protected ActivityModel createActivityModel() {
         return ActivityModel.createFrom(this);
@@ -359,6 +360,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         mChooserHelper.setOnPendingSelection(this::onPendingSelection);
         mChooserHelper.setOnTargetEnabled(this::onTargetEnabledChanged);
         if (interactiveChooser()) {
+            mIsLaunchedAsTaskRoot = isTaskRoot();
             mChooserHelper.setOnMinimizeDrawerRequested(this::onMinimizeDrawerRequested);
         }
     }
@@ -2881,7 +2883,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
 
     private boolean isInteractiveSession() {
         return interactiveChooser() && mRequest.getInteractiveSessionCallback() != null
-                && !isTaskRoot();
+                && !mIsLaunchedAsTaskRoot;
     }
 
     protected WindowInsets onApplyWindowInsets(View v, WindowInsets insets) {
