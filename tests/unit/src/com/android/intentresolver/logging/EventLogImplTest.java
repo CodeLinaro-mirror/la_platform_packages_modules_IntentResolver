@@ -208,6 +208,7 @@ public final class EventLogImplTest {
         final boolean isPinned = true;
         final boolean isSuccessfullySelected = true;
         final long selectionCost = 456;
+        final boolean includedExtraTextWhenSharingFile = true;
 
         mChooserLogger.logShareTargetSelected(
                 targetType,
@@ -218,7 +219,8 @@ public final class EventLogImplTest {
                 /* directTargetHashed= */ null,
                 isPinned,
                 isSuccessfullySelected,
-                selectionCost);
+                selectionCost,
+                includedExtraTextWhenSharingFile);
 
         verify(mFrameworkLog).write(
                 eq(FrameworkStatsLog.RANKING_SELECTED),
@@ -226,7 +228,8 @@ public final class EventLogImplTest {
                 eq(packageName),
                 /* instanceId=*/ gt(0),
                 eq(positionPicked),
-                eq(isPinned));
+                eq(isPinned),
+                eq(includedExtraTextWhenSharingFile));
 
         ArgumentCaptor<LogMaker> eventCaptor = ArgumentCaptor.forClass(LogMaker.class);
         verify(mMetricsLogger).write(eventCaptor.capture());
@@ -246,6 +249,7 @@ public final class EventLogImplTest {
                 eq(""),
                 /* instanceId=*/ gt(0),
                 eq(-1),
+                eq(false),
                 eq(false));
 
         ArgumentCaptor<LogMaker> eventCaptor = ArgumentCaptor.forClass(LogMaker.class);
@@ -264,7 +268,7 @@ public final class EventLogImplTest {
         verify(mFrameworkLog).write(
                 eq(FrameworkStatsLog.RANKING_SELECTED),
                 eq(SharesheetTargetSelectedEvent.SHARESHEET_CUSTOM_ACTION_SELECTED.getId()),
-                any(), anyInt(), eq(position), eq(false));
+                any(), anyInt(), eq(position), eq(false), eq(false));
     }
 
     @Test
@@ -381,6 +385,7 @@ public final class EventLogImplTest {
         final boolean isPinned = true;
         final boolean isSuccessfullySelected = true;
         final long selectionCost = 456;
+        final boolean includedExtraTextWhenSharingFile = true;
 
         mChooserLogger.logShareTargetSelected(
                 targetType,
@@ -391,7 +396,8 @@ public final class EventLogImplTest {
                 /* directTargetHashed= */ null,
                 isPinned,
                 isSuccessfullySelected,
-                selectionCost);
+                selectionCost,
+                includedExtraTextWhenSharingFile);
 
         chooserLogger2.logShareTargetSelected(
                 targetType,
@@ -402,10 +408,18 @@ public final class EventLogImplTest {
                 /* directTargetHashed= */ null,
                 isPinned,
                 isSuccessfullySelected,
-                selectionCost);
+                selectionCost,
+                includedExtraTextWhenSharingFile);
 
-        verify(mFrameworkLog, times(2)).write(
-                anyInt(), anyInt(), anyString(), idIntCaptor.capture(), anyInt(), anyBoolean());
+        verify(mFrameworkLog, times(2))
+                .write(
+                        anyInt(),
+                        anyInt(),
+                        anyString(),
+                        idIntCaptor.capture(),
+                        anyInt(),
+                        anyBoolean(),
+                        anyBoolean());
 
         int id1 = idIntCaptor.getAllValues().get(0);
         int id2 = idIntCaptor.getAllValues().get(1);
@@ -428,6 +442,7 @@ public final class EventLogImplTest {
         final boolean isPinned = true;
         final boolean isSuccessfullySelected = true;
         final long selectionCost = 456;
+        final boolean includedExtraTextWhenSharingFile = true;
 
         mChooserLogger.logShareTargetSelected(
                 targetType,
@@ -438,10 +453,18 @@ public final class EventLogImplTest {
                 /* directTargetHashed= */ null,
                 isPinned,
                 isSuccessfullySelected,
-                selectionCost);
+                selectionCost,
+                includedExtraTextWhenSharingFile);
 
-        verify(mFrameworkLog).write(
-                anyInt(), anyInt(), anyString(), idIntCaptor.capture(), anyInt(), anyBoolean());
+        verify(mFrameworkLog)
+                .write(
+                        anyInt(),
+                        anyInt(),
+                        anyString(),
+                        idIntCaptor.capture(),
+                        anyInt(),
+                        anyBoolean(),
+                        anyBoolean());
 
         mChooserLogger.logSharesheetTriggered();
         verify(mUiEventLog).logWithInstanceId(

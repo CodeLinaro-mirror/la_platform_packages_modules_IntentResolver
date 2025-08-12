@@ -1989,6 +1989,10 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         // should probably never happen. But why would this method ever be invoked with a
         // null target at all? Even an out-of-bounds index should never be "selected"...
         if ((currentListAdapter.getCount() > 0) && (targetInfo != null)) {
+            boolean includedExtraTextWhenSharingFile = !mExcludeSharedText
+                && mRequest.getCallerAllowsTextToggle()
+                && mChooserContentPreviewUi != null
+                && mChooserContentPreviewUi.hasFilesPlusTextContentPreviewUi();
             switch (currentListAdapter.getPositionTargetType(which)) {
                 case ChooserListAdapter.TARGET_SERVICE:
                     getEventLog().logShareTargetSelected(
@@ -2000,7 +2004,8 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                             targetInfo.getHashedTargetIdForMetrics(this),
                             targetInfo.isPinned(),
                             mIsSuccessfullySelected,
-                            selectionCost
+                            selectionCost,
+                            includedExtraTextWhenSharingFile
                     );
                     return;
                 case ChooserListAdapter.TARGET_CALLER:
@@ -2014,7 +2019,8 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                             /* directTargetHashed= */ null,
                             targetInfo.isPinned(),
                             mIsSuccessfullySelected,
-                            selectionCost
+                            selectionCost,
+                            includedExtraTextWhenSharingFile
                     );
                     return;
                 case ChooserListAdapter.TARGET_STANDARD_AZ:
@@ -2031,7 +2037,8 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                             /* directTargetHashed= */ null,
                             /* isPinned= */ false,
                             mIsSuccessfullySelected,
-                            selectionCost
+                            selectionCost,
+                            includedExtraTextWhenSharingFile
                     );
             }
         }
