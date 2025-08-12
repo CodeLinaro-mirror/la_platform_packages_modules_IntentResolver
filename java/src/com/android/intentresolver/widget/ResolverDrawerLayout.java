@@ -48,7 +48,6 @@ import android.widget.OverScroller;
 import androidx.annotation.IdRes;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.core.view.ScrollingView;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.android.intentresolver.R;
@@ -942,7 +941,7 @@ public class ResolverDrawerLayout extends ViewGroup {
         if (mFlingLogicDelegate != null) {
             return mFlingLogicDelegate.onNestedPreFling(this, target, velocityX, velocityY);
         }
-        if (!getShowAtTop() && velocityY > mMinFlingVelocity && mCollapseOffset != 0) {
+        if (!getShowAtTop() && velocityY > mMinFlingVelocity && !isExpanded()) {
             smoothScrollTo(0, velocityY);
             return true;
         }
@@ -999,8 +998,8 @@ public class ResolverDrawerLayout extends ViewGroup {
     }
 
     private static boolean isFlingTargetAtTop(View target) {
-        if (target instanceof ScrollingView) {
-            return !target.canScrollVertically(-1);
+        if (target instanceof TargetListScrollStateQuery targetListParent) {
+            return targetListParent.isAtTop();
         }
         return false;
     }
@@ -1480,7 +1479,7 @@ public class ResolverDrawerLayout extends ViewGroup {
         default boolean onNestedPreFling(
                 ResolverDrawerLayout drawer, View target, float velocityX, float velocityY) {
             boolean shouldScroll = !drawer.getShowAtTop() && velocityY > drawer.mMinFlingVelocity
-                    && drawer.mCollapseOffset != 0;
+                    && !drawer.isExpanded();
             if (shouldScroll) {
                 drawer.smoothScrollTo(0, velocityY);
                 return true;
