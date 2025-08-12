@@ -732,7 +732,9 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                 mRequest.getTargetAction(),
                 mRequest.getChooserActions().size(),
                 mRequest.getModifyShareAction() != null,
-                isInteractiveSession()
+                isInteractiveSession(),
+                mRequest.getCallerAllowsTextToggle() &&
+                    mChooserContentPreviewUi.hasFilesPlusTextContentPreviewUi()
         );
         mEnterTransitionAnimationDelegate.postponeTransition();
         mInitialProfile = findSelectedProfile();

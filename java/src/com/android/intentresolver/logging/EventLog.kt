@@ -45,6 +45,7 @@ interface EventLog {
         customActionCount: Int,
         modifyShareActionProvided: Boolean,
         isInteractiveMode: Boolean,
+        isTextToggleShown: Boolean,
     )
 
     fun logCustomActionSelected(positionPicked: Int)

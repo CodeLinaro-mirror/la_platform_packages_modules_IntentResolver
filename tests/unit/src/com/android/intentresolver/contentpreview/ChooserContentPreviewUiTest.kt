@@ -87,6 +87,7 @@ class ChooserContentPreviewUiTest {
         assertThat(testSubject.preferredContentPreview)
             .isEqualTo(ContentPreviewType.CONTENT_PREVIEW_TEXT)
         assertThat(testSubject.mContentPreviewUi).isInstanceOf(TextContentPreviewUi::class.java)
+        assertThat(testSubject.hasFilesPlusTextContentPreviewUi()).isFalse()
         verify(transitionCallback, times(1)).onAllTransitionElementsReady()
     }
 
@@ -97,6 +98,7 @@ class ChooserContentPreviewUiTest {
         assertThat(testSubject.preferredContentPreview)
             .isEqualTo(ContentPreviewType.CONTENT_PREVIEW_FILE)
         assertThat(testSubject.mContentPreviewUi).isInstanceOf(FileContentPreviewUi::class.java)
+        assertThat(testSubject.hasFilesPlusTextContentPreviewUi()).isFalse()
         verify(transitionCallback, times(1)).onAllTransitionElementsReady()
     }
 
@@ -112,6 +114,7 @@ class ChooserContentPreviewUiTest {
             createContentPreviewUi(action = Intent.ACTION_SEND, sharedText = "Shared text")
         assertThat(testSubject.mContentPreviewUi)
             .isInstanceOf(FilesPlusTextContentPreviewUi::class.java)
+        assertThat(testSubject.hasFilesPlusTextContentPreviewUi()).isTrue()
         verify(previewData, times(1)).imagePreviewFileInfoFlow
         verify(transitionCallback, times(1)).onAllTransitionElementsReady()
     }
@@ -128,6 +131,7 @@ class ChooserContentPreviewUiTest {
         assertThat(testSubject.preferredContentPreview)
             .isEqualTo(ContentPreviewType.CONTENT_PREVIEW_IMAGE)
         assertThat(testSubject.mContentPreviewUi).isInstanceOf(UnifiedContentPreviewUi::class.java)
+        assertThat(testSubject.hasFilesPlusTextContentPreviewUi()).isFalse()
         verify(previewData, times(1)).imagePreviewFileInfoFlow
         verify(transitionCallback, never()).onAllTransitionElementsReady()
     }
