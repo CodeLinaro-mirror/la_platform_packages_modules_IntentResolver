@@ -17,6 +17,7 @@
 package com.android.intentresolver.widget
 
 import android.content.Context
+import android.graphics.Rect
 import android.util.AttributeSet
 import android.view.View
 import android.widget.LinearLayout
@@ -42,6 +43,8 @@ class ChooserNestedScrollView : NestedScrollView {
         attrs: AttributeSet?,
         defStyleAttr: Int,
     ) : super(context, attrs, defStyleAttr)
+
+    private var shouldScrollOnRectangleOnScreenRequest = true
 
     var requestChildFocusPredicate: (View?, View?) -> Boolean = DefaultChildFocusPredicate
 
@@ -109,8 +112,28 @@ class ChooserNestedScrollView : NestedScrollView {
 
     override fun onRequestChildFocus(child: View?, focused: View?) {
         if (requestChildFocusPredicate(child, focused)) {
+            // When a child view is requesting a focus, it will trigger two parent's method calls:
+            // `onRequestChildFocus` followed by `requestChildRectangleOnScreen`. Both calls makes
+            // `NestedScrollView` scroll to the child and this logic is added to ignore some of
+            // them. Unfortunately, `requestChildRectangleOnScreen` does not have enough information
+            // to easily determine which view is receiving the focus (it would require to find a
+            // descended view that matches the given rectangle) thus
+            // `shouldScrollOnRectangleOnScreenRequest` is used as a heuristic to ignore the call.
+            shouldScrollOnRectangleOnScreenRequest = true
             super.onRequestChildFocus(child, focused)
+        } else {
+            shouldScrollOnRectangleOnScreenRequest = false
         }
+    }
+
+    override fun requestChildRectangleOnScreen(
+        child: View,
+        rectangle: Rect?,
+        immediate: Boolean,
+    ): Boolean {
+        val shouldScroll = shouldScrollOnRectangleOnScreenRequest
+        shouldScrollOnRectangleOnScreenRequest = true
+        return shouldScroll && super.requestChildRectangleOnScreen(child, rectangle, immediate)
     }
 
     companion object {

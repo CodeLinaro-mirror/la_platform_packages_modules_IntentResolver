@@ -45,6 +45,7 @@ interface EventLog {
         customActionCount: Int,
         modifyShareActionProvided: Boolean,
         isInteractiveMode: Boolean,
+        isTextToggleShown: Boolean,
     )
 
     fun logCustomActionSelected(positionPicked: Int)
@@ -59,6 +60,7 @@ interface EventLog {
         isPinned: Boolean,
         successfullySelected: Boolean,
         selectionCost: Long,
+        includedExtraTextWhenSharingFile: Boolean,
     )
 
     fun logDirectShareTargetReceived(category: Int, latency: Int)

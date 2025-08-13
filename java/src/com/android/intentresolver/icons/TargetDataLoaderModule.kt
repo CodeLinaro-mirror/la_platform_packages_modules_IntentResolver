@@ -20,9 +20,12 @@ import android.app.ActivityManager
 import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.drawable.Drawable
+import com.android.intentresolver.Flags.limitTargetDataLoadingThreads
 import com.android.intentresolver.R
 import com.android.intentresolver.SimpleIconFactory
 import com.android.intentresolver.TargetPresentationGetter
+import com.android.intentresolver.inject.Background
+import com.android.intentresolver.inject.TargetDataLoading
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -30,10 +33,27 @@ import dagger.hilt.android.components.ActivityComponent
 import dagger.hilt.android.qualifiers.ActivityContext
 import dagger.hilt.android.scopes.ActivityScoped
 import javax.inject.Provider
+import kotlinx.coroutines.CoroutineDispatcher
+
+private const val MAX_TARGET_DATA_LOADING_THREADS = 4
 
 @Module
 @InstallIn(ActivityComponent::class)
 object TargetDataLoaderModule {
+    /**
+     * For target-data loading tasks (e.g. icon loading), provide a dispatcher over a
+     * reasonably-sized thread pool so we don't cause unnecessary contention while loading for too
+     * many targets at the same time.
+     */
+    @Provides
+    @TargetDataLoading
+    fun targetDataLoadingDispatcher(
+        @Background dispatcher: CoroutineDispatcher
+    ): CoroutineDispatcher =
+        if (limitTargetDataLoadingThreads())
+            dispatcher.limitedParallelism(MAX_TARGET_DATA_LOADING_THREADS)
+        else dispatcher
+
     @Provides
     @IconPlaceholder
     fun iconPlaceholder(@ActivityContext context: Context): Drawable =

@@ -327,6 +327,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
     private boolean mFinishWhenStopped = false;
 
     private final AtomicLong mIntentReceivedTime = new AtomicLong(-1);
+    private boolean mIsLaunchedAsTaskRoot = false;
 
     protected ActivityModel createActivityModel() {
         return ActivityModel.createFrom(this);
@@ -359,6 +360,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         mChooserHelper.setOnPendingSelection(this::onPendingSelection);
         mChooserHelper.setOnTargetEnabled(this::onTargetEnabledChanged);
         if (interactiveChooser()) {
+            mIsLaunchedAsTaskRoot = isTaskRoot();
             mChooserHelper.setOnMinimizeDrawerRequested(this::onMinimizeDrawerRequested);
         }
     }
@@ -730,7 +732,9 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                 mRequest.getTargetAction(),
                 mRequest.getChooserActions().size(),
                 mRequest.getModifyShareAction() != null,
-                isInteractiveSession()
+                isInteractiveSession(),
+                mRequest.getCallerAllowsTextToggle() &&
+                    mChooserContentPreviewUi.hasFilesPlusTextContentPreviewUi()
         );
         mEnterTransitionAnimationDelegate.postponeTransition();
         mInitialProfile = findSelectedProfile();
@@ -1985,6 +1989,10 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         // should probably never happen. But why would this method ever be invoked with a
         // null target at all? Even an out-of-bounds index should never be "selected"...
         if ((currentListAdapter.getCount() > 0) && (targetInfo != null)) {
+            boolean includedExtraTextWhenSharingFile = !mExcludeSharedText
+                && mRequest.getCallerAllowsTextToggle()
+                && mChooserContentPreviewUi != null
+                && mChooserContentPreviewUi.hasFilesPlusTextContentPreviewUi();
             switch (currentListAdapter.getPositionTargetType(which)) {
                 case ChooserListAdapter.TARGET_SERVICE:
                     getEventLog().logShareTargetSelected(
@@ -1996,7 +2004,8 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                             targetInfo.getHashedTargetIdForMetrics(this),
                             targetInfo.isPinned(),
                             mIsSuccessfullySelected,
-                            selectionCost
+                            selectionCost,
+                            includedExtraTextWhenSharingFile
                     );
                     return;
                 case ChooserListAdapter.TARGET_CALLER:
@@ -2010,7 +2019,8 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                             /* directTargetHashed= */ null,
                             targetInfo.isPinned(),
                             mIsSuccessfullySelected,
-                            selectionCost
+                            selectionCost,
+                            includedExtraTextWhenSharingFile
                     );
                     return;
                 case ChooserListAdapter.TARGET_STANDARD_AZ:
@@ -2027,7 +2037,8 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                             /* directTargetHashed= */ null,
                             /* isPinned= */ false,
                             mIsSuccessfullySelected,
-                            selectionCost
+                            selectionCost,
+                            includedExtraTextWhenSharingFile
                     );
             }
         }
@@ -2881,7 +2892,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
 
     private boolean isInteractiveSession() {
         return interactiveChooser() && mRequest.getInteractiveSessionCallback() != null
-                && !isTaskRoot();
+                && !mIsLaunchedAsTaskRoot;
     }
 
     protected WindowInsets onApplyWindowInsets(View v, WindowInsets insets) {

@@ -32,6 +32,7 @@ internal data class ShareSheetStarted(
     val numCustomActions: Int,
     val modifyShareActionProvided: Boolean,
     val isInteractiveMode: Boolean,
+    val isTextToggleShown: Boolean,
 )
 
 internal data class RankingSelected(
@@ -41,6 +42,7 @@ internal data class RankingSelected(
     val instanceId: Int,
     val positionPicked: Int,
     val isPinned: Boolean,
+    val includedExtraTextWhenSharingFile: Boolean,
 )
 
 internal class FakeFrameworkStatsLogger : FrameworkStatsLogger {
@@ -61,6 +63,7 @@ internal class FakeFrameworkStatsLogger : FrameworkStatsLogger {
         numCustomActions: Int,
         modifyShareActionProvided: Boolean,
         isInteractiveMode: Boolean,
+        isTextToggleShown: Boolean,
     ) {
         shareSheetStarted =
             ShareSheetStarted(
@@ -77,6 +80,7 @@ internal class FakeFrameworkStatsLogger : FrameworkStatsLogger {
                 numCustomActions,
                 modifyShareActionProvided,
                 isInteractiveMode,
+                isTextToggleShown,
             )
     }
 
@@ -87,6 +91,7 @@ internal class FakeFrameworkStatsLogger : FrameworkStatsLogger {
         instanceId: Int,
         positionPicked: Int,
         isPinned: Boolean,
+        includedExtraTextWhenSharingFile: Boolean,
     ) {
         rankingSelected =
             RankingSelected(
@@ -96,6 +101,7 @@ internal class FakeFrameworkStatsLogger : FrameworkStatsLogger {
                 instanceId,
                 positionPicked,
                 isPinned,
+                includedExtraTextWhenSharingFile,
             )
     }
 }
