@@ -24,6 +24,7 @@ import android.service.chooser.AdditionalContentContract.Columns.URI
 import androidx.core.os.bundleOf
 import com.android.intentresolver.contentpreview.payloadtoggle.domain.model.CursorRow
 import com.android.intentresolver.contentpreview.readSize
+import com.android.intentresolver.domain.UriCallerReadAccessValidator
 import com.android.intentresolver.inject.AdditionalContent
 import com.android.intentresolver.inject.ChooserIntent
 import com.android.intentresolver.util.cursor.CursorView
@@ -43,18 +44,26 @@ constructor(
     private val contentResolver: ContentInterface,
     @AdditionalContent private val cursorUri: Uri,
     @ChooserIntent private val chooserIntent: Intent,
+    private val uriAccessValidator: UriCallerReadAccessValidator,
 ) : CursorResolver<CursorRow?> {
+    private val validatedCursorUri by lazy {
+        if (uriAccessValidator.checkAccess(cursorUri)) cursorUri else null
+    }
+
     override suspend fun getCursor(): CursorView<CursorRow?>? = withCancellationSignal { signal ->
-        runCatching {
-                contentResolver.query(
-                    cursorUri,
-                    // TODO: uncomment to start using that data
-                    arrayOf(URI /*, WIDTH, HEIGHT*/),
-                    bundleOf(Intent.EXTRA_INTENT to chooserIntent),
-                    signal,
-                )
+        validatedCursorUri
+            ?.let { safeUri ->
+                runCatching {
+                        contentResolver.query(
+                            safeUri,
+                            // TODO: uncomment to start using that data
+                            arrayOf(URI /*, WIDTH, HEIGHT*/),
+                            bundleOf(Intent.EXTRA_INTENT to chooserIntent),
+                            signal,
+                        )
+                    }
+                    .getOrNull()
             }
-            .getOrNull()
             ?.viewBy { readUri()?.let { uri -> CursorRow(uri, readSize(), position) } }
     }
 
@@ -62,7 +71,10 @@ constructor(
         val uriIdx = columnNames.indexOf(URI)
         if (uriIdx < 0) return null
         return runCatching {
-                getString(uriIdx)?.let(Uri::parse)?.takeIf { it.authority != cursorUri.authority }
+                getString(uriIdx)
+                    ?.let(Uri::parse)
+                    ?.takeIf { it.authority != cursorUri.authority }
+                    ?.takeIf { uriAccessValidator.checkAccess(it) }
             }
             .getOrNull()
     }
