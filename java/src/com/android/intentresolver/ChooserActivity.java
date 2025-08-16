@@ -21,6 +21,7 @@ import static android.content.Intent.FLAG_ACTIVITY_NEW_TASK;
 import static android.service.chooser.Flags.interactiveChooser;
 import static android.view.WindowManager.LayoutParams.SYSTEM_FLAG_HIDE_NON_SYSTEM_OVERLAY_WINDOWS;
 
+import static androidx.core.view.ViewKt.doOnNextLayout;
 import static androidx.lifecycle.LifecycleKt.getCoroutineScope;
 
 import static com.android.intentresolver.ChooserActionFactory.EDIT_SOURCE;
@@ -92,6 +93,8 @@ import android.widget.Toast;
 import androidx.annotation.MainThread;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.animation.Animator;
+import androidx.core.animation.ObjectAnimator;
 import androidx.fragment.app.FragmentActivity;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.lifecycle.viewmodel.CreationExtras;
@@ -328,12 +331,17 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
     private final AtomicLong mIntentReceivedTime = new AtomicLong(-1);
     private boolean mIsLaunchedAsTaskRoot = false;
 
+    private ChooserViewModel mViewModel;
+    private int mInitialProfile = -1;
+
+    private final Rect mTmpRect = new Rect();
+
+    @Nullable
+    private ObjectAnimator mRevealAnimation;
+
     protected ActivityModel createActivityModel() {
         return ActivityModel.createFrom(this);
     }
-
-    private ChooserViewModel mViewModel;
-    private int mInitialProfile = -1;
 
     @NonNull
     @Override
@@ -469,6 +477,10 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         }
         if (mChooserMultiProfilePagerAdapter != null) {
             mChooserMultiProfilePagerAdapter.destroy();
+        }
+        if (mRevealAnimation != null) {
+            mRevealAnimation.cancel();
+            mRevealAnimation = null;
         }
 
         if (isFinishing()) {
@@ -726,6 +738,9 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                     getResources().getDimensionPixelSize(
                             R.dimen.chooser_min_collapsed_drawer_top_offset));
             rdl.setOnInteractedListener(this::onDrawerInteracted);
+            if (isWindowEnterAnimationDisabled()) {
+                rdl.setVisibility(View.INVISIBLE);
+            }
         }
 
         if (synchronousDrawerOffsetCalculation()) {
@@ -839,23 +854,24 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         final Rect rect = new Rect();
         contentView.getViewTreeObserver().addOnComputeInternalInsetsListener((info) -> {
             int oldTop = rect.top;
-            rdl.getBoundsInWindow(rect, true);
-            int left = rect.left;
-            int top = rect.top;
             ResolverDrawerLayoutExt.getVisibleBoundsInWindow(rdl, rect);
-            rect.offset(left, top);
             if (oldTop != rect.top) {
-                Rect r = rect;
                 Window w = getWindow();
                 WindowManager.LayoutParams wa = w == null ? null : w.getAttributes();
+                final Rect r;
                 if (wa != null && (wa.x != 0 || wa.y != 0)) {
-                    r = new Rect(rect);
+                    r = mTmpRect;
+                    r.set(rect);
                     r.offset(wa.x, wa.y);
+                } else {
+                    r = rect;
                 }
-                mViewModel.getInteractiveSessionInteractor().sendChooserWindowSize(r);
+                if (rdl.getVisibility() == View.VISIBLE) {
+                    mViewModel.getInteractiveSessionInteractor().sendChooserWindowSize(r);
+                }
             }
             info.setTouchableInsets(ViewTreeObserver.InternalInsetsInfo.TOUCHABLE_INSETS_REGION);
-            info.touchableRegion.set(new Rect(rect));
+            info.touchableRegion.set(rect);
         });
     }
 
@@ -2644,6 +2660,9 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                 + "rebuildComplete=" + rebuildComplete + ")");
         setupScrollListener();
         maybeSetupGlobalLayoutListener();
+        if (isInteractiveSession() && rebuildComplete && isWindowEnterAnimationDisabled()) {
+            maybeRevealDrawer();
+        }
 
         ChooserListAdapter chooserListAdapter = (ChooserListAdapter) listAdapter;
         UserHandle listProfileUserHandle = chooserListAdapter.getUserHandle();
@@ -2785,6 +2804,50 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                 });
     }
 
+    private void maybeRevealDrawer() {
+        if (mResolverDrawerLayout == null
+                || mResolverDrawerLayout.getVisibility() != View.INVISIBLE
+                || mRevealAnimation != null) {
+            return;
+        }
+        doOnNextLayout(mResolverDrawerLayout, (view) -> {
+            doRevealDrawer();
+            return kotlin.Unit.INSTANCE;
+        });
+    }
+
+    private void doRevealDrawer() {
+        mResolverDrawerLayout.getBoundsInWindow(mTmpRect, true);
+        int bottom = mTmpRect.bottom;
+        ResolverDrawerLayoutExt.getVisibleBoundsInWindow(mResolverDrawerLayout, mTmpRect);
+        int offset = bottom - mTmpRect.top;
+        mResolverDrawerLayout.setTranslationY(offset);
+        mResolverDrawerLayout.setVisibility(View.VISIBLE);
+        mResolverDrawerLayout.setEnabled(false);
+        ObjectAnimator animator = ObjectAnimator.ofFloat(mResolverDrawerLayout, "translationY", 0);
+        animator.addListener(new Animator.AnimatorListener() {
+            @Override
+            public void onAnimationStart(@NonNull Animator animation) {}
+
+            @Override
+            public void onAnimationEnd(@NonNull Animator animation) {
+                mResolverDrawerLayout.setEnabled(true);
+                mRevealAnimation = null;
+            }
+
+            @Override
+            public void onAnimationCancel(@NonNull Animator animation) {
+                mResolverDrawerLayout.setEnabled(true);
+                mRevealAnimation = null;
+            }
+
+            @Override
+            public void onAnimationRepeat(@NonNull Animator animation) {}
+        });
+        mRevealAnimation = animator;
+        animator.start();
+    }
+
     /**
      * The sticky content preview is shown only when we have a tabbed view. It's shown above
      * the tabs so it is not part of the scrollable list. If we are not in tabbed view,
@@ -2891,6 +2954,11 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
     private boolean isInteractiveSession() {
         return interactiveChooser() && mRequest.getInteractiveSessionCallback() != null
                 && !mIsLaunchedAsTaskRoot;
+    }
+
+    private boolean isWindowEnterAnimationDisabled() {
+        return (getIntent().getFlags() & Intent.FLAG_ACTIVITY_NO_ANIMATION)
+                == Intent.FLAG_ACTIVITY_NO_ANIMATION;
     }
 
     protected WindowInsets onApplyWindowInsets(View v, WindowInsets insets) {

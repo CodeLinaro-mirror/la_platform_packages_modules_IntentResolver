@@ -65,3 +65,13 @@ flag {
     purpose: PURPOSE_BUGFIX
   }
 }
+
+flag {
+  name: "use_single_row_for_shortcuts"
+  namespace: "intentresolver"
+  description: "Do not use the two-row group view for shortcuts"
+  bug: "438002780"
+  metadata {
+    purpose: PURPOSE_BUGFIX
+  }
+}
