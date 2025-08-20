@@ -48,7 +48,7 @@ import android.widget.OverScroller;
 import androidx.annotation.IdRes;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.core.view.ScrollingView;
+import androidx.annotation.VisibleForTesting;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.android.intentresolver.R;
@@ -68,6 +68,8 @@ public class ResolverDrawerLayout extends ViewGroup {
      * Max total visible height of views not marked always-show when in the closed/initial state
      */
     private int mMaxCollapsedHeight;
+
+    private int mReservedCollapsedTopSpace;
 
     /**
      * Move views down from the top by this much in px.
@@ -92,8 +94,11 @@ public class ResolverDrawerLayout extends ViewGroup {
     private int mAlwaysShowHeight;
 
     /**
-     * The height in pixels of reserved space added to the top of the collapsed UI;
-     * e.g. chooser targets
+     * A portion of the drawer height that should remain visible when the drawer is collapsed. Note
+     * that this is one of several values that determine what the visible height should be. The
+     * others are {@link #mAlwaysShowHeight} and {@link #mMaxCollapsedHeight}.
+     * Depending on the available vertical space, this value can be reduced by
+     * the value of {@link #mReservedCollapsedTopSpace}.
      */
     private int mCollapsibleHeightReserved;
 
@@ -203,6 +208,25 @@ public class ResolverDrawerLayout extends ViewGroup {
         requestLayout();
     }
 
+    /**
+     * Reserved space above the top of the drawer for a collapsed drawer. Setting this value may
+     * reduce the effect of {@link #mCollapsibleHeightReserved} when the view doesn't have
+     * enough vertical space to satisfy both this restriction and that of
+     * {@link #mCollapsibleHeight}.
+     */
+    public void setReservedCollapsedTopSpace(int reservedCollapsedTopSpace) {
+        if (reservedCollapsedTopSpace < 0) {
+            Log.wtf(TAG,
+                    "setReservedCollapsedTopSpace; unsupported value: "
+                            + reservedCollapsedTopSpace);
+            reservedCollapsedTopSpace = 0;
+        }
+        if (mReservedCollapsedTopSpace != reservedCollapsedTopSpace) {
+            mReservedCollapsedTopSpace = reservedCollapsedTopSpace;
+            requestLayout();
+        }
+    }
+
     public boolean isExpanded() {
         return mCollapseOffset == 0;
     }
@@ -268,6 +292,12 @@ public class ResolverDrawerLayout extends ViewGroup {
 
     public void setCollapsibleHeightReserved(int heightPixels) {
         final int oldReserved = mCollapsibleHeightReserved;
+        if (heightPixels < 0) {
+            Log.wtf(
+                    TAG,
+                    "setCollapsibleHeightReserved; unsupported value: " + heightPixels);
+            heightPixels = 0;
+        }
         mCollapsibleHeightReserved = heightPixels;
         if (oldReserved != mCollapsibleHeightReserved) {
             if (!isInLayout()) {
@@ -942,7 +972,7 @@ public class ResolverDrawerLayout extends ViewGroup {
         if (mFlingLogicDelegate != null) {
             return mFlingLogicDelegate.onNestedPreFling(this, target, velocityX, velocityY);
         }
-        if (!getShowAtTop() && velocityY > mMinFlingVelocity && mCollapseOffset != 0) {
+        if (!getShowAtTop() && velocityY > mMinFlingVelocity && !isExpanded()) {
             smoothScrollTo(0, velocityY);
             return true;
         }
@@ -999,8 +1029,8 @@ public class ResolverDrawerLayout extends ViewGroup {
     }
 
     private static boolean isFlingTargetAtTop(View target) {
-        if (target instanceof ScrollingView) {
-            return !target.canScrollVertically(-1);
+        if (target instanceof TargetListScrollStateQuery targetListParent) {
+            return targetListParent.isAtTop();
         }
         return false;
     }
@@ -1167,8 +1197,42 @@ public class ResolverDrawerLayout extends ViewGroup {
 
     private int updateCollapsibleHeight() {
         final int oldCollapsibleHeight = mCollapsibleHeight;
-        mCollapsibleHeight = Math.max(0, mHeightUsed - mAlwaysShowHeight - getMaxCollapsedHeight());
+        mCollapsibleHeight = calculateCollapsibleHeight(
+                getMeasuredHeight(),
+                getPaddingTop(),
+                mReservedCollapsedTopSpace,
+                mHeightUsed,
+                mAlwaysShowHeight,
+                mMaxCollapsedHeight,
+                mCollapsibleHeightReserved
+        );
         return oldCollapsibleHeight;
+    }
+
+    /** Calculates collapsible height value. */
+    @VisibleForTesting
+    public static int calculateCollapsibleHeight(
+            int viewHeight,
+            int paddingTop,
+            int reservedCollapsedTopSpace, int drawerHeight,
+            int alwaysShowHeight,
+            int maxCollapsedHeight,
+            int collapsibleHeightReserved) {
+        int collapsibleHeight = Math.max(
+                0,
+                drawerHeight - alwaysShowHeight - maxCollapsedHeight - collapsibleHeightReserved);
+        if (interactiveChooser()) {
+            int collapsedTopOffset = calculateDrawerTop(
+                    viewHeight, drawerHeight, collapsibleHeight);
+            final int minCollapsedTop = reservedCollapsedTopSpace + paddingTop;
+            if (collapsedTopOffset < minCollapsedTop) {
+                int dy = Math.min(
+                        minCollapsedTop - collapsedTopOffset,
+                        collapsibleHeightReserved);
+                collapsibleHeight += dy;
+            }
+        }
+        return collapsibleHeight;
     }
 
     /**
@@ -1480,7 +1544,7 @@ public class ResolverDrawerLayout extends ViewGroup {
         default boolean onNestedPreFling(
                 ResolverDrawerLayout drawer, View target, float velocityX, float velocityY) {
             boolean shouldScroll = !drawer.getShowAtTop() && velocityY > drawer.mMinFlingVelocity
-                    && drawer.mCollapseOffset != 0;
+                    && !drawer.isExpanded();
             if (shouldScroll) {
                 drawer.smoothScrollTo(0, velocityY);
                 return true;
