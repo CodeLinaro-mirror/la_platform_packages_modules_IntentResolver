@@ -33,7 +33,7 @@ import androidx.core.view.marginTop
  * [LinearLayout.VERTICAL] orientation. If the child has more than one child, the first its child
  * will be made scrollable (it is expected to be a content preview view).
  */
-class ChooserNestedScrollView : NestedScrollView {
+class ChooserNestedScrollView : NestedScrollView, TargetListScrollStateQuery {
     constructor(context: Context) : super(context)
 
     constructor(context: Context, attrs: AttributeSet?) : super(context, attrs)
@@ -109,6 +109,18 @@ class ChooserNestedScrollView : NestedScrollView {
             consumed[1] += scrollY - preScrollY
         }
     }
+
+    private var flingingTargetListChild: TargetListScrollStateQuery? = null
+
+    override fun onNestedPreFling(target: View, velocityX: Float, velocityY: Float): Boolean {
+        flingingTargetListChild = target as? TargetListScrollStateQuery
+        return super.onNestedPreFling(target, velocityX, velocityY).also {
+            flingingTargetListChild = null
+        }
+    }
+
+    override val isAtTop: Boolean
+        get() = !canScrollVertically(-1) && (flingingTargetListChild?.isAtTop ?: true)
 
     override fun onRequestChildFocus(child: View?, focused: View?) {
         if (requestChildFocusPredicate(child, focused)) {

@@ -21,6 +21,7 @@ import static android.content.Intent.FLAG_ACTIVITY_NEW_TASK;
 import static android.service.chooser.Flags.interactiveChooser;
 import static android.view.WindowManager.LayoutParams.SYSTEM_FLAG_HIDE_NON_SYSTEM_OVERLAY_WINDOWS;
 
+import static androidx.core.view.ViewKt.doOnNextLayout;
 import static androidx.lifecycle.LifecycleKt.getCoroutineScope;
 
 import static com.android.intentresolver.ChooserActionFactory.EDIT_SOURCE;
@@ -92,6 +93,8 @@ import android.widget.Toast;
 import androidx.annotation.MainThread;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.animation.Animator;
+import androidx.core.animation.ObjectAnimator;
 import androidx.fragment.app.FragmentActivity;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.lifecycle.viewmodel.CreationExtras;
@@ -219,7 +222,6 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
     private static final String LAST_SHOWN_PROFILE = "last_shown_tab_key";
     public static final String METRICS_CATEGORY_CHOOSER = "intent_chooser";
 
-    private int mLayoutId;
     private UserHandle mHeaderCreatorUser;
     private boolean mPackageMonitorsRegistered;
     private PackageMonitor mPersonalPackageMonitor;
@@ -329,12 +331,17 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
     private final AtomicLong mIntentReceivedTime = new AtomicLong(-1);
     private boolean mIsLaunchedAsTaskRoot = false;
 
+    private ChooserViewModel mViewModel;
+    private int mInitialProfile = -1;
+
+    private final Rect mTmpRect = new Rect();
+
+    @Nullable
+    private ObjectAnimator mRevealAnimation;
+
     protected ActivityModel createActivityModel() {
         return ActivityModel.createFrom(this);
     }
-
-    private ChooserViewModel mViewModel;
-    private int mInitialProfile = -1;
 
     @NonNull
     @Override
@@ -471,6 +478,10 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         if (mChooserMultiProfilePagerAdapter != null) {
             mChooserMultiProfilePagerAdapter.destroy();
         }
+        if (mRevealAnimation != null) {
+            mRevealAnimation.cancel();
+            mRevealAnimation = null;
+        }
 
         if (isFinishing()) {
             mLatencyTracker.onActionCancel(ACTION_LOAD_SHARE_SHEET);
@@ -556,33 +567,12 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                 );
             }
             mPackageMonitorsRegistered = true;
-            final ResolverDrawerLayout rdl = findViewById(
-                    com.android.internal.R.id.contentPanel);
-            if (rdl != null) {
-                rdl.setOnDismissedListener(new ResolverDrawerLayout.OnDismissedListener() {
-                    @Override
-                    public void onDismissed() {
-                        finish();
-                    }
-                });
 
-                boolean hasTouchScreen = mPackageManager
-                        .hasSystemFeature(PackageManager.FEATURE_TOUCHSCREEN);
-
-                if (isVoiceInteraction() || !hasTouchScreen) {
-                    rdl.expand(false);
-                }
-
-                rdl.setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-                        | View.SYSTEM_UI_FLAG_LAYOUT_STABLE);
-                rdl.setOnApplyWindowInsetsListener(this::onApplyWindowInsets);
-
-                mResolverDrawerLayout = rdl;
-                mDrawerOffsetDelegate = new DrawerCollapseReservedHeightDelegate(
-                        getResources().getDimensionPixelSize(
-                                R.dimen.chooser_minimized_collapsed_height),
-                        this::calculateDrawerOffset);
-            }
+            mResolverDrawerLayout = initializeResolverDrawerLayout();
+            mDrawerOffsetDelegate = new DrawerCollapseReservedHeightDelegate(
+                    getResources().getDimensionPixelSize(
+                            R.dimen.chooser_minimized_collapsed_height),
+                    this::calculateDrawerOffset);
 
             Intent intent = mRequest.getTargetIntent();
             final Set<String> categories = intent.getCategories();
@@ -702,23 +692,6 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         final long systemCost = mChooserShownTime - mIntentReceivedTime.get();
         getEventLog().logChooserActivityShown(
                 isWorkProfile(), mRequest.getTargetType(), systemCost);
-        if (mResolverDrawerLayout != null) {
-            if (synchronousDrawerOffsetCalculation()) {
-                mResolverDrawerLayout.setCollapsibleHeightReservedDelegate(
-                        this::syncHandleLayoutChange);
-            } else {
-                mResolverDrawerLayout.addOnLayoutChangeListener(this::handleLayoutChange);
-            }
-
-            mResolverDrawerLayout.setOnExpandedChangedListener(
-                    isExpanded -> {
-                        mChooserMultiProfilePagerAdapter.setIsCollapsed(!isExpanded);
-                        getEventLog().logSharesheetExpansionChanged(!isExpanded);
-                    });
-            if (interactiveChooser()) {
-                mResolverDrawerLayout.setOnInteractedListener(this::onDrawerInteracted);
-            }
-        }
         if (DEBUG) {
             Log.d(TAG, "System Time Cost is " + systemCost);
         }
@@ -744,6 +717,46 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
             configureInteractiveSessionWindow();
             updateInteractiveArea();
         }
+    }
+
+    private ResolverDrawerLayout initializeResolverDrawerLayout() {
+        final ResolverDrawerLayout rdl = requireViewById(com.android.internal.R.id.contentPanel);
+        rdl.setOnDismissedListener(() -> finish());
+
+        boolean hasTouchScreen =
+                mPackageManager.hasSystemFeature(PackageManager.FEATURE_TOUCHSCREEN);
+
+        if (isVoiceInteraction() || !hasTouchScreen) {
+            rdl.expand(false);
+        }
+
+        rdl.setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                | View.SYSTEM_UI_FLAG_LAYOUT_STABLE);
+        rdl.setOnApplyWindowInsetsListener(this::onApplyWindowInsets);
+        if (isInteractiveSession()) {
+            rdl.setReservedCollapsedTopSpace(
+                    getResources().getDimensionPixelSize(
+                            R.dimen.chooser_min_collapsed_drawer_top_offset));
+            rdl.setOnInteractedListener(this::onDrawerInteracted);
+            if (isWindowEnterAnimationDisabled()) {
+                rdl.setVisibility(View.INVISIBLE);
+            }
+        }
+
+        if (synchronousDrawerOffsetCalculation()) {
+            rdl.setCollapsibleHeightReservedDelegate(
+                    this::syncHandleLayoutChange);
+        } else {
+            rdl.addOnLayoutChangeListener(this::handleLayoutChange);
+        }
+
+        rdl.setOnExpandedChangedListener(
+                isExpanded -> {
+                    mChooserMultiProfilePagerAdapter.setIsCollapsed(!isExpanded);
+                    getEventLog().logSharesheetExpansionChanged(!isExpanded);
+                });
+
+        return rdl;
     }
 
     private void launchImageEditor(TargetInfo editorTargetInfo) {
@@ -841,23 +854,24 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         final Rect rect = new Rect();
         contentView.getViewTreeObserver().addOnComputeInternalInsetsListener((info) -> {
             int oldTop = rect.top;
-            rdl.getBoundsInWindow(rect, true);
-            int left = rect.left;
-            int top = rect.top;
             ResolverDrawerLayoutExt.getVisibleBoundsInWindow(rdl, rect);
-            rect.offset(left, top);
             if (oldTop != rect.top) {
-                Rect r = rect;
                 Window w = getWindow();
                 WindowManager.LayoutParams wa = w == null ? null : w.getAttributes();
+                final Rect r;
                 if (wa != null && (wa.x != 0 || wa.y != 0)) {
-                    r = new Rect(rect);
+                    r = mTmpRect;
+                    r.set(rect);
                     r.offset(wa.x, wa.y);
+                } else {
+                    r = rect;
                 }
-                mViewModel.getInteractiveSessionInteractor().sendChooserWindowSize(r);
+                if (rdl.getVisibility() == View.VISIBLE) {
+                    mViewModel.getInteractiveSessionInteractor().sendChooserWindowSize(r);
+                }
             }
             info.setTouchableInsets(ViewTreeObserver.InternalInsetsInfo.TOUCHABLE_INSETS_REGION);
-            info.touchableRegion.set(new Rect(rect));
+            info.touchableRegion.set(rect);
         });
     }
 
@@ -1421,9 +1435,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         boolean rebuildCompleted = mChooserMultiProfilePagerAdapter.rebuildTabs(
                 mProfiles.getWorkProfilePresent());
 
-        mLayoutId = R.layout.chooser_grid_scrollable_preview;
-
-        setContentView(mLayoutId);
+        setContentView(R.layout.chooser_grid_scrollable_preview);
         mTabHost = findViewById(com.android.internal.R.id.profile_tabhost);
         mViewPager = requireViewById(com.android.internal.R.id.profile_pager);
         mChooserMultiProfilePagerAdapter.setupViewPager(mViewPager);
@@ -2547,7 +2559,9 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
             ChooserGridAdapter gridAdapter,
             @Nullable Insets systemWindowInsets) {
 
-        int offset = systemWindowInsets != null ? systemWindowInsets.bottom : 0;
+        int offset = (interactiveChooser() || systemWindowInsets == null)
+                ? 0
+                : systemWindowInsets.bottom;
         int rowsToShow = gridAdapter.getServiceTargetRowCount()
                 + gridAdapter.getCallerAndRankedTargetRowCount();
 
@@ -2570,7 +2584,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
             offset += stickyContentPreview.getHeight();
         }
 
-        if (mProfiles.getWorkProfilePresent()) {
+        if (mProfiles.getProfiles().size() > 1) {
             offset += findViewById(com.android.internal.R.id.tabs).getHeight();
         }
 
@@ -2646,6 +2660,9 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                 + "rebuildComplete=" + rebuildComplete + ")");
         setupScrollListener();
         maybeSetupGlobalLayoutListener();
+        if (isInteractiveSession() && rebuildComplete && isWindowEnterAnimationDisabled()) {
+            maybeRevealDrawer();
+        }
 
         ChooserListAdapter chooserListAdapter = (ChooserListAdapter) listAdapter;
         UserHandle listProfileUserHandle = chooserListAdapter.getUserHandle();
@@ -2787,6 +2804,50 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                 });
     }
 
+    private void maybeRevealDrawer() {
+        if (mResolverDrawerLayout == null
+                || mResolverDrawerLayout.getVisibility() != View.INVISIBLE
+                || mRevealAnimation != null) {
+            return;
+        }
+        doOnNextLayout(mResolverDrawerLayout, (view) -> {
+            doRevealDrawer();
+            return kotlin.Unit.INSTANCE;
+        });
+    }
+
+    private void doRevealDrawer() {
+        mResolverDrawerLayout.getBoundsInWindow(mTmpRect, true);
+        int bottom = mTmpRect.bottom;
+        ResolverDrawerLayoutExt.getVisibleBoundsInWindow(mResolverDrawerLayout, mTmpRect);
+        int offset = bottom - mTmpRect.top;
+        mResolverDrawerLayout.setTranslationY(offset);
+        mResolverDrawerLayout.setVisibility(View.VISIBLE);
+        mResolverDrawerLayout.setEnabled(false);
+        ObjectAnimator animator = ObjectAnimator.ofFloat(mResolverDrawerLayout, "translationY", 0);
+        animator.addListener(new Animator.AnimatorListener() {
+            @Override
+            public void onAnimationStart(@NonNull Animator animation) {}
+
+            @Override
+            public void onAnimationEnd(@NonNull Animator animation) {
+                mResolverDrawerLayout.setEnabled(true);
+                mRevealAnimation = null;
+            }
+
+            @Override
+            public void onAnimationCancel(@NonNull Animator animation) {
+                mResolverDrawerLayout.setEnabled(true);
+                mRevealAnimation = null;
+            }
+
+            @Override
+            public void onAnimationRepeat(@NonNull Animator animation) {}
+        });
+        mRevealAnimation = animator;
+        animator.start();
+    }
+
     /**
      * The sticky content preview is shown only when we have a tabbed view. It's shown above
      * the tabs so it is not part of the scrollable list. If we are not in tabbed view,
@@ -2895,6 +2956,11 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                 && !mIsLaunchedAsTaskRoot;
     }
 
+    private boolean isWindowEnterAnimationDisabled() {
+        return (getIntent().getFlags() & Intent.FLAG_ACTIVITY_NO_ANIMATION)
+                == Intent.FLAG_ACTIVITY_NO_ANIMATION;
+    }
+
     protected WindowInsets onApplyWindowInsets(View v, WindowInsets insets) {
         mSystemWindowInsets = insets.getInsets(WindowInsets.Type.systemBars());
         mChooserMultiProfilePagerAdapter
@@ -2905,6 +2971,9 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                 mSystemWindowInsets.top,
                 mSystemWindowInsets.right,
                 0);
+        if (interactiveChooser()) {
+            mResolverDrawerLayout.setMaxCollapsedHeight(mSystemWindowInsets.bottom);
+        }
 
         // Need extra padding so the list can fully scroll up
         // To accommodate for window insets

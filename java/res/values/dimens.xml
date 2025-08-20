@@ -45,6 +45,7 @@
     <dimen name="chooser_item_focus_outline_corner_radius">11dp</dimen>
     <dimen name="chooser_item_focus_outline_width">2dp</dimen>
     <dimen name="chooser_row_height">100dp</dimen>
+    <dimen name="chooser_min_collapsed_drawer_top_offset">48dp</dimen>
     <dimen name="content_preview_text_size">12sp</dimen>
     <dimen name="content_preview_filename_line_size">16sp</dimen>
     <dimen name="content_preview_more_files_text_size">12sp</dimen>
