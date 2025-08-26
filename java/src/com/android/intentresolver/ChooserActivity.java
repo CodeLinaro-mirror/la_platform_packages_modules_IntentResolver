@@ -1655,7 +1655,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         EmptyStateProvider emptyStateProvider =
                 createEmptyStateProvider(profileHelper, profileAvailability);
 
-        Supplier<Boolean> workProfileQuietModeChecker =
+        BooleanSupplier workProfileQuietModeChecker =
                 () -> !(profileHelper.getWorkProfilePresent()
                         && profileAvailability.isAvailable(
                         requireNonNull(profileHelper.getWorkProfile())));
