@@ -434,8 +434,6 @@ public class ChooserListAdapter extends ResolverListAdapter {
         final ViewHolder holder = (ViewHolder) view.getTag();
 
         resetViewHolder(holder);
-        // Always remove the spacing listener, attach as needed to direct share targets below.
-        holder.text.removeOnLayoutChangeListener(mPinTextSpacingListener);
 
         if (info == null) {
             holder.icon.setImageDrawable(loadIconPlaceholder());
@@ -520,6 +518,13 @@ public class ChooserListAdapter extends ResolverListAdapter {
         ((BadgeTextView) holder.text).setBadgeDrawable(null);
         holder.text.setBackground(null);
         holder.text.setPaddingRelative(0, 0, 0, 0);
+        // Always remove the spacing listener and reset layout params.
+        holder.text.removeOnLayoutChangeListener(mPinTextSpacingListener);
+        ViewGroup.LayoutParams lp = holder.text.getLayoutParams();
+        if (lp != null) {
+            lp.width = ViewGroup.LayoutParams.MATCH_PARENT;
+            holder.text.setLayoutParams(lp);
+        }
     }
 
     private void updateContentDescription(ViewHolder holder, String description) {
