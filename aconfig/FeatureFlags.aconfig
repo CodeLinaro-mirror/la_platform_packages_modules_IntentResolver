@@ -23,16 +23,6 @@ flag {
 }
 
 flag {
-  name: "synchronous_drawer_offset_calculation"
-  namespace: "intentresolver"
-  description: "Calculate drawer offset synchronously"
-  bug: "401566089"
-  metadata {
-    purpose: PURPOSE_BUGFIX
-  }
-}
-
-flag {
   name: "shareousel_scroll_offscreen_selections"
   namespace: "intentresolver"
   description: "Whether to scroll items onscreen when they are partially offscreen and selected/unselected."

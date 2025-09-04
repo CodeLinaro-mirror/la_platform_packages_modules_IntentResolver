@@ -27,7 +27,6 @@ import static androidx.lifecycle.LifecycleKt.getCoroutineScope;
 import static com.android.intentresolver.ChooserActionFactory.EDIT_SOURCE;
 import static com.android.intentresolver.Flags.launchEditorAsCurrentUser;
 import static com.android.intentresolver.Flags.refineSystemActions;
-import static com.android.intentresolver.Flags.synchronousDrawerOffsetCalculation;
 import static com.android.intentresolver.ext.CreationExtrasExtKt.replaceDefaultArgs;
 import static com.android.intentresolver.profiles.MultiProfilePagerAdapter.PROFILE_PERSONAL;
 import static com.android.intentresolver.profiles.MultiProfilePagerAdapter.PROFILE_WORK;
@@ -749,12 +748,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
             }
         }
 
-        if (synchronousDrawerOffsetCalculation()) {
-            rdl.setCollapsibleHeightReservedDelegate(
-                    this::syncHandleLayoutChange);
-        } else {
-            rdl.addOnLayoutChangeListener(this::handleLayoutChange);
-        }
+        rdl.setCollapsibleHeightReservedDelegate(this::syncHandleLayoutChange);
 
         rdl.setOnExpandedChangedListener(
                 isExpanded -> {
@@ -2455,38 +2449,6 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         }
         Log.d(TAG, "finishWithStatus: result=" + status);
         finish();
-    }
-
-    /*
-     * Need to dynamically adjust how many icons can fit per row before we add them,
-     * which also means setting the correct offset to initially show the content
-     * preview area + 2 rows of targets
-     */
-    private void handleLayoutChange(View v, int left, int top, int right, int bottom, int oldLeft,
-            int oldTop, int oldRight, int oldBottom) {
-        if (!shouldUpdateDrawerOffset()) {
-            return;
-        }
-
-        final int availableWidth = right - left - v.getPaddingLeft() - v.getPaddingRight();
-        maybeUpdateTabPadding(availableWidth);
-        mCurrAvailableWidth = availableWidth;
-
-        if (mChooserMultiProfilePagerAdapter.getActiveProfile() != mInitialProfile) {
-            return;
-        }
-
-        RecyclerView recyclerView = mChooserMultiProfilePagerAdapter.getActiveAdapterView();
-        ChooserGridAdapter gridAdapter = mChooserMultiProfilePagerAdapter.getCurrentRootAdapter();
-        getMainThreadHandler().post(() -> {
-            if (mResolverDrawerLayout == null) {
-                return;
-            }
-            int offset = mDrawerOffsetDelegate.getReservedHeight(
-                    bottom - top, recyclerView, gridAdapter, mSystemWindowInsets);
-            mResolverDrawerLayout.setCollapsibleHeightReserved(offset);
-            mEnterTransitionAnimationDelegate.markOffsetCalculated();
-        });
     }
 
     /*
