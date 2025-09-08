@@ -1033,7 +1033,7 @@ public class ResolverActivity extends Hilt_ResolverActivity implements
                                 TAB_TAG_WORK,
                                 workAdapter)),
                 createEmptyStateProvider(workProfileUserHandle),
-                /* Supplier<Boolean> (QuietMode enabled) == !(available) */
+                /* BooleanSupplier (QuietMode enabled) == !(available) */
                 () -> !(mProfiles.getWorkProfilePresent()
                         && mProfileAvailability.isAvailable(
                         requireNonNull(mProfiles.getWorkProfile()))),
