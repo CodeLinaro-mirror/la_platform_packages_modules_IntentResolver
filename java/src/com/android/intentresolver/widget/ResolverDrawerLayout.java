@@ -57,6 +57,7 @@ import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
 
 public class ResolverDrawerLayout extends ViewGroup {
     private static final String TAG = "ResolverDrawerLayout";
+    private static final int NOT_SET = -1;
     private MetricsLogger mMetricsLogger;
 
     /**
@@ -606,15 +607,14 @@ public class ResolverDrawerLayout extends ViewGroup {
                     if (getShowAtTop()) {
                         if (isDismissable() && yvel < 0) {
                             abortAnimation();
-                            dismiss();
+                            postOnDismissed();
                         } else {
                             smoothScrollTo(yvel < 0 ? 0 : mCollapsibleHeight, yvel);
                         }
                     } else {
                         if (isDismissable()
                                 && yvel > 0 && mCollapseOffset > mCollapsibleHeight) {
-                            smoothScrollTo(mHeightUsed, yvel);
-                            mDismissOnScrollerFinished = true;
+                            dismiss(yvel);
                         } else {
                             scrollNestedScrollableChildBackToTop();
                             smoothScrollTo(yvel < 0 ? 0 : mCollapsibleHeight, yvel);
@@ -673,7 +673,21 @@ public class ResolverDrawerLayout extends ViewGroup {
         mVelocityTracker.clear();
     }
 
-    private void dismiss() {
+    /**
+     * Starts the drawer slide-out animation. The on dismissed listener, if set, will be called when
+     * the animation is complete.
+     * @see #setOnDismissedListener
+     */
+    public void dismiss() {
+        dismiss(0f);
+    }
+
+    private void dismiss(float velocityY) {
+        smoothScrollTo(mHeightUsed, velocityY, 200);
+        mDismissOnScrollerFinished = true;
+    }
+
+    private void postOnDismissed() {
         mRunOnDismissedListener = new RunOnDismissedListener();
         post(mRunOnDismissedListener);
     }
@@ -687,7 +701,7 @@ public class ResolverDrawerLayout extends ViewGroup {
             if (keepGoing) {
                 postInvalidateOnAnimation();
             } else if (mDismissOnScrollerFinished && mOnDismissedListener != null) {
-                dismiss();
+                postOnDismissed();
             }
         }
     }
@@ -791,6 +805,10 @@ public class ResolverDrawerLayout extends ViewGroup {
     }
 
     private void smoothScrollTo(int yOffset, float velocity) {
+        smoothScrollTo(yOffset, velocity, NOT_SET);
+    }
+
+    private void smoothScrollTo(int yOffset, float velocity, int durationMs) {
         abortAnimation();
         final int sy = (int) mCollapseOffset;
         int dy = yOffset - sy;
@@ -798,24 +816,30 @@ public class ResolverDrawerLayout extends ViewGroup {
             return;
         }
 
+        if (durationMs == NOT_SET) {
+            durationMs = computeScrollDurationMs(dy, velocity);
+        }
+
+        mScroller.startScroll(0, sy, 0, dy, durationMs);
+        postInvalidateOnAnimation();
+    }
+
+    private int computeScrollDurationMs(int dy, float velocity) {
         final int height = getHeight();
         final int halfHeight = height / 2;
-        final float distanceRatio = Math.min(1f, 1.0f * Math.abs(dy) / height);
+        final float distanceRatio = Math.min(1f, ((float) Math.abs(dy)) / height);
         final float distance = halfHeight + halfHeight *
                 distanceInfluenceForSnapDuration(distanceRatio);
-
-        int duration = 0;
         velocity = Math.abs(velocity);
+        int durationMs = 0;
         if (velocity > 0) {
-            duration = 4 * Math.round(1000 * Math.abs(distance / velocity));
+            durationMs = 4 * Math.round(1000 * Math.abs(distance / velocity));
         } else {
             final float pageDelta = (float) Math.abs(dy) / height;
-            duration = (int) ((pageDelta + 1) * 100);
+            durationMs = (int) ((pageDelta + 1) * 100);
         }
-        duration = Math.min(duration, 300);
-
-        mScroller.startScroll(0, sy, 0, dy, duration);
-        postInvalidateOnAnimation();
+        durationMs = Math.min(durationMs, 300);
+        return durationMs;
     }
 
     private float distanceInfluenceForSnapDuration(float f) {
@@ -995,15 +1019,14 @@ public class ResolverDrawerLayout extends ViewGroup {
             if (getShowAtTop()) {
                 if (isDismissable() && velocityY > 0) {
                     abortAnimation();
-                    dismiss();
+                    postOnDismissed();
                 } else {
                     smoothScrollTo(velocityY < 0 ? mCollapsibleHeight : 0, velocityY);
                 }
             } else {
                 if (isDismissable()
                         && velocityY < 0 && mCollapseOffset > mCollapsibleHeight) {
-                    smoothScrollTo(mHeightUsed, velocityY);
-                    mDismissOnScrollerFinished = true;
+                    dismiss(velocityY);
                 } else {
                     smoothScrollTo(velocityY > 0 ? 0 : mCollapsibleHeight, velocityY);
                 }
@@ -1053,8 +1076,7 @@ public class ResolverDrawerLayout extends ViewGroup {
                 break;
             case AccessibilityNodeInfo.ACTION_DISMISS:
                 if ((mCollapseOffset < mHeightUsed) && isDismissable()) {
-                    smoothScrollTo(mHeightUsed, 0);
-                    mDismissOnScrollerFinished = true;
+                    dismiss();
                     return true;
                 }
                 break;
@@ -1558,8 +1580,7 @@ public class ResolverDrawerLayout extends ViewGroup {
                 } else {
                     if (drawer.isDismissable()
                             && drawer.mCollapseOffset > drawer.mCollapsibleHeight) {
-                        drawer.smoothScrollTo(drawer.mHeightUsed, velocityY);
-                        drawer.mDismissOnScrollerFinished = true;
+                        drawer.dismiss(velocityY);
                     } else {
                         drawer.smoothScrollTo(drawer.mCollapsibleHeight, velocityY);
                     }
@@ -1585,7 +1606,7 @@ public class ResolverDrawerLayout extends ViewGroup {
                 if (drawer.getShowAtTop()) {
                     if (drawer.isDismissable() && velocityY > 0) {
                         drawer.abortAnimation();
-                        drawer.dismiss();
+                        drawer.postOnDismissed();
                     } else {
                         drawer.smoothScrollTo(
                                 velocityY < 0 ? drawer.mCollapsibleHeight : 0, velocityY);
@@ -1594,8 +1615,7 @@ public class ResolverDrawerLayout extends ViewGroup {
                     if (drawer.isDismissable()
                             && velocityY < 0
                             && drawer.mCollapseOffset > drawer.mCollapsibleHeight) {
-                        drawer.smoothScrollTo(drawer.mHeightUsed, velocityY);
-                        drawer.mDismissOnScrollerFinished = true;
+                        drawer.dismiss(velocityY);
                     } else {
                         drawer.smoothScrollTo(
                                 velocityY > 0 ? 0 : drawer.mCollapsibleHeight, velocityY);
