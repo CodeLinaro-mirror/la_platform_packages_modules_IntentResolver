@@ -18,7 +18,6 @@ package com.android.intentresolver;
 
 import static com.android.intentresolver.ChooserActivity.TARGET_TYPE_SHORTCUTS_FROM_PREDICTION_SERVICE;
 import static com.android.intentresolver.ChooserActivity.TARGET_TYPE_SHORTCUTS_FROM_SHORTCUT_MANAGER;
-import static com.android.intentresolver.Flags.targetHoverAndKeyboardFocusStates;
 
 import android.app.ActivityManager;
 import android.app.prediction.AppTarget;
@@ -403,10 +402,7 @@ public class ChooserListAdapter extends ResolverListAdapter {
 
     @Override
     View onCreateView(ViewGroup parent) {
-        int layout = targetHoverAndKeyboardFocusStates()
-                ? R.layout.chooser_grid_item_hover
-                : R.layout.chooser_grid_item;
-        View view = mInflater.inflate(layout, parent, false);
+        View view = mInflater.inflate(R.layout.chooser_grid_item_hover, parent, false);
         TextView textOne = view.findViewById(com.android.internal.R.id.text1);
         TextView textTwo = view.findViewById(com.android.internal.R.id.text2);
         if (textOne != null) {
@@ -605,22 +601,18 @@ public class ChooserListAdapter extends ResolverListAdapter {
                 return allTargets
                         .stream()
                         .map(appTarget -> {
-                            if (targetHoverAndKeyboardFocusStates()) {
-                                // Icon drawables are effectively cached per target info.
-                                // Without cloning target infos, the same target info could be used
-                                // for two different positions in the grid: once in the ranked
-                                // targets row (from ResolverListAdapter#mDisplayList or
-                                // #mCallerTargets, see #getItem()) and again in the all-app-target
-                                // grid (copied from #mDisplayList and #mCallerTargets to
-                                // #mSortedList).
-                                // Using the same drawable for two list items would result in visual
-                                // effects being applied to both simultaneously.
-                                DisplayResolveInfo copy = appTarget.copy();
-                                copy.getDisplayIconHolder().setDisplayIcon(null);
-                                return copy;
-                            } else {
-                                return appTarget;
-                            }
+                            // Icon drawables are effectively cached per target info.
+                            // Without cloning target infos, the same target info could be used
+                            // for two different positions in the grid: once in the ranked
+                            // targets row (from ResolverListAdapter#mDisplayList or
+                            // #mCallerTargets, see #getItem()) and again in the all-app-target
+                            // grid (copied from #mDisplayList and #mCallerTargets to
+                            // #mSortedList).
+                            // Using the same drawable for two list items would result in visual
+                            // effects being applied to both simultaneously.
+                            DisplayResolveInfo copy = appTarget.copy();
+                            copy.getDisplayIconHolder().setDisplayIcon(null);
+                            return copy;
                         })
                         .collect(Collectors.groupingBy(target ->
                                 target.getResolvedComponentName().getPackageName()
