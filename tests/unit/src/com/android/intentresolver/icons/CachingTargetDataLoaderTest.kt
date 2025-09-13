@@ -71,7 +71,7 @@ class CachingTargetDataLoaderTest {
                 on { getOrLoadDirectShareIcon(eq(callerTarget), eq(userHandle), any()) } doReturn
                     null
             }
-        val testSubject = CachingTargetDataLoader(context, targetDataLoader)
+        val testSubject = CachingTargetDataLoader(targetDataLoader)
         val callback = Consumer<Drawable> {}
 
         testSubject.getOrLoadDirectShareIcon(callerTarget, userHandle, callback)
@@ -112,7 +112,7 @@ class CachingTargetDataLoaderTest {
             }
             .whenever(targetDataLoader)
             .getOrLoadDirectShareIcon(eq(targetInfo), eq(userHandle), any())
-        val testSubject = CachingTargetDataLoader(context, targetDataLoader)
+        val testSubject = CachingTargetDataLoader(targetDataLoader)
         val callback = Consumer<Drawable> {}
 
         testSubject.getOrLoadDirectShareIcon(targetInfo, userHandle, callback)
@@ -166,7 +166,7 @@ class CachingTargetDataLoaderTest {
             }
             .whenever(targetDataLoader)
             .getOrLoadAppTargetIcon(any(), eq(userHandle), any())
-        val testSubject = CachingTargetDataLoader(context, targetDataLoader)
+        val testSubject = CachingTargetDataLoader(targetDataLoader)
         val callback = Consumer<Drawable> {}
 
         testSubject.getOrLoadAppTargetIcon(colorTargetInfo, userHandle, callback)
@@ -213,7 +213,7 @@ class CachingTargetDataLoaderTest {
             }
             .whenever(targetDataLoader)
             .getOrLoadAppTargetIcon(any(), any(), any())
-        val testSubject = CachingTargetDataLoader(context, targetDataLoader)
+        val testSubject = CachingTargetDataLoader(targetDataLoader)
         val callback = Consumer<Drawable> {}
 
         testSubject.getOrLoadAppTargetIcon(targetInfo, otherUserHandle, callback)
