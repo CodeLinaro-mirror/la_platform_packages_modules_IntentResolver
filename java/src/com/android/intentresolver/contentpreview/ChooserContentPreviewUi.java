@@ -33,6 +33,7 @@ import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
 import com.android.intentresolver.ContentTypeHint;
+import com.android.intentresolver.R;
 import com.android.intentresolver.data.model.ChooserRequest;
 import com.android.intentresolver.widget.ActionRow;
 import com.android.intentresolver.widget.ImagePreviewView.TransitionElementStatusCallback;
@@ -99,6 +100,7 @@ public final class ChooserContentPreviewUi {
     private View mHeadlineParent;
 
     public ChooserContentPreviewUi(
+            Resources resources,
             CoroutineScope scope,
             PreviewDataProvider previewData,
             ChooserRequest chooserRequest,
@@ -112,6 +114,7 @@ public final class ChooserContentPreviewUi {
         mScope = scope;
         mModifyShareActionFactory = modifyShareActionFactory;
         mContentPreviewUi = createContentPreview(
+                resources,
                 previewData,
                 chooserRequest,
                 DefaultMimeTypeClassifier.INSTANCE,
@@ -128,6 +131,7 @@ public final class ChooserContentPreviewUi {
     }
 
     private ContentPreviewUi createContentPreview(
+            Resources resources,
             PreviewDataProvider previewData,
             ChooserRequest chooserRequest,
             MimeTypeClassifier typeClassifier,
@@ -207,7 +211,8 @@ public final class ChooserContentPreviewUi {
                 previewData.getImagePreviewFileInfoFlow(),
                 previewData.getUriCount(),
                 headlineGenerator,
-                metadata
+                metadata,
+                resources.getDimensionPixelSize(R.dimen.chooser_preview_image_max_dimen)
         );
     }
 
