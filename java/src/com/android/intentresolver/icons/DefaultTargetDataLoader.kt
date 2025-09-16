@@ -21,7 +21,6 @@ import android.content.Context
 import android.content.pm.LauncherApps
 import android.content.pm.ShortcutInfo
 import android.graphics.Bitmap
-import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.Icon
 import android.os.AsyncTask
@@ -33,7 +32,6 @@ import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.coroutineScope
-import com.android.intentresolver.Flags.targetHoverAndKeyboardFocusStates
 import com.android.intentresolver.SimpleIconFactory
 import com.android.intentresolver.TargetPresentationGetter
 import com.android.intentresolver.chooser.DisplayResolveInfo
@@ -154,13 +152,7 @@ constructor(
         }
     }
 
-    private fun Bitmap.toDrawable(): Drawable {
-        return if (targetHoverAndKeyboardFocusStates()) {
-            FastBitmapDrawable(this)
-        } else {
-            BitmapDrawable(context.resources, this)
-        }
-    }
+    private fun Bitmap.toDrawable(): Drawable = FastBitmapDrawable(this)
 
     private fun loadDirectShareIcon(
         userContext: Context,

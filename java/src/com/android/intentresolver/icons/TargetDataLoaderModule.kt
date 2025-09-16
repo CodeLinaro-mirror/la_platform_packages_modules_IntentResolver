@@ -79,9 +79,8 @@ object TargetDataLoaderModule {
     @ActivityScoped
     @Caching
     fun cachingTargetDataLoader(
-        @ActivityContext context: Context,
-        dataLoaderFactory: DefaultTargetDataLoader.Factory,
+        dataLoaderFactory: DefaultTargetDataLoader.Factory
     ): TargetDataLoader =
         // Intended to be used in Chooser only thus the hardcoded isAudioCaptureDevice value.
-        CachingTargetDataLoader(context, dataLoaderFactory.create(isAudioCaptureDevice = false))
+        CachingTargetDataLoader(dataLoaderFactory.create(isAudioCaptureDevice = false))
 }
