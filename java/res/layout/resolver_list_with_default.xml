@@ -56,7 +56,7 @@
                 android:layout_weight="1"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="@dimen/resolver_icon_margin"
-                android:textColor="?android:attr/textColorPrimary"
+                android:textColor="@color/materialColorOnSurface"
                 android:fontFamily="@androidprv:string/config_headlineFontFamilyMedium"
                 android:textSize="16sp"
                 android:gravity="start|center_vertical"
@@ -93,7 +93,7 @@
                     android:layout_gravity="start|center_vertical"
                     android:layout_marginEnd="?android:attr/listPreferredItemPaddingEnd"
                     android:textAppearance="?android:attr/textAppearanceButton"
-                    android:textColor="?android:attr/textColorPrimary"
+                    android:textColor="@color/materialColorOnSurface"
                     android:minLines="1"
                     android:maxLines="1"
                     android:ellipsize="marquee" />
@@ -150,7 +150,7 @@
         app:layout_alwaysShow="true"
         android:layout_width="match_parent"
         android:layout_height="1dp"
-        android:background="?android:attr/colorBackground"
+        android:background="@color/materialColorSurfaceContainer"
         android:foreground="?android:attr/dividerVertical" />
 
     <FrameLayout
@@ -159,7 +159,7 @@
         android:visibility="gone"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="?android:attr/colorBackground"/>
+        android:background="@color/materialColorSurfaceContainer"/>
 
     <TabHost
         app:layout_alwaysShow="true"
@@ -168,7 +168,7 @@
         android:layout_height="wrap_content"
         android:layout_alignParentTop="true"
         android:layout_centerHorizontal="true"
-        android:background="?android:attr/colorBackground">
+        android:background="@color/materialColorSurfaceContainer">
         <LinearLayout
             android:orientation="vertical"
             android:layout_width="match_parent"
@@ -184,7 +184,7 @@
                 android:visibility="gone"
                 android:layout_width="match_parent"
                 android:layout_height="1dp"
-                android:background="?android:attr/colorBackground"
+                android:background="@color/materialColorSurfaceContainer"
                 android:foreground="?android:attr/dividerVertical"/>
             <FrameLayout
                 android:id="@android:id/tabcontent"
@@ -202,6 +202,6 @@
         app:layout_alwaysShow="true"
         android:layout_width="match_parent"
         android:layout_height="1dp"
-        android:background="?android:attr/colorBackground"
+        android:background="@color/materialColorSurfaceContainer"
         android:foreground="?android:attr/dividerVertical" />
 </com.android.intentresolver.widget.ResolverDrawerLayout>
