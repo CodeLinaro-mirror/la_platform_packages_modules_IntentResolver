@@ -25,8 +25,8 @@ import android.content.pm.ResolveInfo
 import android.graphics.Color
 import android.net.Uri
 import android.os.UserHandle
-import android.platform.test.flag.junit.CheckFlagsRule
-import android.platform.test.flag.junit.DeviceFlagsValueProvider
+import android.platform.test.annotations.EnableFlags
+import android.platform.test.flag.junit.SetFlagsRule
 import android.provider.DeviceConfig
 import androidx.compose.ui.test.AndroidComposeUiTest
 import androidx.compose.ui.test.AndroidComposeUiTestEnvironment
@@ -42,6 +42,7 @@ import androidx.test.espresso.matcher.ViewMatchers
 import androidx.test.espresso.matcher.ViewMatchers.withId
 import androidx.test.espresso.matcher.ViewMatchers.withText
 import androidx.test.platform.app.InstrumentationRegistry
+import com.android.intentresolver.Flags.FLAG_ALWAYS_SHOW_SHAREOUSEL
 import com.android.intentresolver.TestContentProvider.Companion.makeItemUri
 import com.android.intentresolver.chooser.TargetInfo
 import com.android.intentresolver.contentpreview.ImageLoader
@@ -87,6 +88,7 @@ import org.junit.Test
 import org.mockito.ArgumentMatchers.anyBoolean
 import org.mockito.kotlin.any
 import org.mockito.kotlin.doAnswer
+import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.stub
 
 private const val TEST_TARGET_CATEGORY = "com.android.intentresolver.tests.TEST_RECEIVER_CATEGORY"
@@ -115,8 +117,7 @@ private const val ALL_MEDIA_ACTIVITY_LABEL = "AllMediaActivity"
     SelectionChangeCallbackModule::class,
 )
 class ChooserActivityShareouselTest() {
-    @get:Rule(order = 0)
-    val checkFlagsRule: CheckFlagsRule = DeviceFlagsValueProvider.createCheckFlagsRule()
+    @get:Rule(order = 0) val mSetFlagsRule = SetFlagsRule()
 
     @get:Rule(order = 1) val hiltAndroidRule: HiltAndroidRule = HiltAndroidRule(this)
 
@@ -286,6 +287,30 @@ class ChooserActivityShareouselTest() {
         assertThat(launchedIntent.component).isEqualTo(ComponentName(PACKAGE, ALL_MEDIA_ACTIVITY))
     }
 
+    @Test
+    @EnableFlags(FLAG_ALWAYS_SHOW_SHAREOUSEL)
+    fun test_noAvailableTargets_shareouselGetsShow() {
+        setBitmaps(emptyMap())
+        fakeCursorResolver.setUris(1, 0, emptyMap())
+        with(ChooserActivityOverrideData.getInstance()) {
+            resolverListController.stub {
+                on {
+                    getResolversForIntentAsUser(
+                        anyBoolean(),
+                        anyBoolean(),
+                        anyBoolean(),
+                        any(),
+                        any(),
+                    )
+                } doReturn emptyList()
+            }
+        }
+        val initialItemUri = makeItemUri("0", DEFAULT_MIME_TYPE)
+        launchActivityWithComposeTestEnv(initialItemUri, DEFAULT_MIME_TYPE) {
+            assertItemVisible(initialItemUri)
+        }
+    }
+
     private fun setBitmaps(mimeTypes: Map<Int, String>) {
         arrayOf(Color.RED, Color.GREEN, Color.BLUE).forEachIndexed { i, color ->
             fakeImageLoader.setBitmap(
@@ -346,6 +371,10 @@ class ChooserActivityShareouselTest() {
     private fun AndroidComposeUiTest<ChooserWrapperActivity>.tapOnItem(uri: Uri) {
         onNodeWithTag(uri.toString()).performClick()
         waitForIdle()
+    }
+
+    private fun AndroidComposeUiTest<ChooserWrapperActivity>.assertItemVisible(uri: Uri) {
+        onNodeWithTag(uri.toString()).assertExists()
     }
 
     private fun AndroidComposeUiTest<ChooserWrapperActivity>.scrollToPosition(position: Int) {

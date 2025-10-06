@@ -25,6 +25,7 @@ import static androidx.core.view.ViewKt.doOnNextLayout;
 import static androidx.lifecycle.LifecycleKt.getCoroutineScope;
 
 import static com.android.intentresolver.ChooserActionFactory.EDIT_SOURCE;
+import static com.android.intentresolver.Flags.alwaysShowShareousel;
 import static com.android.intentresolver.Flags.refineSystemActions;
 import static com.android.intentresolver.ext.CreationExtrasExtKt.replaceDefaultArgs;
 import static com.android.intentresolver.profiles.MultiProfilePagerAdapter.PROFILE_PERSONAL;
@@ -106,6 +107,7 @@ import com.android.intentresolver.chooser.DisplayResolveInfo;
 import com.android.intentresolver.chooser.MultiDisplayResolveInfo;
 import com.android.intentresolver.chooser.TargetInfo;
 import com.android.intentresolver.contentpreview.ChooserContentPreviewUi;
+import com.android.intentresolver.contentpreview.ContentPreviewType;
 import com.android.intentresolver.contentpreview.HeadlineGeneratorImpl;
 import com.android.intentresolver.data.model.ChooserRequest;
 import com.android.intentresolver.data.repository.ActivityModelRepository;
@@ -2238,7 +2240,8 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                     }
                 },
                 chooserListAdapter,
-                shouldShowContentPreview(),
+                /*shouldShowDirectTargets =*/ shouldShowContentPreview()
+                        && !ActivityManager.isLowRamDeviceStatic(),
                 mMaxTargetsPerRow);
     }
 
@@ -2819,10 +2822,6 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
      * we instead show the content preview as a regular list item.
      */
     private boolean shouldShowStickyContentPreview() {
-        return shouldShowStickyContentPreviewNoOrientationCheck();
-    }
-
-    private boolean shouldShowStickyContentPreviewNoOrientationCheck() {
         if (isInteractiveSession() || !shouldShowContentPreview()) {
             return false;
         }
@@ -2840,7 +2839,9 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
      *         user is empty
      */
     protected boolean shouldShowContentPreviewWhenEmpty() {
-        return false;
+        return alwaysShowShareousel()
+                && (mViewModel.getPreviewDataProvider().getPreviewType()
+                        == ContentPreviewType.CONTENT_PREVIEW_PAYLOAD_SELECTION);
     }
 
     /**
@@ -2851,7 +2852,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
     }
 
     private void updateStickyContentPreview() {
-        if (shouldShowStickyContentPreviewNoOrientationCheck()) {
+        if (shouldShowStickyContentPreview()) {
             // The sticky content preview is only shown when we show the work and personal tabs.
             // We don't show it in landscape as otherwise there is no room for scrolling.
             // If the sticky content preview will be shown at some point with orientation change,
@@ -2862,8 +2863,6 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                 ViewGroup contentPreviewView = createContentPreviewView(contentPreviewContainer);
                 contentPreviewContainer.addView(contentPreviewView);
             }
-        }
-        if (shouldShowStickyContentPreview()) {
             showStickyContentPreview();
         } else {
             hideStickyContentPreview();
