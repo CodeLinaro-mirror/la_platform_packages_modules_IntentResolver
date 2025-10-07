@@ -43,6 +43,8 @@ import java.util.function.Consumer;
  * information, see {@code com.android.internal.app.ChooserWrapperActivity}.
  */
 public class ChooserWrapperActivity extends ChooserActivity implements IChooserWrapper {
+    public static final String TEST_PARAM_IS_TASK_ROOT_OVERRIDE =
+            "com.android.intentresolver.TEST_IS_TASK_ROOT_OVERRIDE";
     static final ChooserActivityOverrideData sOverrides = ChooserActivityOverrideData.getInstance();
     private UsageStatsManager mUsm;
 
@@ -201,5 +203,13 @@ public class ChooserWrapperActivity extends ChooserActivity implements IChooserW
         }
         return super.createShortcutLoader(
                 context, appPredictor, userHandle, targetIntentFilter, callback);
+    }
+
+    @Override
+    public boolean isTaskRoot() {
+        if (!getIntent().hasExtra(TEST_PARAM_IS_TASK_ROOT_OVERRIDE)) {
+            return super.isTaskRoot();
+        }
+        return getIntent().getBooleanExtra(TEST_PARAM_IS_TASK_ROOT_OVERRIDE, true);
     }
 }

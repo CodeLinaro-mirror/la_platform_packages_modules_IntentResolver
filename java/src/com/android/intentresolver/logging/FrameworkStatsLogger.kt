@@ -37,20 +37,24 @@ interface FrameworkStatsLogger {
         intentType: Int,
         numCustomActions: Int,
         modifyShareActionProvided: Boolean,
+        isInteractiveMode: Boolean,
+        isTextToggleShown: Boolean,
     ) {
         FrameworkStatsLog.write(
-            frameworkEventId, /* event_id = 1 */
-            appEventId, /* package_name = 2 */
-            packageName, /* instance_id = 3 */
-            instanceId, /* mime_type = 4 */
-            mimeType, /* num_app_provided_direct_targets */
-            numAppProvidedDirectTargets, /* num_app_provided_app_targets */
-            numAppProvidedAppTargets, /* is_workprofile */
-            isWorkProfile, /* previewType = 8 */
-            previewType, /* intentType = 9 */
-            intentType, /* num_provided_custom_actions = 10 */
-            numCustomActions, /* modify_share_action_provided = 11 */
-            modifyShareActionProvided
+            frameworkEventId,
+            appEventId, /* event_id = 1 */
+            packageName, /* package_name = 2 */
+            instanceId, /* instance_id = 3 */
+            mimeType, /* mime_type = 4 */
+            numAppProvidedDirectTargets, /* num_app_provided_direct_targets */
+            numAppProvidedAppTargets, /* num_app_provided_app_targets */
+            isWorkProfile, /* is_workprofile */
+            previewType, /* previewType = 8 */
+            intentType, /* intentType = 9 */
+            numCustomActions, /* num_provided_custom_actions = 10 */
+            modifyShareActionProvided, /* modify_share_action_provided = 11 */
+            isInteractiveMode, /* is_interactive_mode = 12 */
+            isTextToggleShown, /* is_text_toggle_shown = 13 */
         )
     }
 
@@ -62,14 +66,16 @@ interface FrameworkStatsLogger {
         instanceId: Int,
         positionPicked: Int,
         isPinned: Boolean,
+        includedExtraTextWhenSharingFile: Boolean,
     ) {
         FrameworkStatsLog.write(
-            frameworkEventId, /* event_id = 1 */
-            appEventId, /* package_name = 2 */
-            packageName, /* instance_id = 3 */
-            instanceId, /* position_picked = 4 */
-            positionPicked, /* is_pinned = 5 */
-            isPinned
+            frameworkEventId,
+            appEventId, /* event_id = 1 */
+            packageName, /* package_name = 2 */
+            instanceId, /* instance_id = 3 */
+            positionPicked, /* position_picked = 4 */
+            isPinned, /* is_pinned = 5 */
+            includedExtraTextWhenSharingFile, /* included_extra_text_when_sharing_file = 6 */
         )
     }
 }

@@ -105,6 +105,11 @@ constructor(
     var onPendingSelection: Runnable = Runnable {}
     var onTargetEnabled: Consumer<Boolean> = Consumer {}
 
+    var onMinimizeDrawerRequested: Consumer<Boolean> = Consumer {}
+
+    var areTargetsEnabled: Boolean = true
+        private set
+
     init {
         activity.lifecycle.addObserver(this)
     }
@@ -181,7 +186,10 @@ constructor(
                         } else {
                             hasSelectionFlow
                         }
-                        .collect { onTargetEnabled.accept(it) }
+                        .collect {
+                            areTargetsEnabled = it
+                            onTargetEnabled.accept(it)
+                        }
                 }
                 val requestControlFlow =
                     hasSelectionFlow
@@ -204,6 +212,11 @@ constructor(
                 viewModel.interactiveSessionInteractor.isSessionActive
                     .filter { !it }
                     .collect { activity.finish() }
+            }
+            activity.lifecycleScope.launch {
+                for (isMinimized in viewModel.interactiveSessionInteractor.minimizeRequests) {
+                    onMinimizeDrawerRequested.accept(isMinimized)
+                }
             }
         }
     }

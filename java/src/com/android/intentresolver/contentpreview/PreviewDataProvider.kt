@@ -341,12 +341,13 @@ private val Intent.contentUris: ArrayList<Uri>
     get() =
         ArrayList<Uri>().also { uris ->
             if (Intent.ACTION_SEND == action) {
-                getParcelableExtra<Uri>(Intent.EXTRA_STREAM)
+                getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
                     ?.takeIf { it.ownedByCurrentUser }
                     ?.let { uris.add(it) }
             } else {
-                getParcelableArrayListExtra<Uri>(Intent.EXTRA_STREAM)?.fold(uris) { accumulator, uri
-                    ->
+                getParcelableArrayListExtra(Intent.EXTRA_STREAM, Uri::class.java)?.fold(uris) {
+                    accumulator,
+                    uri ->
                     if (uri.ownedByCurrentUser) {
                         accumulator.add(uri)
                     }

@@ -487,13 +487,6 @@ public class MultiProfilePagerAdapter<
         return false;
     }
 
-    public void refreshPackagesInAllTabs() {
-        // TODO: it's unclear if this legacy logic really requires the active tab to be rebuilt
-        // first, or if we could just iterate over the tabs in arbitrary order.
-        getActiveListAdapter().handlePackagesChanged();
-        forEachInactivePage(page -> getListAdapterForPageNumber(page).handlePackagesChanged());
-    }
-
     /**
      * Notify that there has been a package change which could potentially modify the set of targets
      * that should be shown in the specified {@code listAdapter}. This <em>may</em> result in

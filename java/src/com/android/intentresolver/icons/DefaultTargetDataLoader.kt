@@ -33,14 +33,13 @@ import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.coroutineScope
-import com.android.intentresolver.Flags.badgeShortcutIconPlaceholders
 import com.android.intentresolver.Flags.targetHoverAndKeyboardFocusStates
 import com.android.intentresolver.SimpleIconFactory
 import com.android.intentresolver.TargetPresentationGetter
 import com.android.intentresolver.chooser.DisplayResolveInfo
 import com.android.intentresolver.chooser.SelectableTargetInfo
 import com.android.intentresolver.inject.ActivityOwned
-import com.android.intentresolver.inject.Background
+import com.android.intentresolver.inject.TargetDataLoading
 import com.android.intentresolver.util.hasValidIcon
 import com.android.launcher3.icons.FastBitmapDrawable
 import dagger.assisted.Assisted
@@ -52,6 +51,7 @@ import java.util.function.Consumer
 import javax.inject.Provider
 import javax.inject.Qualifier
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.asExecutor
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -73,8 +73,8 @@ constructor(
     @ActivityOwned private val lifecycle: Lifecycle,
     private val iconFactoryProvider: Provider<SimpleIconFactory>,
     private val presentationFactory: TargetPresentationGetter.Factory,
-    @Background private val bgDispatcher: CoroutineDispatcher,
-    @IconPlaceholder private val iconPlacehoderProvider: Provider<Drawable>,
+    @TargetDataLoading private val bgDispatcher: CoroutineDispatcher,
+    @IconPlaceholder private val iconPlaceholderProvider: Provider<Drawable>,
     @Assisted private val isAudioCaptureDevice: Boolean,
 ) : TargetDataLoader {
     private val nextTaskId = AtomicInteger(0)
@@ -112,22 +112,7 @@ constructor(
         userHandle: UserHandle,
         callback: Consumer<Drawable>,
     ): Drawable? {
-        if (badgeShortcutIconPlaceholders()) {
-            loadDirectShareIcon(context.createContextAsUser(userHandle, 0), info, callback)
-        } else {
-            val taskId = nextTaskId.getAndIncrement()
-            LoadDirectShareIconTask(
-                    context.createContextAsUser(userHandle, 0),
-                    info,
-                    presentationFactory,
-                    iconFactoryProvider,
-                ) { bitmap ->
-                    removeTask(taskId)
-                    callback.accept(bitmap?.toDrawable() ?: loadIconPlaceholder())
-                }
-                .also { addTask(taskId, it) }
-                .executeOnExecutor(executor)
-        }
+        loadDirectShareIcon(context.createContextAsUser(userHandle, 0), info, callback)
         return null
     }
 
@@ -158,7 +143,7 @@ constructor(
         synchronized(activeTasks) { activeTasks.remove(id) }
     }
 
-    private fun loadIconPlaceholder(): Drawable = iconPlacehoderProvider.get()
+    private fun loadIconPlaceholder(): Drawable = iconPlaceholderProvider.get()
 
     private fun destroy() {
         synchronized(activeTasks) {
@@ -182,7 +167,7 @@ constructor(
         info: SelectableTargetInfo,
         consumer: Consumer<Drawable>,
     ) {
-        lifecycle.coroutineScope.launch {
+        lifecycle.coroutineScope.launch(Dispatchers.Main) {
             val iconDrawable =
                 withContext(bgDispatcher) {
                     val icon = info.chooserTargetIcon?.takeIf { hasValidIcon(it) }

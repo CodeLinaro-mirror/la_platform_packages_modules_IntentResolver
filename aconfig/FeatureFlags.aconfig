@@ -6,40 +6,10 @@ container: "system"
 # bug: "Feature_Bug_#" or "<none>"
 
 flag {
-  name: "badge_shortcut_icon_placeholders"
-  namespace: "intentresolver"
-  description: "Badge shortcut icon placeholders with app icon."
-  bug: "349847176"
-  metadata {
-    purpose: PURPOSE_BUGFIX
-  }
-}
-
-flag {
-  name: "delay_drawer_offset_calculation"
-  namespace: "intentresolver"
-  description: "Do not update the drawer offset until app targets are ready."
-  bug: "338229069"
-  metadata {
-    purpose: PURPOSE_BUGFIX
-  }
-}
-
-flag {
   name: "refine_system_actions"
   namespace: "intentresolver"
   description: "This flag enables sending system actions to the caller refinement flow"
   bug: "331206205"
-  metadata {
-    purpose: PURPOSE_BUGFIX
-  }
-}
-
-flag {
-  name: "rebuild_adapters_on_target_pinning"
-  namespace: "intentresolver"
-  description: "Rebuild and swap adapters when a target gets (un)pinned to avoid flickering."
-  bug: "230703572"
   metadata {
     purpose: PURPOSE_BUGFIX
   }
@@ -77,41 +47,31 @@ flag {
 }
 
 flag {
-  name: "sharesheet_esc_exit"
-  namespace: "intentresolver"
-  description: "Whether to ESC exits sharesheet"
-  bug: "409766579"
-  metadata {
-    purpose: PURPOSE_BUGFIX
-  }
-}
-
-flag {
-  name: "use_google_sans_flex"
-  namespace: "intentresolver"
-  description: "Use Google Sans Flex font."
-  bug: "393610034"
-  metadata {
-    purpose: PURPOSE_BUGFIX
-  }
-}
-
-flag {
-  name: "use_resolve_info_user_handle"
-  namespace: "intentresolver"
-  description: "Expect that some OEM customizations (Dual apps) may have targets with different user handle in the list."
-  bug: "406053567"
-  metadata {
-    purpose: PURPOSE_BUGFIX
-  }
-}
-
-flag {
   name: "launch_editor_as_current_user"
   namespace: "intentresolver"
-    description: "Launch the image editor as the current user instead of always-personal"
-    bug: "407991863"
-    metadata {
-      purpose: PURPOSE_BUGFIX
-    }
+  description: "Launch the image editor as the current user instead of always-personal"
+  bug: "407991863"
+  metadata {
+    purpose: PURPOSE_BUGFIX
+  }
+}
+
+flag {
+  name: "limit_target_data_loading_threads"
+  namespace: "intentresolver"
+  description: "Limit the number of background threads (currently 4) that can be used to load per-target resources"
+  bug: "420992996"
+  metadata {
+    purpose: PURPOSE_BUGFIX
+  }
+}
+
+flag {
+  name: "use_single_row_for_shortcuts"
+  namespace: "intentresolver"
+  description: "Do not use the two-row group view for shortcuts"
+  bug: "438002780"
+  metadata {
+    purpose: PURPOSE_BUGFIX
+  }
 }

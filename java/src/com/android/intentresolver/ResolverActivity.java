@@ -387,7 +387,7 @@ public class ResolverActivity extends Hilt_ResolverActivity implements
                     .hasSystemFeature(PackageManager.FEATURE_TOUCHSCREEN);
 
             if (isVoiceInteraction() || !hasTouchScreen) {
-                rdl.setCollapsed(false);
+                rdl.expand(false);
             }
 
             rdl.setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION

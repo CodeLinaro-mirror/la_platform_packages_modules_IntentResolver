@@ -16,7 +16,6 @@
 
 package com.android.intentresolver.contentpreview;
 
-import static com.android.intentresolver.Flags.useGoogleSansFlex;
 import static com.android.intentresolver.ui.FontStyles.GSF_LABEL_LARGE_BASELINE;
 import static com.android.intentresolver.ui.FontStyles.GSF_TITLE_LARGE_BASELINE;
 
@@ -82,19 +81,17 @@ public abstract class ContentPreviewUi {
         if (stub != null) {
             stub.inflate();
         }
-        if (useGoogleSansFlex()) {
-            TextView headline = layout.findViewById(R.id.headline);
-            TextView metadata = layout.findViewById(R.id.metadata);
-            Button action = layout.findViewById(R.id.reselection_action);
-            if (headline != null) {
-                headline.setTypeface(Typeface.create(GSF_TITLE_LARGE_BASELINE, Typeface.NORMAL));
-            }
-            if (metadata != null) {
-                metadata.setTypeface(Typeface.create(GSF_LABEL_LARGE_BASELINE, Typeface.NORMAL));
-            }
-            if (action != null) {
-                action.setTypeface(Typeface.create(GSF_LABEL_LARGE_BASELINE, Typeface.NORMAL));
-            }
+        TextView headline = layout.findViewById(R.id.headline);
+        TextView metadata = layout.findViewById(R.id.metadata);
+        Button action = layout.findViewById(R.id.reselection_action);
+        if (headline != null) {
+            headline.setTypeface(Typeface.create(GSF_TITLE_LARGE_BASELINE, Typeface.NORMAL));
+        }
+        if (metadata != null) {
+            metadata.setTypeface(Typeface.create(GSF_LABEL_LARGE_BASELINE, Typeface.NORMAL));
+        }
+        if (action != null) {
+            action.setTypeface(Typeface.create(GSF_LABEL_LARGE_BASELINE, Typeface.NORMAL));
         }
     }
 

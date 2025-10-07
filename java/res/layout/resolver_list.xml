@@ -24,7 +24,6 @@
     android:layout_height="match_parent"
     android:maxWidth="@dimen/resolver_max_width"
     app:maxCollapsedHeight="@dimen/resolver_max_collapsed_height"
-    app:maxCollapsedHeightSmall="56dp"
     android:id="@androidprv:id/contentPanel">
 
     <RelativeLayout

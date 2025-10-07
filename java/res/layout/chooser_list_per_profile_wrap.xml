@@ -21,7 +21,7 @@
     android:layout_height="wrap_content"
     android:paddingHorizontal="@dimen/chooser_list_padding">
 
-    <androidx.recyclerview.widget.RecyclerView
+    <com.android.intentresolver.widget.ChooserTargetView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         app:layoutManager="com.android.intentresolver.ChooserGridLayoutManager"

@@ -32,6 +32,7 @@
     <dimen name="chooser_preview_image_max_dimen">200dp</dimen>
     <dimen name="chooser_header_scroll_elevation">4dp</dimen>
     <dimen name="chooser_max_collapsed_height">288dp</dimen>
+    <dimen name="chooser_minimized_collapsed_height">44dp</dimen>
     <dimen name="chooser_icon_size">56dp</dimen>
     <dimen name="chooser_badge_size">22dp</dimen>
     <dimen name="chooser_icon_horizontal_padding">8dp</dimen>
@@ -44,6 +45,7 @@
     <dimen name="chooser_item_focus_outline_corner_radius">11dp</dimen>
     <dimen name="chooser_item_focus_outline_width">2dp</dimen>
     <dimen name="chooser_row_height">100dp</dimen>
+    <dimen name="chooser_min_collapsed_drawer_top_offset">48dp</dimen>
     <dimen name="content_preview_text_size">12sp</dimen>
     <dimen name="content_preview_filename_line_size">16sp</dimen>
     <dimen name="content_preview_more_files_text_size">12sp</dimen>
