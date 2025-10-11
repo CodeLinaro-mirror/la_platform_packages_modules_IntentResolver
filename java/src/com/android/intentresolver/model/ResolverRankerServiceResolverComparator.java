@@ -17,6 +17,8 @@
 
 package com.android.intentresolver.model;
 
+import static com.android.intentresolver.model.CompareSelectProbabilityThenAzLabelKt.makeSelectProbabilityThenAzLabelComparator;
+
 import android.app.usage.UsageStats;
 import android.content.ComponentName;
 import android.content.Context;
@@ -592,34 +594,10 @@ public class ResolverRankerServiceResolverComparator extends AbstractResolverCom
             // TODO: doCompute() doesn't seem to be concerned about null-checking mStats. Is that
             // a bug there, or do we have a way of knowing it will be non-null under certain
             // conditions?
-            return (lhs, rhs) -> {
-                final ResolverTarget lhsTarget =
-                        getActivityResolverTargetForUser(lhs.activityInfo, lhs.userHandle);
-                final ResolverTarget rhsTarget =
-                        getActivityResolverTargetForUser(rhs.activityInfo, rhs.userHandle);
-
-                if (lhsTarget != null && rhsTarget != null) {
-                    final int selectProbabilityDiff = Float.compare(
-                            rhsTarget.getSelectProbability(), lhsTarget.getSelectProbability());
-
-                    if (selectProbabilityDiff != 0) {
-                        return selectProbabilityDiff > 0 ? 1 : -1;
-                    }
-                }
-
-                CharSequence sa = null;
-                if (mPmMap.containsKey(lhs.userHandle)) {
-                    sa = lhs.loadLabel(mPmMap.get(lhs.userHandle));
-                }
-                if (sa == null) sa = lhs.activityInfo.name;
-                CharSequence sb = null;
-                if (mPmMap.containsKey(rhs.userHandle)) {
-                    sb = rhs.loadLabel(mPmMap.get(rhs.userHandle));
-                }
-                if (sb == null) sb = rhs.activityInfo.name;
-
-                return mCollator.compare(sa.toString().trim(), sb.toString().trim());
-            };
+            return makeSelectProbabilityThenAzLabelComparator(
+                    this::getSelectProbabilityForActivityTarget,
+                    this::getLabelForActivityTarget,
+                    mCollator);
         }
 
         @Override
@@ -678,6 +656,24 @@ public class ResolverRankerServiceResolverComparator extends AbstractResolverCom
                 log.addTaggedData(MetricsEvent.FIELD_RANKED_POSITION, selectedPos);
                 metricsLogger.write(log);
             }
+        }
+
+        @Nullable
+        private Float getSelectProbabilityForActivityTarget(ResolveInfo resolveInfo) {
+            ResolverTarget target = getActivityResolverTargetForUser(
+                    resolveInfo.activityInfo, resolveInfo.userHandle);
+            return (target != null) ? target.getSelectProbability() : null;
+        }
+
+        private String getLabelForActivityTarget(ResolveInfo resolveInfo) {
+            CharSequence label =
+                    mPmMap.containsKey(resolveInfo.userHandle)
+                            ? resolveInfo.loadLabel(mPmMap.get(resolveInfo.userHandle))
+                            : null;
+            if (label == null) {
+                label = resolveInfo.activityInfo.name;
+            }
+            return label.toString().trim();
         }
 
         @Nullable
