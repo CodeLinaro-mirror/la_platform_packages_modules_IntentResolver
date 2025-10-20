@@ -25,9 +25,8 @@ import static androidx.core.view.ViewKt.doOnNextLayout;
 import static androidx.lifecycle.LifecycleKt.getCoroutineScope;
 
 import static com.android.intentresolver.ChooserActionFactory.EDIT_SOURCE;
-import static com.android.intentresolver.Flags.launchEditorAsCurrentUser;
+import static com.android.intentresolver.Flags.alwaysShowShareousel;
 import static com.android.intentresolver.Flags.refineSystemActions;
-import static com.android.intentresolver.Flags.synchronousDrawerOffsetCalculation;
 import static com.android.intentresolver.ext.CreationExtrasExtKt.replaceDefaultArgs;
 import static com.android.intentresolver.profiles.MultiProfilePagerAdapter.PROFILE_PERSONAL;
 import static com.android.intentresolver.profiles.MultiProfilePagerAdapter.PROFILE_WORK;
@@ -108,6 +107,7 @@ import com.android.intentresolver.chooser.DisplayResolveInfo;
 import com.android.intentresolver.chooser.MultiDisplayResolveInfo;
 import com.android.intentresolver.chooser.TargetInfo;
 import com.android.intentresolver.contentpreview.ChooserContentPreviewUi;
+import com.android.intentresolver.contentpreview.ContentPreviewType;
 import com.android.intentresolver.contentpreview.HeadlineGeneratorImpl;
 import com.android.intentresolver.data.model.ChooserRequest;
 import com.android.intentresolver.data.repository.ActivityModelRepository;
@@ -590,7 +590,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         mRefinementManager.getRefinementCompletion().observe(this, completion -> {
             if (completion.consume()) {
                 if (completion.getRefinedIntent() == null) {
-                    finish();
+                    dismissDrawerAndFinish();
                     return;
                 }
 
@@ -646,7 +646,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                     break;
                 }
 
-                finish();
+                dismissDrawerAndFinish();
             }
         });
         ChooserContentPreviewUi.ActionFactory actionFactory =
@@ -714,6 +714,8 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         Tracer.INSTANCE.markLaunched();
 
         if (isInteractiveSession()) {
+            getOnBackInvokedDispatcher().registerOnBackInvokedCallback(
+                    0, this::dismissDrawerAndFinish);
             configureInteractiveSessionWindow();
             updateInteractiveArea();
         }
@@ -721,7 +723,11 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
 
     private ResolverDrawerLayout initializeResolverDrawerLayout() {
         final ResolverDrawerLayout rdl = requireViewById(com.android.internal.R.id.contentPanel);
-        rdl.setOnDismissedListener(() -> finish());
+        rdl.setOnDismissedListener(() -> {
+            // the drawer is already animated out, no need to run the window animation.
+            disableActivityCloseAnimation();
+            finish();
+        });
 
         boolean hasTouchScreen =
                 mPackageManager.hasSystemFeature(PackageManager.FEATURE_TOUCHSCREEN);
@@ -743,12 +749,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
             }
         }
 
-        if (synchronousDrawerOffsetCalculation()) {
-            rdl.setCollapsibleHeightReservedDelegate(
-                    this::syncHandleLayoutChange);
-        } else {
-            rdl.addOnLayoutChangeListener(this::handleLayoutChange);
-        }
+        rdl.setCollapsibleHeightReservedDelegate(this::syncHandleLayoutChange);
 
         rdl.setOnExpandedChangedListener(
                 isExpanded -> {
@@ -768,14 +769,12 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                     this, imageViewForTransition, ChooserActionFactory.IMAGE_EDITOR_SHARED_ELEMENT);
             safelyStartActivityAsUser(
                     editorTargetInfo,
-                    launchEditorAsCurrentUser() ? mUserInteractor.getLaunchedAs()
-                            : mProfiles.getPersonalHandle(),
+                    mUserInteractor.getLaunchedAs(),
                     options.toBundle());
         } else {
             safelyStartActivityAsUser(
                     editorTargetInfo,
-                    launchEditorAsCurrentUser() ? mUserInteractor.getLaunchedAs()
-                            : mProfiles.getPersonalHandle()
+                    mUserInteractor.getLaunchedAs()
             );
         }
         finish();
@@ -784,7 +783,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
     @Override
     public boolean onKeyUp(int keyCode, KeyEvent event) {
         if (keyCode == KeyEvent.KEYCODE_ESCAPE) {
-            finish();
+            dismissDrawerAndFinish();
             return true;
         }
 
@@ -1019,6 +1018,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
 
     @Override
     protected void onRestoreInstanceState(@NonNull Bundle savedInstanceState) {
+        super.onRestoreInstanceState(savedInstanceState);
         if (mViewPager != null) {
             int profile = savedInstanceState.getInt(LAST_SHOWN_PROFILE);
             int profileNumber = mChooserMultiProfilePagerAdapter.getPageNumberForProfile(profile);
@@ -1655,7 +1655,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         EmptyStateProvider emptyStateProvider =
                 createEmptyStateProvider(profileHelper, profileAvailability);
 
-        Supplier<Boolean> workProfileQuietModeChecker =
+        BooleanSupplier workProfileQuietModeChecker =
                 () -> !(profileHelper.getWorkProfilePresent()
                         && profileAvailability.isAvailable(
                         requireNonNull(profileHelper.getWorkProfile())));
@@ -2241,7 +2241,8 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                     }
                 },
                 chooserListAdapter,
-                shouldShowContentPreview(),
+                /*shouldShowDirectTargets =*/ shouldShowContentPreview()
+                        && !ActivityManager.isLowRamDeviceStatic(),
                 mMaxTargetsPerRow);
     }
 
@@ -2449,38 +2450,6 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         }
         Log.d(TAG, "finishWithStatus: result=" + status);
         finish();
-    }
-
-    /*
-     * Need to dynamically adjust how many icons can fit per row before we add them,
-     * which also means setting the correct offset to initially show the content
-     * preview area + 2 rows of targets
-     */
-    private void handleLayoutChange(View v, int left, int top, int right, int bottom, int oldLeft,
-            int oldTop, int oldRight, int oldBottom) {
-        if (!shouldUpdateDrawerOffset()) {
-            return;
-        }
-
-        final int availableWidth = right - left - v.getPaddingLeft() - v.getPaddingRight();
-        maybeUpdateTabPadding(availableWidth);
-        mCurrAvailableWidth = availableWidth;
-
-        if (mChooserMultiProfilePagerAdapter.getActiveProfile() != mInitialProfile) {
-            return;
-        }
-
-        RecyclerView recyclerView = mChooserMultiProfilePagerAdapter.getActiveAdapterView();
-        ChooserGridAdapter gridAdapter = mChooserMultiProfilePagerAdapter.getCurrentRootAdapter();
-        getMainThreadHandler().post(() -> {
-            if (mResolverDrawerLayout == null) {
-                return;
-            }
-            int offset = mDrawerOffsetDelegate.getReservedHeight(
-                    bottom - top, recyclerView, gridAdapter, mSystemWindowInsets);
-            mResolverDrawerLayout.setCollapsibleHeightReserved(offset);
-            mEnterTransitionAnimationDelegate.markOffsetCalculated();
-        });
     }
 
     /*
@@ -2854,10 +2823,6 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
      * we instead show the content preview as a regular list item.
      */
     private boolean shouldShowStickyContentPreview() {
-        return shouldShowStickyContentPreviewNoOrientationCheck();
-    }
-
-    private boolean shouldShowStickyContentPreviewNoOrientationCheck() {
         if (isInteractiveSession() || !shouldShowContentPreview()) {
             return false;
         }
@@ -2875,7 +2840,9 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
      *         user is empty
      */
     protected boolean shouldShowContentPreviewWhenEmpty() {
-        return false;
+        return alwaysShowShareousel()
+                && (mViewModel.getPreviewDataProvider().getPreviewType()
+                        == ContentPreviewType.CONTENT_PREVIEW_PAYLOAD_SELECTION);
     }
 
     /**
@@ -2886,7 +2853,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
     }
 
     private void updateStickyContentPreview() {
-        if (shouldShowStickyContentPreviewNoOrientationCheck()) {
+        if (shouldShowStickyContentPreview()) {
             // The sticky content preview is only shown when we show the work and personal tabs.
             // We don't show it in landscape as otherwise there is no room for scrolling.
             // If the sticky content preview will be shown at some point with orientation change,
@@ -2897,8 +2864,6 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                 ViewGroup contentPreviewView = createContentPreviewView(contentPreviewContainer);
                 contentPreviewContainer.addView(contentPreviewView);
             }
-        }
-        if (shouldShowStickyContentPreview()) {
             showStickyContentPreview();
         } else {
             hideStickyContentPreview();
@@ -3012,6 +2977,20 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
 
     protected void maybeLogProfileChange() {
         getEventLog().logSharesheetProfileChanged();
+    }
+
+    private void dismissDrawerAndFinish() {
+        if (isInteractiveSession() && mResolverDrawerLayout != null) {
+            disableActivityCloseAnimation();
+            mResolverDrawerLayout.setEnabled(false);
+            mResolverDrawerLayout.dismiss();
+        } else {
+            finish();
+        }
+    }
+
+    private void disableActivityCloseAnimation() {
+        overrideActivityTransition(OVERRIDE_TRANSITION_CLOSE, -1, -1);
     }
 
     private static class ProfileRecord {

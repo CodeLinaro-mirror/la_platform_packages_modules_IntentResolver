@@ -6,27 +6,20 @@ container: "system"
 # bug: "Feature_Bug_#" or "<none>"
 
 flag {
-  name: "refine_system_actions"
+  name: "always_show_shareousel"
   namespace: "intentresolver"
-  description: "This flag enables sending system actions to the caller refinement flow"
-  bug: "331206205"
+  description: "Show Shareousel even if there are no targets."
+  bug: "396690329"
   metadata {
     purpose: PURPOSE_BUGFIX
   }
 }
 
 flag {
-  name: "target_hover_and_keyboard_focus_states"
+  name: "refine_system_actions"
   namespace: "intentresolver"
-  description: "Adopt Launcher pointer hover and keyboard novigation focus effects for targets."
-  bug: "295175912"
-}
-
-flag {
-  name: "synchronous_drawer_offset_calculation"
-  namespace: "intentresolver"
-  description: "Calculate drawer offset synchronously"
-  bug: "401566089"
+  description: "This flag enables sending system actions to the caller refinement flow"
+  bug: "331206205"
   metadata {
     purpose: PURPOSE_BUGFIX
   }
@@ -44,16 +37,6 @@ flag {
   namespace: "intentresolver"
   description: "Whether to shrink Shareousel items when they are selected."
   bug: "361792274"
-}
-
-flag {
-  name: "launch_editor_as_current_user"
-  namespace: "intentresolver"
-  description: "Launch the image editor as the current user instead of always-personal"
-  bug: "407991863"
-  metadata {
-    purpose: PURPOSE_BUGFIX
-  }
 }
 
 flag {
