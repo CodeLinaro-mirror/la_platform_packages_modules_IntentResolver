@@ -66,7 +66,7 @@
         android:paddingTop="32dp"
         android:paddingBottom="@dimen/resolver_button_bar_spacing"
         android:orientation="vertical"
-        android:background="?android:attr/colorBackground"
+        android:background="@color/materialColorSurfaceContainer"
         app:layout_ignoreOffset="true">
         <RelativeLayout
             style="?android:attr/buttonBarStyle"
