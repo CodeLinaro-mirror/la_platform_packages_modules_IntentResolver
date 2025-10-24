@@ -17,13 +17,11 @@
 package com.android.intentresolver.icons
 
 import android.content.ComponentName
-import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import android.os.UserHandle
 import androidx.collection.LruCache
-import com.android.intentresolver.Flags.targetHoverAndKeyboardFocusStates
 import com.android.intentresolver.chooser.DisplayResolveInfo
 import com.android.intentresolver.chooser.SelectableTargetInfo
 import com.android.launcher3.icons.FastBitmapDrawable
@@ -36,7 +34,6 @@ import javax.inject.Qualifier
 private typealias IconCache = LruCache<String, Bitmap>
 
 class CachingTargetDataLoader(
-    private val context: Context,
     private val targetDataLoader: TargetDataLoader,
     private val cacheSize: Int = 100,
 ) : TargetDataLoader {
@@ -102,13 +99,7 @@ class CachingTargetDataLoader(
             }
         }
 
-    private fun Bitmap.toDrawable(): Drawable {
-        return if (targetHoverAndKeyboardFocusStates()) {
-            FastBitmapDrawable(this)
-        } else {
-            BitmapDrawable(context.resources, this)
-        }
-    }
+    private fun Bitmap.toDrawable(): Drawable = FastBitmapDrawable(this)
 
     private fun Drawable.extractBitmap(): Bitmap? {
         return when (this) {

@@ -40,7 +40,6 @@ import static com.android.intentresolver.ChooserListAdapter.CALLER_TARGET_SCORE_
 import static com.android.intentresolver.ChooserListAdapter.SHORTCUT_TARGET_SCORE_BOOST;
 import static com.android.intentresolver.MatcherUtils.first;
 import static com.android.intentresolver.TestUtils.createSendImageIntent;
-
 import static com.android.systemui.shared.Flags.FLAG_SCREENSHOT_CONTEXT_URL;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -92,8 +91,7 @@ import android.os.Bundle;
 import android.os.RemoteException;
 import android.os.UserHandle;
 import android.platform.test.annotations.EnableFlags;
-import android.platform.test.flag.junit.CheckFlagsRule;
-import android.platform.test.flag.junit.DeviceFlagsValueProvider;
+import android.platform.test.flag.junit.SetFlagsRule;
 import android.provider.DeviceConfig;
 import android.provider.Settings;
 import android.service.chooser.ChooserAction;
@@ -150,7 +148,6 @@ import com.android.intentresolver.platform.PreferredImageEditor;
 import com.android.intentresolver.shared.model.User;
 import com.android.intentresolver.shortcuts.ShortcutLoader;
 import com.android.internal.config.sysui.SystemUiDeviceConfigFlags;
-import com.android.systemui.Flags;
 
 import dagger.hilt.android.qualifiers.ApplicationContext;
 import dagger.hilt.android.testing.BindValue;
@@ -238,7 +235,7 @@ public class ChooserActivityTest {
     private static final int CONTENT_PREVIEW_TEXT = 3;
 
     @Rule(order = 0)
-    public CheckFlagsRule mCheckFlagsRule = DeviceFlagsValueProvider.createCheckFlagsRule();
+    public SetFlagsRule mSetFlagsRule = new SetFlagsRule();
 
     @Rule(order = 1)
     public HiltAndroidRule mHiltAndroidRule = new HiltAndroidRule(this);
