@@ -1018,6 +1018,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
 
     @Override
     protected void onRestoreInstanceState(@NonNull Bundle savedInstanceState) {
+        super.onRestoreInstanceState(savedInstanceState);
         if (mViewPager != null) {
             int profile = savedInstanceState.getInt(LAST_SHOWN_PROFILE);
             int profileNumber = mChooserMultiProfilePagerAdapter.getPageNumberForProfile(profile);
