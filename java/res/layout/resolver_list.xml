@@ -58,7 +58,7 @@
             android:layout_height="wrap_content"
             android:layout_below="@androidprv:id/profile_button"
             android:layout_alignParentStart="true"
-            android:textColor="?android:attr/textColorPrimary"
+            android:textColor="@color/materialColorOnSurface"
             android:fontFamily="@androidprv:string/config_headlineFontFamilyMedium"
             android:textSize="16sp"
             android:gravity="start|center_vertical" />
@@ -69,7 +69,7 @@
         app:layout_alwaysShow="true"
         android:layout_width="match_parent"
         android:layout_height="1dp"
-        android:background="?android:attr/colorBackground"
+        android:background="@color/materialColorSurfaceContainer"
         android:foreground="?android:attr/dividerVertical" />
 
     <FrameLayout
@@ -77,7 +77,7 @@
         android:visibility="gone"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="?android:attr/colorBackground"/>
+        android:background="@color/materialColorSurfaceContainer"/>
 
     <TabHost
         android:id="@androidprv:id/profile_tabhost"
@@ -86,7 +86,7 @@
         android:layout_alignParentTop="true"
         android:layout_centerHorizontal="true"
         android:accessibilityTraversalAfter="@android:id/title"
-        android:background="?android:attr/colorBackground">
+        android:background="@color/materialColorSurfaceContainer">
         <LinearLayout
             android:orientation="vertical"
             android:layout_width="match_parent"
@@ -116,13 +116,13 @@
         android:layout_height="wrap_content"
         app:layout_alwaysShow="true"
         android:orientation="vertical"
-        android:background="?android:attr/colorBackground"
+        android:background="@color/materialColorSurfaceContainer"
         app:layout_ignoreOffset="true">
         <View
             android:id="@androidprv:id/resolver_button_bar_divider"
             android:layout_width="match_parent"
             android:layout_height="1dp"
-            android:background="?android:attr/colorBackground"
+            android:background="@color/materialColorSurfaceContainer"
             android:foreground="?android:attr/dividerVertical" />
         <LinearLayout
             android:id="@androidprv:id/button_bar"
