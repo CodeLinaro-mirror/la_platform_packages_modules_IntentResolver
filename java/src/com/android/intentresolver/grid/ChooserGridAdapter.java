@@ -16,8 +16,6 @@
 
 package com.android.intentresolver.grid;
 
-import static com.android.intentresolver.Flags.useSingleRowForShortcuts;
-
 import android.animation.AnimatorSet;
 import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
@@ -40,8 +38,6 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.android.intentresolver.ChooserListAdapter;
 import com.android.intentresolver.R;
 import com.android.intentresolver.ResolverListAdapter.ViewHolder;
-
-import com.google.android.collect.Lists;
 
 /**
  * Adapter for all types of items and targets in ShareSheet.
@@ -304,7 +300,7 @@ public final class ChooserGridAdapter extends RecyclerView.Adapter<RecyclerView.
 
         countSum += (count = getServiceTargetRowCount());
         if (count > 0 && position < countSum) {
-            return useSingleRowForShortcuts() ? VIEW_TYPE_CALLER_AND_RANK : VIEW_TYPE_DIRECT_SHARE;
+            return VIEW_TYPE_CALLER_AND_RANK;
         }
 
         countSum += (count = getCallerAndRankedTargetRowCount());
@@ -394,30 +390,12 @@ public final class ChooserGridAdapter extends RecyclerView.Adapter<RecyclerView.
     }
 
     ItemGroupViewHolder createItemGroupViewHolder(int viewType, ViewGroup parent) {
-        if (viewType == VIEW_TYPE_DIRECT_SHARE) {
-            ViewGroup parentGroup = (ViewGroup) mLayoutInflater.inflate(
-                    R.layout.chooser_row_direct_share, parent, false);
-            ViewGroup row1 = (ViewGroup) mLayoutInflater.inflate(
-                    R.layout.chooser_row, parentGroup, false);
-            ViewGroup row2 = (ViewGroup) mLayoutInflater.inflate(
-                    R.layout.chooser_row, parentGroup, false);
-            parentGroup.addView(row1);
-            parentGroup.addView(row2);
-
-            DirectShareViewHolder directShareViewHolder = new DirectShareViewHolder(parentGroup,
-                    Lists.newArrayList(row1, row2), mMaxTargetsPerRow, viewType);
-            loadViewsIntoGroup(directShareViewHolder);
-
-            return directShareViewHolder;
-        } else {
-            ViewGroup row = (ViewGroup) mLayoutInflater.inflate(
-                    R.layout.chooser_row, parent, false);
-            ItemGroupViewHolder holder =
-                    new SingleRowViewHolder(row, mMaxTargetsPerRow, viewType);
-            loadViewsIntoGroup(holder);
-
-            return holder;
-        }
+        ViewGroup row = (ViewGroup) mLayoutInflater.inflate(
+                R.layout.chooser_row, parent, false);
+        ItemGroupViewHolder holder =
+                new SingleRowViewHolder(row, mMaxTargetsPerRow, viewType);
+        loadViewsIntoGroup(holder);
+        return holder;
     }
 
     /**
