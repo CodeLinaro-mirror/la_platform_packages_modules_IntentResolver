@@ -300,7 +300,7 @@ public final class ChooserGridAdapter extends RecyclerView.Adapter<RecyclerView.
 
         countSum += (count = getServiceTargetRowCount());
         if (count > 0 && position < countSum) {
-            return VIEW_TYPE_CALLER_AND_RANK;
+            return VIEW_TYPE_DIRECT_SHARE;
         }
 
         countSum += (count = getCallerAndRankedTargetRowCount());
@@ -392,6 +392,11 @@ public final class ChooserGridAdapter extends RecyclerView.Adapter<RecyclerView.
     ItemGroupViewHolder createItemGroupViewHolder(int viewType, ViewGroup parent) {
         ViewGroup row = (ViewGroup) mLayoutInflater.inflate(
                 R.layout.chooser_row, parent, false);
+        if (viewType == VIEW_TYPE_DIRECT_SHARE) {
+            // The a11y delegate uses id to distinguish between a direct share and a suggested apps
+            // rows.
+            row.setId(R.id.shortcuts_container);
+        }
         ItemGroupViewHolder holder =
                 new SingleRowViewHolder(row, mMaxTargetsPerRow, viewType);
         loadViewsIntoGroup(holder);
