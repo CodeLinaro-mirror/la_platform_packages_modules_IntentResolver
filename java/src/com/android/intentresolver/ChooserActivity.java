@@ -1540,9 +1540,17 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         mOnSwitchOnWorkSelectedListener = () -> {
             View workTab = mTabHost.getTabWidget().getChildAt(
                     mChooserMultiProfilePagerAdapter.getPageNumberForProfile(PROFILE_WORK));
+            boolean wasFocusable = workTab.isFocusable();
+            boolean wasFocusableInTouchMode = workTab.isFocusableInTouchMode();
             workTab.setFocusable(true);
             workTab.setFocusableInTouchMode(true);
             workTab.requestFocus();
+            // Reset the focusable-in-touch-mode flag, as taps are processed differently in this
+            // mode. I.e., when an unfocused view is tapped, it requests focus first. If the request
+            // succeeds, the rest of the touch event processing logic is ignored (e.g., the
+            // onClickListener is not invoked).
+            workTab.setFocusableInTouchMode(wasFocusableInTouchMode);
+            workTab.setFocusable(wasFocusable);
         };
     }
 
