@@ -75,7 +75,6 @@
 
     <dimen name="preview_text_padding">124dp</dimen>
     <dimen name="chooser_list_padding">0dp</dimen>
-    <dimen name="chooser_row_direct_share_height">200dp</dimen>
     <dimen name="preview_text_min_height">46dp</dimen>
     <dimen name="view_holder_height">200dp</dimen>
     <dimen name="chooser_grid_item_space_height">7dp</dimen>
