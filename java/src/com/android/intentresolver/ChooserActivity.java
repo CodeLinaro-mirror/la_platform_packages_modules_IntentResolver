@@ -1391,11 +1391,6 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         safelyStartActivityAsUser(cti, user, null);
     }
 
-    @Override // ResolverListCommunicator
-    public final void onHandlePackagesChanged(ResolverListAdapter listAdapter) {
-        // no-op
-    }
-
     final Option optionForChooserTarget(TargetInfo target, int index) {
         return new Option(getOrLoadDisplayLabel(target), index);
     }

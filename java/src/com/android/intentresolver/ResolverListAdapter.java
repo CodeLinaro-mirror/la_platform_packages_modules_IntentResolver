@@ -169,10 +169,6 @@ public class ResolverListAdapter extends BaseAdapter {
         return ImmutableList.copyOf(mDisplayList);
     }
 
-    public void handlePackagesChanged() {
-        mResolverListCommunicator.onHandlePackagesChanged(this);
-    }
-
     public void setPlaceholderCount(int count) {
         mPlaceholderCount = count;
     }
@@ -913,8 +909,6 @@ public class ResolverListAdapter extends BaseAdapter {
         default boolean shouldGetOnlyDefaultActivities() {
             return true;
         }
-
-        void onHandlePackagesChanged(ResolverListAdapter listAdapter);
     }
 
     /**
