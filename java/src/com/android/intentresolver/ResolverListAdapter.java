@@ -467,7 +467,10 @@ public class ResolverListAdapter extends BaseAdapter {
                 throw t;
             } finally {
                 final List<ResolvedComponentInfo> result = sortedComponents;
-                mCallbackExecutor.execute(() -> onComponentsSorted(result, doPostProcessing));
+                mCallbackExecutor.execute(() -> {
+                    processSortedList(result, doPostProcessing);
+                    onComponentsSorted(doPostProcessing);
+                });
             }
         });
         return false;
@@ -479,13 +482,11 @@ public class ResolverListAdapter extends BaseAdapter {
     }
 
     @MainThread
-    protected void onComponentsSorted(
-            @Nullable List<ResolvedComponentInfo> sortedComponents, boolean doPostProcessing) {
-        processSortedList(sortedComponents, doPostProcessing);
+    protected void onComponentsSorted(boolean doPostProcessing) {
         notifyDataSetChanged();
     }
 
-    protected void processSortedList(
+    private void processSortedList(
             @Nullable List<ResolvedComponentInfo> sortedComponents, boolean doPostProcessing) {
         final int n = sortedComponents != null ? sortedComponents.size() : 0;
         Trace.beginSection("ResolverListAdapter#processSortedList:" + n);
