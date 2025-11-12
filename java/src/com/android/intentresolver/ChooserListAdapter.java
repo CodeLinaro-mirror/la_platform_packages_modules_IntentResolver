@@ -45,7 +45,6 @@ import android.widget.TextView;
 
 import androidx.annotation.MainThread;
 import androidx.annotation.Nullable;
-import androidx.annotation.WorkerThread;
 
 import com.android.intentresolver.chooser.DisplayResolveInfo;
 import com.android.intentresolver.chooser.DisplayResolveInfoAzInfoComparator;
@@ -865,18 +864,6 @@ public class ChooserListAdapter extends ResolverListAdapter {
             mEventLog.logSharesheetEmptyDirectShareRow();
         }
         notifyDataSetChanged();
-    }
-
-    /**
-     * Rather than fully sorting the input list, this sorting task will put the top k elements
-     * in the head of input list and fill the tail with other elements in undetermined order.
-     */
-    @Override
-    @WorkerThread
-    protected void sortComponents(List<ResolvedComponentInfo> components) {
-        Trace.beginSection("ChooserListAdapter#SortingTask");
-        mResolverListController.topK(components, mMaxRankedTargets);
-        Trace.endSection();
     }
 
     @Override

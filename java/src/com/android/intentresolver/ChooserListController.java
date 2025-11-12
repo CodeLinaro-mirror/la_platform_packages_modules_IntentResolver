@@ -21,7 +21,10 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.os.Trace;
 import android.os.UserHandle;
+
+import androidx.annotation.WorkerThread;
 
 import com.android.intentresolver.model.AbstractResolverComparator;
 
@@ -30,6 +33,7 @@ import java.util.List;
 public class ChooserListController extends ResolverListController {
     private final List<ComponentName> mFilteredComponents;
     private final SharedPreferences mPinnedComponents;
+    private final int mRankedGroupSize;
 
     public ChooserListController(
             Context context,
@@ -40,7 +44,8 @@ public class ChooserListController extends ResolverListController {
             AbstractResolverComparator resolverComparator,
             UserHandle queryIntentsAsUser,
             List<ComponentName> filteredComponents,
-            SharedPreferences pinnedComponents) {
+            SharedPreferences pinnedComponents,
+            int rankedGroupSize) {
         super(
                 context,
                 pm,
@@ -51,6 +56,7 @@ public class ChooserListController extends ResolverListController {
                 queryIntentsAsUser);
         mFilteredComponents = filteredComponents;
         mPinnedComponents = pinnedComponents;
+        mRankedGroupSize = rankedGroupSize;
     }
 
     @Override
@@ -61,5 +67,20 @@ public class ChooserListController extends ResolverListController {
     @Override
     public boolean isComponentPinned(ComponentName name) {
         return mPinnedComponents.getBoolean(name.flattenToString(), false);
+    }
+
+    /**
+     * Rather than fully sorting the input list, this sorting task will put the top k elements
+     * in the head of input list and fill the tail with other elements in undetermined order.
+     */
+    @Override
+    @WorkerThread
+    public void sort(List<ResolvedComponentInfo> inputList) {
+        Trace.beginSection("ChooserListController#sort");
+        try {
+            topK(inputList, mRankedGroupSize);
+        } finally {
+            Trace.endSection();
+        }
     }
 }

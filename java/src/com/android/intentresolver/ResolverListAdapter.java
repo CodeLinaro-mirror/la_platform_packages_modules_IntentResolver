@@ -474,7 +474,7 @@ public class ResolverListAdapter extends BaseAdapter {
     }
 
     @WorkerThread
-    protected void sortComponents(List<ResolvedComponentInfo> components) {
+    private void sortComponents(List<ResolvedComponentInfo> components) {
         mResolverListController.sort(components);
     }
 

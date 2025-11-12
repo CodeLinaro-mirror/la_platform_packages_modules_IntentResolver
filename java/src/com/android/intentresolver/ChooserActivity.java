@@ -2355,7 +2355,8 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                 resolverComparator,
                 mProfiles.getQueryIntentsHandle(userHandle),
                 mRequest.getFilteredComponentNames(),
-                mPinnedSharedPrefs);
+                mPinnedSharedPrefs,
+                mMaxTargetsPerRow);
     }
 
     private ChooserContentPreviewUi.ActionFactory decorateActionFactoryWithRefinement(
