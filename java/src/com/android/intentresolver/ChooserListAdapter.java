@@ -234,7 +234,7 @@ public class ChooserListAdapter extends ResolverListAdapter {
                 targetDataLoader,
                 bgExecutor,
                 mainExecutor);
-
+        setAppTargetPredicate(this::shouldAddResolveInfo);
         mMaxRankedTargets = maxRankedTargets;
         mReferrerFillInIntent = referrerFillInIntent;
 
@@ -754,8 +754,7 @@ public class ChooserListAdapter extends ResolverListAdapter {
     }
 
     // Check whether {@code dri} should be added into mDisplayList.
-    @Override
-    protected boolean shouldAddResolveInfo(DisplayResolveInfo dri) {
+    private boolean shouldAddResolveInfo(DisplayResolveInfo dri) {
         // Checks if this info is already listed in callerTargets.
         for (TargetInfo existingInfo : mCallerTargets) {
             if (ResolveInfoHelpers.resolveInfoMatch(
@@ -763,7 +762,7 @@ public class ChooserListAdapter extends ResolverListAdapter {
                 return false;
             }
         }
-        return super.shouldAddResolveInfo(dri);
+        return true;
     }
 
     /**
