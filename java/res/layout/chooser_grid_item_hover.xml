@@ -55,6 +55,8 @@
               android:textAppearance="?android:attr/textAppearanceSmall"
               android:textColor="@color/chooser_grid_item_text1_color"
               android:textSize="@dimen/chooser_grid_target_name_text_size"
+              android:fontFamily="variable-title-small"
+              android:textStyle="normal"
               android:maxLines="1"
               android:ellipsize="end" />
 
@@ -63,6 +65,8 @@
               android:textAppearance="?android:attr/textAppearanceSmall"
               android:textSize="@dimen/chooser_grid_activity_name_text_size"
               android:textColor="@color/chooser_grid_item_text2_color"
+              android:fontFamily="variable-title-small"
+              android:textStyle="normal"
               android:layout_width="match_parent"
               android:layout_height="wrap_content"
               android:lines="1"
