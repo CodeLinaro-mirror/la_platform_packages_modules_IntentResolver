@@ -735,11 +735,6 @@ public class ResolverActivity extends Hilt_ResolverActivity implements
         return !target.isSuspended();
     }
 
-    @Override // ResolverListCommunicator
-    public boolean shouldGetActivityMetadata() {
-        return false;
-    }
-
     public boolean shouldAutoLaunchSingleChoice(TargetInfo target) {
         return !target.isSuspended();
     }
@@ -762,7 +757,8 @@ public class ResolverActivity extends Hilt_ResolverActivity implements
                 mViewModel.getActivityModel().getReferrerPackage(),
                 mViewModel.getActivityModel().getLaunchedFromUid(),
                 resolverComparator,
-                mProfiles.getQueryIntentsHandle(userHandle));
+                mProfiles.getQueryIntentsHandle(userHandle),
+                /*shouldGetActivityMetadata =*/ false);
     }
 
     /**

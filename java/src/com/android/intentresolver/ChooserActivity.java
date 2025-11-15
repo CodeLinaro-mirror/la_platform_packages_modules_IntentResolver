@@ -1916,11 +1916,6 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         }
     }
 
-    @Override // ResolverListCommunicator
-    public boolean shouldGetActivityMetadata() {
-        return true;
-    }
-
     public boolean shouldAutoLaunchSingleChoice(TargetInfo target) {
         if (target.isSuspended()) {
             return false;
