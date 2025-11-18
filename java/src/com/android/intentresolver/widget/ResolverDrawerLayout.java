@@ -236,6 +236,13 @@ public class ResolverDrawerLayout extends ViewGroup {
         return mCollapseOffset == mCollapsibleHeight;
     }
 
+    /**
+     * @return The drawer's top coordinate when it is collapsed.
+     */
+    public int getCollapsedTop() {
+        return calculateDrawerTop(getHeight(), mHeightUsed, mCollapsibleHeight);
+    }
+
     public void setShowAtTop(boolean showOnTop) {
         if (mShowAtTop != showOnTop) {
             mShowAtTop = showOnTop;
