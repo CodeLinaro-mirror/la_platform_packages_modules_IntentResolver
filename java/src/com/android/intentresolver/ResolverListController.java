@@ -373,4 +373,9 @@ public class ResolverListController {
     public void destroy() {
         mResolverComparator.destroy();
     }
+
+    /** Customize the launching intent for the target. */
+    public Intent getReplacementIntent(ActivityInfo aInfo, Intent defIntent) {
+        return defIntent;
+    }
 }

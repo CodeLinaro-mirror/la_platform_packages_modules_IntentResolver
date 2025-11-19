@@ -402,7 +402,7 @@ public class ResolverListAdapter extends BaseAdapter {
                     otherProfileInfo,
                     mPm,
                     mTargetIntent,
-                    mResolverListCommunicator
+                    mResolverListController
             );
         } else {
             mOtherProfile = null;
@@ -573,8 +573,8 @@ public class ResolverListAdapter extends BaseAdapter {
         final Intent intent = rci.getIntentAt(0);
         final ResolveInfo add = rci.getResolveInfoAt(0);
         final Intent replaceIntent =
-                mResolverListCommunicator.getReplacementIntent(add.activityInfo, intent);
-        final Intent defaultIntent = mResolverListCommunicator.getReplacementIntent(
+                mResolverListController.getReplacementIntent(add.activityInfo, intent);
+        final Intent defaultIntent = mResolverListController.getReplacementIntent(
                 add.activityInfo, mTargetIntent);
         final DisplayResolveInfo dri = DisplayResolveInfo.newDisplayResolveInfo(
                 intent,
@@ -870,13 +870,13 @@ public class ResolverListAdapter extends BaseAdapter {
             ResolvedComponentInfo resolvedComponentInfo,
             PackageManager pm,
             Intent targetIntent,
-            ResolverListCommunicator resolverListCommunicator) {
+            ResolverListController resolverListController) {
         ResolveInfo resolveInfo = resolvedComponentInfo.getResolveInfoAt(0);
 
-        Intent pOrigIntent = resolverListCommunicator.getReplacementIntent(
+        Intent pOrigIntent = resolverListController.getReplacementIntent(
                 resolveInfo.activityInfo,
                 resolvedComponentInfo.getIntentAt(0));
-        Intent replacementIntent = resolverListCommunicator.getReplacementIntent(
+        Intent replacementIntent = resolverListController.getReplacementIntent(
                 resolveInfo.activityInfo, targetIntent);
 
         return DisplayResolveInfo.newDisplayResolveInfo(
@@ -892,8 +892,6 @@ public class ResolverListAdapter extends BaseAdapter {
      * and {@link ResolverActivity}.
      */
     public interface ResolverListCommunicator {
-
-        Intent getReplacementIntent(ActivityInfo activityInfo, Intent defIntent);
 
         void onPostListReady(ResolverListAdapter listAdapter, boolean updateUi,
                 boolean rebuildCompleted);

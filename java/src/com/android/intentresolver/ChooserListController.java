@@ -16,53 +16,59 @@
 
 package com.android.intentresolver;
 
+import android.annotation.Nullable;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
+import android.os.Bundle;
 import android.os.Trace;
 import android.os.UserHandle;
 
 import androidx.annotation.WorkerThread;
 
+import com.android.intentresolver.data.model.ChooserRequest;
 import com.android.intentresolver.model.AbstractResolverComparator;
 
 import java.util.List;
 
 public class ChooserListController extends ResolverListController {
-    private final List<ComponentName> mFilteredComponents;
     private final SharedPreferences mPinnedComponents;
     private final int mRankedGroupSize;
+    private final ChooserRequest mRequest;
+    @Nullable
+    private final CharSequence mChooserTitle;
 
     public ChooserListController(
             Context context,
             PackageManager pm,
-            Intent targetIntent,
-            String referrerPackageName,
+            ChooserRequest chooserRequest,
+            @Nullable CharSequence chooserTitle,
             int launchedFromUid,
             AbstractResolverComparator resolverComparator,
             UserHandle queryIntentsAsUser,
-            List<ComponentName> filteredComponents,
             SharedPreferences pinnedComponents,
             int rankedGroupSize) {
         super(
                 context,
                 pm,
-                targetIntent,
-                referrerPackageName,
+                chooserRequest.getTargetIntent(),
+                chooserRequest.getReferrerPackage(),
                 launchedFromUid,
                 resolverComparator,
                 queryIntentsAsUser,
                 /*shouldGetActivityMetadata =*/ true);
-        mFilteredComponents = filteredComponents;
+        mRequest = chooserRequest;
+        mChooserTitle = chooserTitle;
         mPinnedComponents = pinnedComponents;
         mRankedGroupSize = rankedGroupSize;
     }
 
     @Override
     public boolean isComponentFiltered(ComponentName name) {
-        return mFilteredComponents.contains(name);
+        return mRequest.getFilteredComponentNames().contains(name);
     }
 
     @Override
@@ -83,5 +89,30 @@ public class ChooserListController extends ResolverListController {
         } finally {
             Trace.endSection();
         }
+    }
+
+    // TODO: investigate a feasibility of making this logic being a part of the target resolution
+    //  logic (e.g. implemented in getResolversForIntentAsUser method).
+    @Override
+    public Intent getReplacementIntent(ActivityInfo aInfo, Intent defIntent) {
+        Intent result = defIntent;
+        if (mRequest.getReplacementExtras() != null) {
+            final Bundle replExtras =
+                    mRequest.getReplacementExtras().getBundle(aInfo.packageName);
+            if (replExtras != null) {
+                result = new Intent(defIntent);
+                result.putExtras(replExtras);
+            }
+        }
+        if (aInfo.name.equals(IntentForwarderActivity.FORWARD_INTENT_TO_PARENT)
+                || aInfo.name.equals(IntentForwarderActivity.FORWARD_INTENT_TO_MANAGED_PROFILE)) {
+            result = Intent.createChooser(result, mChooserTitle);
+
+            // Don't auto-launch single intents if the intent is being forwarded. This is done
+            // because automatically launching a resolving application as a response to the user
+            // action of switching accounts is pretty unexpected.
+            result.putExtra(Intent.EXTRA_AUTO_LAUNCH_SINGLE_CHOICE, false);
+        }
+        return result;
     }
 }
