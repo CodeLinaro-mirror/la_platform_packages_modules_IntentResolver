@@ -16,6 +16,7 @@
 
 package com.android.intentresolver.contentpreview;
 
+import static com.android.intentresolver.Flags.useActualPreviewHeight;
 import static com.android.intentresolver.contentpreview.ContentPreviewType.CONTENT_PREVIEW_IMAGE;
 
 import android.content.res.Resources;
@@ -58,7 +59,7 @@ class UnifiedContentPreviewUi extends ContentPreviewUi {
     @Nullable
     private ViewGroup mContentPreviewView;
     private View mHeadlineView;
-    private int mPreviewSize;
+    private final int mPreviewSize;
 
     UnifiedContentPreviewUi(
             CoroutineScope scope,
@@ -71,7 +72,8 @@ class UnifiedContentPreviewUi extends ContentPreviewUi {
             Flow<FileInfo> fileInfoFlow,
             int itemCount,
             HeadlineGenerator headlineGenerator,
-            @Nullable CharSequence metadata) {
+            @Nullable CharSequence metadata,
+            int previewSize) {
         mShowEditAction = isSingleImage;
         mIntentMimeType = intentMimeType;
         mActionFactory = actionFactory;
@@ -82,6 +84,7 @@ class UnifiedContentPreviewUi extends ContentPreviewUi {
         mItemCount = itemCount;
         mHeadlineGenerator = headlineGenerator;
         mMetadata = metadata;
+        mPreviewSize = previewSize;
 
         JavaFlowHelper.collectToList(scope, fileInfoFlow, this::setFiles);
     }
@@ -97,7 +100,6 @@ class UnifiedContentPreviewUi extends ContentPreviewUi {
             LayoutInflater layoutInflater,
             ViewGroup parent,
             View headlineViewParent) {
-        mPreviewSize = resources.getDimensionPixelSize(R.dimen.chooser_preview_image_max_dimen);
         return displayInternal(layoutInflater, parent, headlineViewParent);
     }
 
@@ -138,7 +140,9 @@ class UnifiedContentPreviewUi extends ContentPreviewUi {
 
         ScrollableImagePreviewView imagePreview =
                 mContentPreviewView.requireViewById(R.id.scrollable_image_preview);
-        imagePreview.setPreviewHeight(mPreviewSize);
+        if (!useActualPreviewHeight()) {
+            imagePreview.setPreviewHeight(mPreviewSize);
+        }
         imagePreview.setImageLoader(mImageLoader);
         imagePreview.setOnNoPreviewCallback(() -> imagePreview.setVisibility(View.GONE));
         imagePreview.setTransitionElementStatusCallback(mTransitionElementStatusCallback);

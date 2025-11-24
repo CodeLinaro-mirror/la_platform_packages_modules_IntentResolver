@@ -101,8 +101,8 @@ constructor(
         }
     }
 
-    fun sendChooserWindowSize(size: Rect) {
-        sessionCallback?.onBoundsChanged(size)
+    fun sendChooserWindowSize(bounds: Rect, defaultBounds: Rect) {
+        sessionCallback?.onBoundsChanged(bounds, defaultBounds)
     }
 
     fun endSession() {

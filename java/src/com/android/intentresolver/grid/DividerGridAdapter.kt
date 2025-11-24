@@ -14,9 +14,17 @@
  * limitations under the License.
  */
 
-@file:JvmName("FontStyles")
+package com.android.intentresolver.grid
 
-package com.android.intentresolver.ui
-
-const val GSF_LABEL_MEDIUM_BASELINE = "variable-label-medium"
-const val GSF_BODY_SMALL_BASELINE = "variable-body-small"
+/**
+ * An interface for an adapter that can provide information about whether a divider should be
+ * displayed above a given row in a grid.
+ */
+interface DividerGridAdapter {
+    /**
+     * Returns true if a divider should be displayed above the row that contains the given position.
+     *
+     * @param firstRowPos The position of the first item in the row.
+     */
+    fun hasDividerAboveRow(firstRowPos: Int): Boolean
+}
