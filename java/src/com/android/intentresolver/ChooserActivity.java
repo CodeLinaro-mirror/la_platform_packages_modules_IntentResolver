@@ -467,7 +467,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
             }
             mPackageMonitorsRegistered = true;
         }
-        mChooserMultiProfilePagerAdapter.getActiveListAdapter().handlePackagesChanged();
+        handlePackagesChangeForAdapter(mChooserMultiProfilePagerAdapter.getActiveListAdapter());
     }
 
     @Override
@@ -1393,9 +1393,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
 
     @Override // ResolverListCommunicator
     public final void onHandlePackagesChanged(ResolverListAdapter listAdapter) {
-        mChooserMultiProfilePagerAdapter.onHandlePackagesChanged(
-                (ChooserListAdapter) listAdapter,
-                mProfileAvailability.getWaitingToEnableProfile());
+        // no-op
     }
 
     final Option optionForChooserTarget(TargetInfo target, int index) {
@@ -1739,7 +1737,8 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
     @Override
     public void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
-        mChooserMultiProfilePagerAdapter.getActiveListAdapter().handlePackagesChanged();
+        handlePackagesChangeForAdapter(
+                mChooserMultiProfilePagerAdapter.getActiveListAdapter());
 
         if (mSystemWindowInsets != null) {
             mResolverDrawerLayout.setPadding(
@@ -1759,6 +1758,18 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         adjustPreviewWidth(newConfig.orientation, null);
         updateStickyContentPreview();
         updateTabPadding();
+    }
+
+    private void handlePackagesChangeForAdapter(ChooserListAdapter adapter) {
+        ProfileRecord record = getProfileRecord(adapter.getUserHandle());
+        ShortcutLoader shortcutLoader = record == null ? null : record.shortcutLoader;
+        if (shortcutLoader != null) {
+            shortcutLoader.reset();
+        }
+        adapter.resetDirectTargets();
+        mChooserMultiProfilePagerAdapter.onHandlePackagesChanged(
+                adapter,
+                mProfileAvailability.getWaitingToEnableProfile());
     }
 
     private boolean shouldDisplayLandscape(int orientation) {
@@ -2288,13 +2299,8 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                 getEventLog(),
                 maxTargetsPerRow,
                 initialIntentsUserSpace,
-                mTargetDataLoader,
-                () -> {
-                    ProfileRecord record = getProfileRecord(userHandle);
-                    if (record != null && record.shortcutLoader != null) {
-                        record.shortcutLoader.reset();
-                    }
-                });
+                mTargetDataLoader
+        );
     }
 
     private void onWorkProfileStatusUpdated() {
