@@ -30,6 +30,7 @@ import static com.android.intentresolver.Flags.refineSystemActions;
 import static com.android.intentresolver.ext.CreationExtrasExtKt.replaceDefaultArgs;
 import static com.android.intentresolver.profiles.MultiProfilePagerAdapter.PROFILE_PERSONAL;
 import static com.android.intentresolver.profiles.MultiProfilePagerAdapter.PROFILE_WORK;
+import static com.android.intentresolver.widget.ResolverDrawerLayoutExt.getVisibleAndCollapsedBoundsInWindow;
 import static com.android.intentresolver.widget.ViewExtensionsKt.isFullyVisible;
 import static com.android.internal.util.LatencyTracker.ACTION_LOAD_SHARE_SHEET;
 import static com.android.systemui.shared.Flags.usePreferredImageEditor;
@@ -150,7 +151,6 @@ import com.android.intentresolver.widget.ActionRow;
 import com.android.intentresolver.widget.ChooserNestedScrollView;
 import com.android.intentresolver.widget.ImagePreviewView;
 import com.android.intentresolver.widget.ResolverDrawerLayout;
-import com.android.intentresolver.widget.ResolverDrawerLayoutExt;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.content.PackageMonitor;
 import com.android.internal.logging.MetricsLogger;
@@ -176,6 +176,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
@@ -842,7 +843,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
 
     private void updateInteractiveArea() {
         if (!isInteractiveSession()) {
-            Log.wtf(TAG, "Unexpected user of the method; should be an interactive session");
+            Log.wtf(TAG, "Unexpected use of the method; should be an interactive session");
             return;
         }
         final View contentView = findViewById(android.R.id.content);
@@ -850,27 +851,31 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         if (contentView == null || rdl == null) {
             return;
         }
-        final Rect rect = new Rect();
+        final Rect bounds = new Rect();
+        final Rect collapsedBounds = new Rect();
+        final AtomicInteger oldTop = new AtomicInteger(0);
+        final AtomicInteger oldCollapsedTop = new AtomicInteger(0);
         contentView.getViewTreeObserver().addOnComputeInternalInsetsListener((info) -> {
-            int oldTop = rect.top;
-            ResolverDrawerLayoutExt.getVisibleBoundsInWindow(rdl, rect);
-            if (oldTop != rect.top) {
+            getVisibleAndCollapsedBoundsInWindow(rdl, bounds, collapsedBounds);
+            //
+            // correct the default bounds for the slide-in enter animation.
+            collapsedBounds.offset(0, -Math.round(rdl.getTranslationY()));
+            if (rdl.getVisibility() == View.VISIBLE
+                    && (oldTop.get() != bounds.top
+                            || oldCollapsedTop.get() != collapsedBounds.top)) {
+                oldTop.set(bounds.top);
+                oldCollapsedTop.set(collapsedBounds.top);
                 Window w = getWindow();
-                WindowManager.LayoutParams wa = w == null ? null : w.getAttributes();
-                final Rect r;
+                final WindowManager.LayoutParams wa = w == null ? null : w.getAttributes();
                 if (wa != null && (wa.x != 0 || wa.y != 0)) {
-                    r = mTmpRect;
-                    r.set(rect);
-                    r.offset(wa.x, wa.y);
-                } else {
-                    r = rect;
+                    bounds.offset(wa.x, wa.y);
+                    collapsedBounds.offset(wa.x, wa.y);
                 }
-                if (rdl.getVisibility() == View.VISIBLE) {
-                    mViewModel.getInteractiveSessionInteractor().sendChooserWindowSize(r);
-                }
+                mViewModel.getInteractiveSessionInteractor().sendChooserWindowSize(
+                        bounds, collapsedBounds);
             }
             info.setTouchableInsets(ViewTreeObserver.InternalInsetsInfo.TOUCHABLE_INSETS_REGION);
-            info.touchableRegion.set(rect);
+            info.touchableRegion.set(bounds);
         });
     }
 
@@ -2796,7 +2801,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
     private void doRevealDrawer() {
         mResolverDrawerLayout.getBoundsInWindow(mTmpRect, true);
         int bottom = mTmpRect.bottom;
-        ResolverDrawerLayoutExt.getVisibleBoundsInWindow(mResolverDrawerLayout, mTmpRect);
+        getVisibleAndCollapsedBoundsInWindow(mResolverDrawerLayout, mTmpRect);
         int offset = bottom - mTmpRect.top;
         mResolverDrawerLayout.setTranslationY(offset);
         mResolverDrawerLayout.setVisibility(View.VISIBLE);

@@ -16,21 +16,16 @@
 
 package com.android.intentresolver.contentpreview;
 
-import static com.android.intentresolver.ui.FontStyles.GSF_LABEL_LARGE_BASELINE;
-import static com.android.intentresolver.ui.FontStyles.GSF_TITLE_LARGE_BASELINE;
-
 import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
 import android.content.res.Resources;
 import android.graphics.Bitmap;
-import android.graphics.Typeface;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewStub;
 import android.view.animation.DecelerateInterpolator;
-import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
 
@@ -80,18 +75,6 @@ public abstract class ContentPreviewUi {
         ViewStub stub = layout.findViewById(R.id.chooser_headline_row_stub);
         if (stub != null) {
             stub.inflate();
-        }
-        TextView headline = layout.findViewById(R.id.headline);
-        TextView metadata = layout.findViewById(R.id.metadata);
-        Button action = layout.findViewById(R.id.reselection_action);
-        if (headline != null) {
-            headline.setTypeface(Typeface.create(GSF_TITLE_LARGE_BASELINE, Typeface.NORMAL));
-        }
-        if (metadata != null) {
-            metadata.setTypeface(Typeface.create(GSF_LABEL_LARGE_BASELINE, Typeface.NORMAL));
-        }
-        if (action != null) {
-            action.setTypeface(Typeface.create(GSF_LABEL_LARGE_BASELINE, Typeface.NORMAL));
         }
     }
 

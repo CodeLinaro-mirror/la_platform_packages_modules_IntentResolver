@@ -26,12 +26,16 @@ private val defaultViewBoundsInParentProvider: View.(Rect) -> Unit = { rect ->
     rect.set(left, top, right, bottom)
 }
 
+private val rect = Rect()
+
 @JvmOverloads
-fun ResolverDrawerLayout.getVisibleBoundsInWindow(
-    outRect: Rect,
+fun ResolverDrawerLayout.getVisibleAndCollapsedBoundsInWindow(
+    outVisibleBounds: Rect,
+    outCollapsedBounds: Rect = rect,
     viewBoundsInParentProvider: View.(Rect) -> Unit = defaultViewBoundsInParentProvider,
 ) {
-    outRect.set(0, 0, 0, 0)
+    outVisibleBounds.set(0, 0, 0, 0)
+    outCollapsedBounds.set(0, 0, 0, 0)
     if (!isLaidOut) {
         return
     }
@@ -44,17 +48,20 @@ fun ResolverDrawerLayout.getVisibleBoundsInWindow(
         if (child.isGone) continue
         // get each child's position relative to the parent instead of calling `getBoundsInWindow`
         // (as it traverses the view hierarchy up).
-        child.viewBoundsInParentProvider(outRect)
-        minL = minOf(minL, outRect.left)
-        minT = minOf(minT, outRect.top)
-        maxR = maxOf(maxR, outRect.right)
-        maxB = maxOf(maxB, outRect.bottom)
+        child.viewBoundsInParentProvider(outVisibleBounds)
+        minL = minOf(minL, outVisibleBounds.left)
+        minT = minOf(minT, outVisibleBounds.top)
+        maxR = maxOf(maxR, outVisibleBounds.right)
+        maxB = maxOf(maxB, outVisibleBounds.bottom)
     }
-    getBoundsInWindow(outRect, true)
-    outRect.set(
-        maxOf(outRect.left, minL + outRect.left),
-        maxOf(outRect.top, minT + outRect.top),
-        minOf(outRect.right, maxR + outRect.left),
-        minOf(outRect.bottom, maxB + outRect.top),
+    getBoundsInWindow(outVisibleBounds, true)
+    val collapsedTopInWindow = outVisibleBounds.top + collapsedTop
+    outVisibleBounds.set(
+        maxOf(outVisibleBounds.left, minL + outVisibleBounds.left),
+        maxOf(outVisibleBounds.top, minT + outVisibleBounds.top),
+        minOf(outVisibleBounds.right, maxR + outVisibleBounds.left),
+        minOf(outVisibleBounds.bottom, maxB + outVisibleBounds.top),
     )
+    outCollapsedBounds.set(outVisibleBounds)
+    outCollapsedBounds.top = collapsedTopInWindow
 }

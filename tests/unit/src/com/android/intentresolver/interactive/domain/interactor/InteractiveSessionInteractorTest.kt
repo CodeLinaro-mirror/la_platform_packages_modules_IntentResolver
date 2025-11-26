@@ -452,6 +452,42 @@ class InteractiveSessionInteractorTest {
 
         collapseRequestJob.cancel()
     }
+
+    @Test
+    fun test_sendChooserActualAndCollapsedWindowSizes() = runTest {
+        val chooserRequestRepository =
+            ChooserRequestRepository(
+                initialRequest =
+                    ChooserRequest(
+                        targetIntent = Intent(ACTION_SEND),
+                        interactiveSessionCallback = interactiveSessionCallback,
+                        launchedFromPackage = activityModelRepo.value.launchedFromPackage,
+                    ),
+                initialActions = emptyList(),
+            )
+        val testSubject =
+            InteractiveSessionInteractor(
+                activityModelRepo = activityModelRepo,
+                chooserRequestRepository = chooserRequestRepository,
+                pendingSelectionCallbackRepo,
+                interactiveCallbackRepo,
+            )
+        val collapsed = Rect(100, 500, 300, 600)
+        val atRest = Rect(100, 400, 300, 600)
+        val expanded = Rect(100, 300, 300, 600)
+
+        testSubject.sendChooserWindowSize(collapsed, collapsed)
+        testSubject.sendChooserWindowSize(atRest, collapsed)
+        testSubject.sendChooserWindowSize(expanded, collapsed)
+
+        assertThat(interactiveSessionCallback.boundsChanges).hasSize(3)
+        assertThat(interactiveSessionCallback.boundsChanges[0].first).isEqualTo(collapsed)
+        assertThat(interactiveSessionCallback.boundsChanges[0].second).isEqualTo(collapsed)
+        assertThat(interactiveSessionCallback.boundsChanges[1].first).isEqualTo(atRest)
+        assertThat(interactiveSessionCallback.boundsChanges[1].second).isEqualTo(collapsed)
+        assertThat(interactiveSessionCallback.boundsChanges[2].first).isEqualTo(expanded)
+        assertThat(interactiveSessionCallback.boundsChanges[2].second).isEqualTo(collapsed)
+    }
 }
 
 private class FakeChooserControllerCallback : IChooserControllerCallback, IBinder, IInterface {
@@ -460,12 +496,15 @@ private class FakeChooserControllerCallback : IChooserControllerCallback, IBinde
     val linkedDeathRecipients = ArrayList<DeathRecipient>()
     val unlinkedDeathRecipients = ArrayList<DeathRecipient>()
     val onClosedInvocationCounter = AtomicInteger(0)
+    val boundsChanges = ArrayList<Pair<Rect, Rect>>()
 
     override fun registerChooserController(intentUpdater: IChooserController?) {
         registeredChooserController.add(intentUpdater)
     }
 
-    override fun onBoundsChanged(size: Rect) {}
+    override fun onBoundsChanged(bounds: Rect, defaultBounds: Rect) {
+        boundsChanges.add(bounds to defaultBounds)
+    }
 
     override fun onClosed() {
         onClosedInvocationCounter.incrementAndGet()
