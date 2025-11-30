@@ -88,7 +88,6 @@ import android.graphics.Typeface;
 import android.graphics.drawable.Icon;
 import android.net.Uri;
 import android.os.Bundle;
-import android.os.RemoteException;
 import android.os.UserHandle;
 import android.platform.test.annotations.EnableFlags;
 import android.platform.test.flag.junit.SetFlagsRule;
@@ -1492,11 +1491,11 @@ public class ChooserActivityTest {
                 }
 
                 @Override
-                public void onBoundsChanged(Rect bounds) throws RemoteException {
+                public void onBoundsChanged(Rect bounds, Rect defaultBounds) {
                 }
 
                 @Override
-                public void onClosed() throws RemoteException {
+                public void onClosed() {
                 }
             };
             Bundle binderExtra = new Bundle();
