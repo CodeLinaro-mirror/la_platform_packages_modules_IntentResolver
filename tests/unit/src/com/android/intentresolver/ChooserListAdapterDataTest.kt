@@ -69,11 +69,7 @@ class ChooserListAdapterDataTest {
 
     @Test
     fun test_twoTargetsWithNonOverlappingInitialIntent_threeTargetsInResolverAdapter() {
-        val resolvedTargets =
-            listOf(
-                createResolvedComponentInfo(1),
-                createResolvedComponentInfo(2),
-            )
+        val resolvedTargets = listOf(createResolvedComponentInfo(1), createResolvedComponentInfo(2))
         val targetIntent = Intent(Intent.ACTION_SEND)
         whenever(
                 resolverListController.getResolversForIntentAsUser(
@@ -81,7 +77,7 @@ class ChooserListAdapterDataTest {
                     resolverListCommunicator.shouldGetActivityMetadata(),
                     resolverListCommunicator.shouldGetOnlyDefaultActivities(),
                     payloadIntents,
-                    userHandle
+                    userHandle,
                 )
             )
             .thenReturn(ArrayList(resolvedTargets))
@@ -93,7 +89,7 @@ class ChooserListAdapterDataTest {
         whenever(
                 packageManager.getActivityInfo(
                     eq(initialActivityInfo.componentName),
-                    any<ComponentInfoFlags>()
+                    any<ComponentInfoFlags>(),
                 )
             )
             .thenReturn(initialActivityInfo)
@@ -114,7 +110,6 @@ class ChooserListAdapterDataTest {
                 /*maxRankedTargets=*/ 2,
                 /*initialIntentsUserSpace=*/ userHandle,
                 targetDataLoader,
-                null,
                 backgroundExecutor,
                 immediateExecutor,
             )
@@ -134,11 +129,7 @@ class ChooserListAdapterDataTest {
 
     @Test
     fun test_twoTargetsWithOverlappingInitialIntent_oneTargetsInResolverAdapter() {
-        val resolvedTargets =
-            listOf(
-                createResolvedComponentInfo(1),
-                createResolvedComponentInfo(2),
-            )
+        val resolvedTargets = listOf(createResolvedComponentInfo(1), createResolvedComponentInfo(2))
         val targetIntent = Intent(Intent.ACTION_SEND)
         whenever(
                 resolverListController.getResolversForIntentAsUser(
@@ -146,7 +137,7 @@ class ChooserListAdapterDataTest {
                     resolverListCommunicator.shouldGetActivityMetadata(),
                     resolverListCommunicator.shouldGetOnlyDefaultActivities(),
                     payloadIntents,
-                    userHandle
+                    userHandle,
                 )
             )
             .thenReturn(ArrayList(resolvedTargets))
@@ -156,7 +147,7 @@ class ChooserListAdapterDataTest {
         whenever(
                 packageManager.getActivityInfo(
                     eq(activityInfo.componentName),
-                    any<ComponentInfoFlags>()
+                    any<ComponentInfoFlags>(),
                 )
             )
             .thenReturn(activityInfo)
@@ -177,7 +168,6 @@ class ChooserListAdapterDataTest {
                 /*maxRankedTargets=*/ 2,
                 /*initialIntentsUserSpace=*/ userHandle,
                 targetDataLoader,
-                null,
                 backgroundExecutor,
                 immediateExecutor,
             )
