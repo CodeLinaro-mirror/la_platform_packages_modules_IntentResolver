@@ -654,6 +654,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                 decorateActionFactoryWithRefinement(
                         createChooserActionFactory(mRequest.getTargetIntent()));
         mChooserContentPreviewUi = new ChooserContentPreviewUi(
+                getResources(),
                 getCoroutineScope(getLifecycle()),
                 mViewModel.getPreviewDataProvider(),
                 mRequest,

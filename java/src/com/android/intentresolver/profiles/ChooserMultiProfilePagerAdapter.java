@@ -16,6 +16,8 @@
 
 package com.android.intentresolver.profiles;
 
+import static com.android.intentresolver.Flags.useRecyclerViewDecorations;
+
 import android.content.Context;
 import android.os.UserHandle;
 import android.view.LayoutInflater;
@@ -31,6 +33,7 @@ import com.android.intentresolver.R;
 import com.android.intentresolver.emptystate.EmptyStateProvider;
 import com.android.intentresolver.grid.ChooserGridAdapter;
 import com.android.intentresolver.measurements.Tracer;
+import com.android.intentresolver.widget.ChooserTargetView;
 
 import com.google.common.collect.ImmutableList;
 
@@ -42,7 +45,7 @@ import java.util.function.Supplier;
  * A {@link PagerAdapter} which describes the work and personal profile share sheet screens.
  */
 public class ChooserMultiProfilePagerAdapter extends MultiProfilePagerAdapter<
-        RecyclerView, ChooserGridAdapter, ChooserListAdapter> {
+        ChooserTargetView, ChooserGridAdapter, ChooserListAdapter> {
     private static final int SINGLE_CELL_SPAN_SIZE = 1;
 
     private final ChooserProfileAdapterBinder mAdapterBinder;
@@ -112,7 +115,11 @@ public class ChooserMultiProfilePagerAdapter extends MultiProfilePagerAdapter<
      */
     public void setIsCollapsed(boolean isCollapsed) {
         for (int i = 0, size = getItemCount(); i < size; i++) {
-            getPageAdapterForIndex(i).setAzLabelVisibility(!isCollapsed);
+            if (useRecyclerViewDecorations()) {
+                getListViewForIndex(i).setShowAppDivider(!isCollapsed);
+            } else {
+                getPageAdapterForIndex(i).setAzLabelVisibility(!isCollapsed);
+            }
         }
     }
 
@@ -155,7 +162,11 @@ public class ChooserMultiProfilePagerAdapter extends MultiProfilePagerAdapter<
     /** Apply the specified {@code height} as the footer in each tab's adapter. */
     public void setFooterHeightInEveryAdapter(int height) {
         for (int i = 0; i < getItemCount(); ++i) {
-            getPageAdapterForIndex(i).setFooterHeight(height);
+            if (useRecyclerViewDecorations()) {
+                getListViewForIndex(i).setFooterHeight(height);
+            } else {
+                getPageAdapterForIndex(i).setFooterHeight(height);
+            }
         }
     }
 
@@ -190,7 +201,7 @@ public class ChooserMultiProfilePagerAdapter extends MultiProfilePagerAdapter<
     }
 
     private static class ChooserProfileAdapterBinder implements
-            AdapterBinder<RecyclerView, ChooserGridAdapter> {
+            AdapterBinder<ChooserTargetView, ChooserGridAdapter> {
         private int mMaxTargetsPerRow;
 
         ChooserProfileAdapterBinder(int maxTargetsPerRow) {
@@ -203,7 +214,7 @@ public class ChooserMultiProfilePagerAdapter extends MultiProfilePagerAdapter<
 
         @Override
         public void bind(
-                RecyclerView recyclerView, ChooserGridAdapter chooserGridAdapter) {
+                ChooserTargetView recyclerView, ChooserGridAdapter chooserGridAdapter) {
             GridLayoutManager glm = (GridLayoutManager) recyclerView.getLayoutManager();
             glm.setSpanCount(mMaxTargetsPerRow);
             glm.setSpanSizeLookup(
