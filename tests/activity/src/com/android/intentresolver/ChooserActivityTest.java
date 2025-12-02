@@ -641,9 +641,6 @@ public class ChooserActivityTest {
 
         onView(withId(android.R.id.empty)).check(matches(isDisplayed()));
         onView(withId(com.android.internal.R.id.profile_pager)).check(matches(not(isDisplayed())));
-        InstrumentationRegistry.getInstrumentation().runOnMainSync(
-                () -> wrapper.getAdapter().handlePackagesChanged()
-        );
         // backward compatibility. looks like we finish when data is empty after package change
         assertThat(activity.isFinishing(), is(true));
     }

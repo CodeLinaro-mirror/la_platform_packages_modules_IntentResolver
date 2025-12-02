@@ -201,7 +201,7 @@ public class ResolverActivity extends Hilt_ResolverActivity implements
         return new PackageMonitor() {
             @Override
             public void onSomePackagesChanged() {
-                listAdapter.handlePackagesChanged();
+                handlePackagesForAdapter(listAdapter);
             }
 
             @Override
@@ -301,7 +301,7 @@ public class ResolverActivity extends Hilt_ResolverActivity implements
             }
             mRegistered = true;
         }
-        mMultiProfilePagerAdapter.getActiveListAdapter().handlePackagesChanged();
+        handlePackagesForAdapter(mMultiProfilePagerAdapter.getActiveListAdapter());
     }
 
     @Override
@@ -498,7 +498,7 @@ public class ResolverActivity extends Hilt_ResolverActivity implements
     @Override
     public void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
-        mMultiProfilePagerAdapter.getActiveListAdapter().handlePackagesChanged();
+        handlePackagesForAdapter(mMultiProfilePagerAdapter.getActiveListAdapter());
         if (mProfiles.getWorkProfilePresent() && !useLayoutWithDefault()
                 && !shouldUseMiniResolver()) {
             updateIntentPickerPaddings();
@@ -860,8 +860,7 @@ public class ResolverActivity extends Hilt_ResolverActivity implements
         return METRICS_CATEGORY_RESOLVER;
     }
 
-    @Override // ResolverListCommunicator
-    public final void onHandlePackagesChanged(ResolverListAdapter listAdapter) {
+    private void handlePackagesForAdapter(ResolverListAdapter listAdapter) {
         if (!mMultiProfilePagerAdapter.onHandlePackagesChanged(
                 listAdapter,
                 mProfileAvailability.getWaitingToEnableProfile())) {
