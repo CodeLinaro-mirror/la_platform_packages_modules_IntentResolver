@@ -45,6 +45,4 @@ class FakeResolverListCommunicator(private val layoutWithDefaults: Boolean = tru
     override fun useLayoutWithDefault(): Boolean = layoutWithDefaults
 
     override fun shouldGetActivityMetadata(): Boolean = true
-
-    override fun onHandlePackagesChanged(listAdapter: ResolverListAdapter?) {}
 }

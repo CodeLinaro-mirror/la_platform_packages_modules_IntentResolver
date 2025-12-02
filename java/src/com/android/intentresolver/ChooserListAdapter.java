@@ -72,18 +72,7 @@ import java.util.stream.Collectors;
 
 public class ChooserListAdapter extends ResolverListAdapter {
 
-    /**
-     * Delegate interface for injecting a chooser-specific operation to be performed before handling
-     * a package-change event. This allows the "driver" invoking the package-change to be generic,
-     * with no knowledge specific to the chooser implementation.
-     */
-    public interface PackageChangeCallback {
-        /** Perform any steps necessary before processing the package-change event. */
-        void beforeHandlingPackagesChanged();
-    }
-
     private static final String TAG = "ChooserListAdapter";
-    private static final boolean DEBUG = false;
 
     public static final int NO_POSITION = -1;
     public static final int TARGET_BAD = -1;
@@ -107,9 +96,6 @@ public class ChooserListAdapter extends ResolverListAdapter {
 
     private final Set<TargetInfo> mRequestedIcons = new HashSet<>();
 
-    @Nullable
-    private final PackageChangeCallback mPackageChangeCallback;
-
     // Reserve spots for incoming direct share targets by adding placeholders
     private final TargetInfo mPlaceHolderTargetInfo;
     private final TargetDataLoader mTargetDataLoader;
@@ -122,6 +108,8 @@ public class ChooserListAdapter extends ResolverListAdapter {
     private final List<DisplayResolveInfo> mSortedList = new ArrayList<>();
 
     private final ItemRevealAnimationTracker mAnimationTracker = new ItemRevealAnimationTracker();
+    private final Executor mBgExecutor;
+    private final Executor mMainExecutor;
 
     /**
      * Indicates whether the app targets are ready. The flag is reset in
@@ -189,8 +177,7 @@ public class ChooserListAdapter extends ResolverListAdapter {
             EventLog eventLog,
             int maxRankedTargets,
             UserHandle initialIntentsUserSpace,
-            TargetDataLoader targetDataLoader,
-            @Nullable PackageChangeCallback packageChangeCallback) {
+            TargetDataLoader targetDataLoader) {
         this(
                 context,
                 payloadIntents,
@@ -207,7 +194,6 @@ public class ChooserListAdapter extends ResolverListAdapter {
                 maxRankedTargets,
                 initialIntentsUserSpace,
                 targetDataLoader,
-                packageChangeCallback,
                 AsyncTask.SERIAL_EXECUTOR,
                 context.getMainExecutor()
         );
@@ -230,7 +216,6 @@ public class ChooserListAdapter extends ResolverListAdapter {
             int maxRankedTargets,
             UserHandle initialIntentsUserSpace,
             TargetDataLoader targetDataLoader,
-            @Nullable PackageChangeCallback packageChangeCallback,
             Executor bgExecutor,
             Executor mainExecutor) {
         // Don't send the initial intents through the shared ResolverActivity path,
@@ -255,7 +240,8 @@ public class ChooserListAdapter extends ResolverListAdapter {
 
         mPlaceHolderTargetInfo = NotSelectableTargetInfo.newPlaceHolderTargetInfo(context);
         mTargetDataLoader = targetDataLoader;
-        mPackageChangeCallback = packageChangeCallback;
+        mBgExecutor = bgExecutor;
+        mMainExecutor = mainExecutor;
         createPlaceHolders();
         mEventLog = eventLog;
         mShortcutSelectionLogic = new ShortcutSelectionLogic(
@@ -366,19 +352,6 @@ public class ChooserListAdapter extends ResolverListAdapter {
 
     public void setAnimateItems(boolean animateItems) {
         mAnimateItems = animateItems;
-    }
-
-    @Override
-    public void handlePackagesChanged() {
-        if (mPackageChangeCallback != null) {
-            mPackageChangeCallback.beforeHandlingPackagesChanged();
-        }
-        if (DEBUG) {
-            Log.d(TAG, "clearing queryTargets on package change");
-        }
-        createPlaceHolders();
-        mResolverListCommunicator.onHandlePackagesChanged(this);
-
     }
 
     @Override
@@ -562,76 +535,72 @@ public class ChooserListAdapter extends ResolverListAdapter {
             notifyDataSetChanged();
             return;
         }
-        final DisplayResolveInfoAzInfoComparator
-                comparator = new DisplayResolveInfoAzInfoComparator(mContext);
-        ImmutableList<DisplayResolveInfo> displayList = getTargetsInCurrentDisplayList();
-        final List<DisplayResolveInfo> allTargets =
-                new ArrayList<>(displayList.size() + mCallerTargets.size());
-        allTargets.addAll(displayList);
-        allTargets.addAll(mCallerTargets);
+        final ImmutableList<DisplayResolveInfo> displayList = getTargetsInCurrentDisplayList();
 
-        new AsyncTask<Void, Void, List<DisplayResolveInfo>>() {
-            @Override
-            protected List<DisplayResolveInfo> doInBackground(Void... voids) {
-                try {
-                    Trace.beginSection("update-alphabetical-list");
-                    return updateList();
-                } finally {
-                    Trace.endSection();
-                }
+        mBgExecutor.execute(() -> {
+            final List<DisplayResolveInfo> newList;
+            try {
+                Trace.beginSection("update-alphabetical-list");
+                newList = updateList(displayList);
+            } finally {
+                Trace.endSection();
             }
-
-            private List<DisplayResolveInfo> updateList() {
-                loadMissingLabels(allTargets);
-
-                // Consolidate multiple targets from same app.
-                return allTargets
-                        .stream()
-                        .map(appTarget -> {
-                            // Icon drawables are effectively cached per target info.
-                            // Without cloning target infos, the same target info could be used
-                            // for two different positions in the grid: once in the ranked
-                            // targets row (from ResolverListAdapter#mDisplayList or
-                            // #mCallerTargets, see #getItem()) and again in the all-app-target
-                            // grid (copied from #mDisplayList and #mCallerTargets to
-                            // #mSortedList).
-                            // Using the same drawable for two list items would result in visual
-                            // effects being applied to both simultaneously.
-                            DisplayResolveInfo copy = appTarget.copy();
-                            copy.getDisplayIconHolder().setDisplayIcon(null);
-                            return copy;
-                        })
-                        .collect(Collectors.groupingBy(target ->
-                                target.getResolvedComponentName().getPackageName()
-                                        + "#" + target.getDisplayLabel()
-                                        + '#' + target.getResolveInfo().userHandle.getIdentifier()
-                        ))
-                        .values()
-                        .stream()
-                        .map(appTargets ->
-                                (appTargets.size() == 1)
-                                        ? appTargets.get(0)
-                                        : MultiDisplayResolveInfo.newMultiDisplayResolveInfo(
-                                            appTargets))
-                        .sorted(comparator)
-                        .collect(Collectors.toList());
-            }
-
-            @Override
-            protected void onPostExecute(List<DisplayResolveInfo> newList) {
+            mMainExecutor.execute(() -> {
                 mSortedList.clear();
                 mSortedList.addAll(newList);
                 markAppTargetsLoaded();
                 notifyDataSetChanged();
                 onCompleted.run();
-            }
+            });
+        });
+    }
 
-            private void loadMissingLabels(List<DisplayResolveInfo> targets) {
-                for (DisplayResolveInfo target: targets) {
-                    mTargetDataLoader.getOrLoadLabel(target);
-                }
-            }
-        }.execute();
+    private List<DisplayResolveInfo> updateList(List<DisplayResolveInfo> displayList) {
+        final List<DisplayResolveInfo> allTargets =
+                new ArrayList<>(displayList.size() + mCallerTargets.size());
+        allTargets.addAll(displayList);
+        allTargets.addAll(mCallerTargets);
+        final DisplayResolveInfoAzInfoComparator
+                comparator = new DisplayResolveInfoAzInfoComparator(mContext);
+        loadMissingLabels(allTargets);
+
+        // Consolidate multiple targets from same app.
+        return allTargets
+                .stream()
+                .map(appTarget -> {
+                    // Icon drawables are effectively cached per target info.
+                    // Without cloning target infos, the same target info could be used
+                    // for two different positions in the grid: once in the ranked
+                    // targets row (from ResolverListAdapter#mDisplayList or
+                    // #mCallerTargets, see #getItem()) and again in the all-app-target
+                    // grid (copied from #mDisplayList and #mCallerTargets to
+                    // #mSortedList).
+                    // Using the same drawable for two list items would result in visual
+                    // effects being applied to both simultaneously.
+                    DisplayResolveInfo copy = appTarget.copy();
+                    copy.getDisplayIconHolder().setDisplayIcon(null);
+                    return copy;
+                })
+                .collect(Collectors.groupingBy(target ->
+                        target.getResolvedComponentName().getPackageName()
+                                + "#" + target.getDisplayLabel()
+                                + '#' + target.getResolveInfo().userHandle.getIdentifier()
+                ))
+                .values()
+                .stream()
+                .map(appTargets ->
+                        (appTargets.size() == 1)
+                                ? appTargets.get(0)
+                                : MultiDisplayResolveInfo.newMultiDisplayResolveInfo(
+                                        appTargets))
+                .sorted(comparator)
+                .collect(Collectors.toList());
+    }
+
+    private void loadMissingLabels(List<DisplayResolveInfo> targets) {
+        for (DisplayResolveInfo target: targets) {
+            mTargetDataLoader.getOrLoadLabel(target);
+        }
     }
 
     @Override
@@ -856,6 +825,7 @@ public class ChooserListAdapter extends ResolverListAdapter {
      */
     public void resetDirectTargets() {
         createPlaceHolders();
+        notifyDataSetChanged();
     }
 
     private boolean isDirectTargetRowEmptyState() {
