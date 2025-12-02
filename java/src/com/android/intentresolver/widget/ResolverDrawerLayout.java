@@ -20,6 +20,8 @@ package com.android.intentresolver.widget;
 import static android.content.res.Resources.ID_NULL;
 import static android.service.chooser.Flags.interactiveChooser;
 
+import static com.android.intentresolver.Flags.desktopUi;
+
 import android.content.Context;
 import android.content.res.TypedArray;
 import android.graphics.Canvas;
@@ -1221,7 +1223,12 @@ public class ResolverDrawerLayout extends ViewGroup {
 
         mHeightUsed = heightUsed;
 
-        setMeasuredDimension(sourceWidth, heightSize);
+        int measuredHeight = heightSize;
+        if (desktopUi() && MeasureSpec.getMode(heightMeasureSpec) == MeasureSpec.AT_MOST) {
+            measuredHeight =
+                    Math.min(mHeightUsed + getPaddingTop() + getPaddingBottom(), heightSize);
+        }
+        setMeasuredDimension(sourceWidth, measuredHeight);
     }
 
     private int updateCollapsibleHeight() {
