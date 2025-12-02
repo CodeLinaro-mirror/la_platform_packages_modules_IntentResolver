@@ -16,6 +16,8 @@
 
 package com.android.intentresolver.grid;
 
+import static com.android.intentresolver.Flags.useRecyclerViewDecorations;
+
 import android.animation.AnimatorSet;
 import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
@@ -45,7 +47,9 @@ import com.android.intentresolver.ResolverListAdapter.ViewHolder;
  * row level by this adapter but not on the item level. Individual targets within the row are
  * handled by {@link ChooserListAdapter}
  */
-public final class ChooserGridAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
+public final class ChooserGridAdapter
+        extends RecyclerView.Adapter<RecyclerView.ViewHolder>
+        implements DividerGridAdapter{
 
     /**
      * The transition time between placeholders for direct share to a message
@@ -179,7 +183,7 @@ public final class ChooserGridAdapter extends RecyclerView.Adapter<RecyclerView.
     }
 
     public int getFooterRowCount() {
-        return 1;
+        return useRecyclerViewDecorations() ? 0 : 1;
     }
 
     public int getCallerAndRankedTargetRowCount() {
@@ -199,6 +203,7 @@ public final class ChooserGridAdapter extends RecyclerView.Adapter<RecyclerView.
 
     public int getAzLabelRowCount() {
         // Only show a label if the a-z list is showing
+        if (useRecyclerViewDecorations()) return 0;
         return (mChooserListAdapter.getAlphaTargetCount() > 0) ? 1 : 0;
     }
 
@@ -309,13 +314,23 @@ public final class ChooserGridAdapter extends RecyclerView.Adapter<RecyclerView.
         countSum += (count = getAzLabelRowCount());
         if (count > 0 && position < countSum) return VIEW_TYPE_AZ_LABEL;
 
-        if (position == getItemCount() - 1) return VIEW_TYPE_FOOTER;
+        if (!useRecyclerViewDecorations() && (position == getItemCount() - 1)) {
+            return VIEW_TYPE_FOOTER;
+        }
 
         return VIEW_TYPE_NORMAL;
     }
 
     public int getTargetType(int position) {
         return mChooserListAdapter.getPositionTargetType(getListPosition(position));
+    }
+
+    @Override
+    public boolean hasDividerAboveRow(int firstRowPos) {
+        return useRecyclerViewDecorations()
+                && firstRowPos > 0
+                && getItemViewType(firstRowPos) == VIEW_TYPE_NORMAL
+                && getItemViewType(firstRowPos - 1) == VIEW_TYPE_CALLER_AND_RANK;
     }
 
     private View createAzLabelView(ViewGroup parent) {

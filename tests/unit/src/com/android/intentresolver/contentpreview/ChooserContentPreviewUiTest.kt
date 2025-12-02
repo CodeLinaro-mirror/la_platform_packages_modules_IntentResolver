@@ -17,6 +17,7 @@
 package com.android.intentresolver.contentpreview
 
 import android.content.Intent
+import android.content.res.Resources
 import android.net.Uri
 import android.platform.test.flag.junit.CheckFlagsRule
 import android.platform.test.flag.junit.DeviceFlagsValueProvider
@@ -63,6 +64,7 @@ class ChooserContentPreviewUiTest {
 
     private fun createContentPreviewUi(action: String, sharedText: CharSequence? = null) =
         ChooserContentPreviewUi(
+            mock<Resources>(),
             testScope,
             previewData,
             ChooserRequest(

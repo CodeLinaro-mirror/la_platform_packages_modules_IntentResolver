@@ -73,12 +73,11 @@ class BatchPreviewLoaderTest {
             BatchPreviewLoader(
                 imageLoader,
                 previews(uriOne, uriTwo),
-                previewSize,
                 totalItemCount = 2,
                 onUpdate,
-                onCompletion
+                onCompletion,
             )
-        testSubject.loadAspectRatios(200) { _, _, _ -> 100 }
+        testSubject.loadAspectRatios(200, previewSize) { _, _, _ -> 100 }
         dispatcher.scheduler.advanceUntilIdle()
 
         verify(onCompletion, times(1)).invoke()
@@ -97,12 +96,11 @@ class BatchPreviewLoaderTest {
             BatchPreviewLoader(
                 imageLoader,
                 previews(uriOne, uriTwo, uriThree),
-                previewSize,
                 totalItemCount = 3,
                 onUpdate,
-                onCompletion
+                onCompletion,
             )
-        testSubject.loadAspectRatios(200) { _, _, _ -> 100 }
+        testSubject.loadAspectRatios(200, previewSize) { _, _, _ -> 100 }
         dispatcher.scheduler.advanceUntilIdle()
 
         verify(onCompletion, times(1)).invoke()
@@ -126,15 +124,8 @@ class BatchPreviewLoaderTest {
             }
         imageLoader.setUriLoadingOrder(*loadingOrder)
         val testSubject =
-            BatchPreviewLoader(
-                imageLoader,
-                previews(*uris),
-                previewSize,
-                uris.size,
-                onUpdate,
-                onCompletion
-            )
-        testSubject.loadAspectRatios(200) { _, _, _ -> 100 }
+            BatchPreviewLoader(imageLoader, previews(*uris), uris.size, onUpdate, onCompletion)
+        testSubject.loadAspectRatios(200, previewSize) { _, _, _ -> 100 }
         dispatcher.scheduler.advanceUntilIdle()
 
         verify(onCompletion, times(1)).invoke()
@@ -162,15 +153,8 @@ class BatchPreviewLoaderTest {
         val expectedUris = Array(uris.size / 2) { createUri(it * 2 + 1) }
         imageLoader.setUriLoadingOrder(*loadingOrder)
         val testSubject =
-            BatchPreviewLoader(
-                imageLoader,
-                previews(*uris),
-                previewSize,
-                uris.size,
-                onUpdate,
-                onCompletion
-            )
-        testSubject.loadAspectRatios(200) { _, _, _ -> 100 }
+            BatchPreviewLoader(imageLoader, previews(*uris), uris.size, onUpdate, onCompletion)
+        testSubject.loadAspectRatios(200, previewSize) { _, _, _ -> 100 }
         dispatcher.scheduler.advanceUntilIdle()
 
         verify(onCompletion, times(1)).invoke()

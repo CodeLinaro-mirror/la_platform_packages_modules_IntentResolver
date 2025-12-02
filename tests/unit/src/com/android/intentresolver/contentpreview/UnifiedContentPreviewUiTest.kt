@@ -17,6 +17,7 @@
 package com.android.intentresolver.contentpreview
 
 import android.net.Uri
+import android.util.Size
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -39,6 +40,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.kotlin.any
+import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.times
@@ -109,12 +111,19 @@ class UnifiedContentPreviewUiTest {
         val uri = Uri.parse("content://pkg.app/image.png")
         val files =
             listOf(
-                FileInfo.Builder(uri).withMimeType("image/png").build(),
-                FileInfo.Builder(uri).withMimeType("image/jpeg").build(),
+                FileInfo.Builder(uri).withMimeType("image/png").withPreviewUri(uri).build(),
+                FileInfo.Builder(uri).withMimeType("image/jpeg").withPreviewUri(uri).build(),
             )
         testLoadingHeadline("image/*", files) { headlineRow ->
             verify(headlineGenerator, times(1)).getImagesHeadline(2)
             verifyPreviewHeadline(headlineRow, IMAGE_HEADLINE)
+
+            val prePopulateListCaptor = argumentCaptor<List<Pair<Uri, Size>>>()
+            verify(imageLoader) { 1 * { prePopulate(prePopulateListCaptor.capture()) } }
+            assertThat(prePopulateListCaptor.allValues).isNotEmpty()
+            val size = prePopulateListCaptor.firstValue[0].second
+            assertThat(size.width).isGreaterThan(0)
+            assertThat(size.height).isGreaterThan(0)
         }
     }
 
@@ -178,12 +187,14 @@ class UnifiedContentPreviewUiTest {
                     DefaultMimeTypeClassifier,
                     object : TransitionElementStatusCallback {
                         override fun onTransitionElementReady(name: String) = Unit
+
                         override fun onAllTransitionElementsReady() = Unit
                     },
-                    files?.let { it.asFlow() } ?: emptySourceFlow.takeWhile { it !== endMarker },
+                    files?.asFlow() ?: emptySourceFlow.takeWhile { it !== endMarker },
                     /*itemCount=*/ 2,
                     headlineGenerator,
                     testMetadataText,
+                    100,
                 )
             val layoutInflater = LayoutInflater.from(context)
             val gridLayout =
