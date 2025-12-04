@@ -26,6 +26,7 @@ import android.os.UserManager
 import android.view.LayoutInflater
 import com.android.intentresolver.ResolverDataProvider.createActivityInfo
 import com.android.intentresolver.ResolverListAdapter.ResolverListCommunicator
+import com.android.intentresolver.chooser.DisplayResolveInfo
 import com.android.intentresolver.icons.TargetDataLoader
 import com.android.intentresolver.util.TestExecutor
 import com.google.common.truth.Truth.assertThat
@@ -1033,6 +1034,62 @@ class ResolverListAdapterTest {
         queuedCallbacksExecutor.runUntilIdle()
 
         verify(communicator, never()).onPostListReady(eq(testSubject), eq(doPostProcessing), any())
+    }
+
+    @Test
+    fun test_appTargetPredicate_filtersTarget() {
+        val resolvedTargets =
+            createResolvedComponents(
+                ComponentName(PKG_NAME, CLASS_NAME),
+                ComponentName(PKG_NAME_TWO, CLASS_NAME),
+            )
+        val resolverListController =
+            mock<ResolverListController> {
+                on { filterIneligibleActivities(any(), any()) } doReturn null
+                on { filterLowPriority(any(), any()) } doReturn null
+                on {
+                    getResolversForIntentAsUser(
+                        true,
+                        resolverListCommunicator.shouldGetActivityMetadata(),
+                        resolverListCommunicator.shouldGetOnlyDefaultActivities(),
+                        payloadIntents,
+                        userHandle
+                    )
+                } doReturn ArrayList(resolvedTargets)
+            }
+        val testSubject =
+            ResolverListAdapter(
+                context,
+                payloadIntents,
+                /*initialIntents=*/ null,
+                /*rList=*/ null,
+                /*filterLastUsed=*/ false,
+                resolverListController,
+                userHandle,
+                targetIntent,
+                resolverListCommunicator,
+                /*initialIntentsUserSpace=*/ userHandle,
+                targetDataLoader,
+                backgroundExecutor,
+                immediateExecutor,
+            )
+        val doPostProcessing = true
+
+        // Set a predicate to filter out the second package.
+        testSubject.setAppTargetPredicate { dri ->
+            dri.resolveInfo.activityInfo.packageName != PKG_NAME_TWO
+        }
+
+        testSubject.rebuildList(doPostProcessing)
+        backgroundExecutor.runUntilIdle()
+
+        // Verify that one target was filtered out from the display list.
+        assertThat(testSubject.count).isEqualTo(1)
+        assertThat(testSubject.getDisplayResolveInfo(0).resolveInfo.activityInfo.packageName)
+            .isEqualTo(PKG_NAME)
+
+        // Verify that the unfiltered list remains unchanged.
+        assertThat(testSubject.unfilteredResolveList).containsExactlyElementsIn(resolvedTargets)
     }
 
     private fun createResolvedComponents(
