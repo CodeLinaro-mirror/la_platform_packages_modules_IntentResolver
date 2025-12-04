@@ -1276,7 +1276,10 @@ public class ResolverDrawerLayout extends ViewGroup {
     }
 
     private void onLayoutInternal() {
-        final boolean isCollapsed = isCollapsed();
+        // It is possible for the drawer to be both collapsed and expanded. This happens
+        // when the mCollapsibleHeight is 0, e.g., when it has not been set yet.
+        // In this case, we bias toward the collapsed state, except when mOpenOnLayout is true.
+        final boolean isCollapsed = isCollapsed() && !(isExpanded() && mOpenOnLayout);
         int oldCollapsibleHeight = updateCollapsibleHeight();
         if (interactiveChooser()) {
             if (!isDragging() && oldCollapsibleHeight != mCollapsibleHeight) {
@@ -1408,14 +1411,17 @@ public class ResolverDrawerLayout extends ViewGroup {
     @Override
     protected Parcelable onSaveInstanceState() {
         final SavedState ss = new SavedState(super.onSaveInstanceState());
-        ss.open = mCollapsibleHeight > 0 && mCollapseOffset == 0;
+        ss.open = mCollapsibleHeight > 0 && isExpanded();
         ss.mCollapsibleHeightReserved = mCollapsibleHeightReserved;
         return ss;
     }
 
     @Override
     protected void onRestoreInstanceState(Parcelable state) {
-        final SavedState ss = (SavedState) state;
+        if (!(state instanceof SavedState ss)) {
+            super.onRestoreInstanceState(state);
+            return;
+        }
         super.onRestoreInstanceState(ss.getSuperState());
         mOpenOnLayout = ss.open;
         mCollapsibleHeightReserved = ss.mCollapsibleHeightReserved;

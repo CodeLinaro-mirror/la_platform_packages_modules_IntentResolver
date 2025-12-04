@@ -21,7 +21,6 @@ import static com.android.intentresolver.Flags.useSingleRowForShortcuts;
 import android.animation.AnimatorSet;
 import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
-import android.app.ActivityManager;
 import android.content.Context;
 import android.database.DataSetObserver;
 import android.view.LayoutInflater;
@@ -88,7 +87,7 @@ public final class ChooserGridAdapter extends RecyclerView.Adapter<RecyclerView.
     private final LayoutInflater mLayoutInflater;
 
     private final int mMaxTargetsPerRow;
-    private final boolean mShouldShowContentPreview;
+    private final boolean mShouldShowDirectTargets;
     private final int mChooserRowTextOptionTranslatePixelSize;
     @Nullable
     private RecyclerView mRecyclerView;
@@ -103,7 +102,7 @@ public final class ChooserGridAdapter extends RecyclerView.Adapter<RecyclerView.
             Context context,
             ChooserActivityDelegate chooserActivityDelegate,
             ChooserListAdapter wrappedAdapter,
-            boolean shouldShowContentPreview,
+            boolean shouldShowDirectTargets,
             int maxTargetsPerRow) {
         super();
 
@@ -112,7 +111,7 @@ public final class ChooserGridAdapter extends RecyclerView.Adapter<RecyclerView.
         mChooserListAdapter = wrappedAdapter;
         mLayoutInflater = LayoutInflater.from(context);
 
-        mShouldShowContentPreview = shouldShowContentPreview;
+        mShouldShowDirectTargets = shouldShowDirectTargets;
         mMaxTargetsPerRow = maxTargetsPerRow;
 
         mChooserRowTextOptionTranslatePixelSize = context.getResources().getDimensionPixelSize(
@@ -196,7 +195,7 @@ public final class ChooserGridAdapter extends RecyclerView.Adapter<RecyclerView.
     // There can be at most one row in the listview, that is internally
     // a ViewGroup with 2 rows
     public int getServiceTargetRowCount() {
-        if (mShouldShowContentPreview && !ActivityManager.isLowRamDeviceStatic()) {
+        if (mShouldShowDirectTargets) {
             return 1;
         }
         return 0;

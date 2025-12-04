@@ -33,7 +33,7 @@
     <string name="whichSendApplication" msgid="59510564281035884">"শ্বেয়াৰ কৰক"</string>
     <string name="whichSendApplicationNamed" msgid="495577664218765855">"<xliff:g id="APP">%1$s</xliff:g>ৰ জৰিয়তে শ্বেয়াৰ কৰক"</string>
     <string name="whichSendApplicationLabel" msgid="2391198069286568035">"শ্বেয়াৰ কৰক"</string>
-    <string name="whichSendToApplication" msgid="2724450540348806267">"ইয়াৰ মাধ্য়মেৰে প্ৰেৰণ কৰক"</string>
+    <string name="whichSendToApplication" msgid="2724450540348806267">"ইয়াৰ মাধ্যমেৰে প্ৰেৰণ কৰক"</string>
     <string name="whichSendToApplicationNamed" msgid="1996548940365954543">"<xliff:g id="APP">%1$s</xliff:g> ব্যৱহাৰ কৰি পঠিয়াওক"</string>
     <string name="whichSendToApplicationLabel" msgid="6909037198280591110">"প্রেৰণ কৰক"</string>
     <string name="whichHomeApplication" msgid="8797832422254564739">"এটা হ\'ম এপ্ বাছনি কৰক"</string>
