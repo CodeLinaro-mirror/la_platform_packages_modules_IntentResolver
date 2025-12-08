@@ -16,9 +16,13 @@
 
 package com.android.intentresolver.widget
 
+import android.content.Context
 import android.platform.test.annotations.EnableFlags
 import android.platform.test.flag.junit.SetFlagsRule
 import android.service.chooser.Flags.FLAG_INTERACTIVE_CHOOSER
+import android.view.View
+import androidx.test.core.app.ApplicationProvider
+import com.android.intentresolver.Flags
 import com.android.intentresolver.widget.ResolverDrawerLayout.calculateCollapsibleHeight
 import com.google.common.truth.Truth.assertThat
 import org.junit.Rule
@@ -26,6 +30,7 @@ import org.junit.Test
 
 class ResolverDrawerLayoutTest {
     @get:Rule val flagRule = SetFlagsRule()
+    private val context: Context = ApplicationProvider.getApplicationContext()
 
     /**
      * Total uncollapsible height is more than the drawer height and enough space left above the
@@ -109,5 +114,95 @@ class ResolverDrawerLayoutTest {
             )
 
         assertThat(collapsibleHeight).isEqualTo(20)
+    }
+
+    /**
+     * Verifies that when the desktopUi flag is enabled and height measure spec is AT_MOST, the
+     * layout's height wraps its content.
+     */
+    @Test
+    @EnableFlags(Flags.FLAG_DESKTOP_UI)
+    fun onMeasure_withDesktopUi_atMostHeight_setsWrappedHeight() {
+        val layout = ResolverDrawerLayout(context)
+        val child = View(context)
+        child.layoutParams = ResolverDrawerLayout.LayoutParams(100, 100)
+        layout.addView(child)
+        layout.setPadding(10, 20, 10, 30)
+
+        val widthSpec = View.MeasureSpec.makeMeasureSpec(500, View.MeasureSpec.EXACTLY)
+        val heightSpec = View.MeasureSpec.makeMeasureSpec(1000, View.MeasureSpec.AT_MOST)
+
+        layout.measure(widthSpec, heightSpec)
+
+        // mHeightUsed will be 100 (child height)
+        // paddingTop is 20, paddingBottom is 30
+        // expected height = 100 + 20 + 30 = 150
+        assertThat(layout.measuredHeight).isEqualTo(150)
+    }
+
+    /**
+     * Verifies that when the desktopUi flag is enabled and height measure spec is AT_MOST, the
+     * layout's height is capped by the available size.
+     */
+    @Test
+    @EnableFlags(Flags.FLAG_DESKTOP_UI)
+    fun onMeasure_withDesktopUi_atMostHeight_respectsMaxSize() {
+        val layout = ResolverDrawerLayout(context)
+        val child = View(context)
+        child.layoutParams = ResolverDrawerLayout.LayoutParams(100, 100)
+        layout.addView(child)
+        layout.setPadding(10, 20, 10, 30)
+
+        val widthSpec = View.MeasureSpec.makeMeasureSpec(500, View.MeasureSpec.EXACTLY)
+        // Max height is smaller than required height
+        val heightSpec = View.MeasureSpec.makeMeasureSpec(120, View.MeasureSpec.AT_MOST)
+
+        layout.measure(widthSpec, heightSpec)
+
+        // mHeightUsed is 100, padding is 50. Total needed is 150.
+        // heightSize from spec is 120.
+        // measuredHeight = min(150, 120) = 120.
+        assertThat(layout.measuredHeight).isEqualTo(120)
+    }
+
+    /**
+     * Verifies that when the desktopUi flag is disabled, the layout uses the full available height
+     * when the measure spec is AT_MOST.
+     */
+    @Test
+    fun onMeasure_withoutDesktopUi_atMostHeight_usesFullHeight() {
+        val layout = ResolverDrawerLayout(context)
+        val child = View(context)
+        child.layoutParams = ResolverDrawerLayout.LayoutParams(100, 100)
+        layout.addView(child)
+
+        val widthSpec = View.MeasureSpec.makeMeasureSpec(500, View.MeasureSpec.EXACTLY)
+        val heightSpec = View.MeasureSpec.makeMeasureSpec(1000, View.MeasureSpec.AT_MOST)
+
+        layout.measure(widthSpec, heightSpec)
+
+        // Without desktopUi flag, it should take the height from spec.
+        assertThat(layout.measuredHeight).isEqualTo(1000)
+    }
+
+    /**
+     * Verifies that when the desktopUi flag is enabled but height measure spec is EXACTLY, the
+     * layout uses the exact height specified.
+     */
+    @Test
+    @EnableFlags(Flags.FLAG_DESKTOP_UI)
+    fun onMeasure_withDesktopUi_exactlyHeight_usesExactHeight() {
+        val layout = ResolverDrawerLayout(context)
+        val child = View(context)
+        child.layoutParams = ResolverDrawerLayout.LayoutParams(100, 100)
+        layout.addView(child)
+
+        val widthSpec = View.MeasureSpec.makeMeasureSpec(500, View.MeasureSpec.EXACTLY)
+        val heightSpec = View.MeasureSpec.makeMeasureSpec(1000, View.MeasureSpec.EXACTLY)
+
+        layout.measure(widthSpec, heightSpec)
+
+        // With EXACTLY, it should take the height from spec, regardless of the flag.
+        assertThat(layout.measuredHeight).isEqualTo(1000)
     }
 }
