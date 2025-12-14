@@ -257,6 +257,11 @@ public class ResolverListController {
 
     @WorkerThread
     public void sort(List<ResolvedComponentInfo> inputList) {
+        sortInternal(inputList);
+    }
+
+    @WorkerThread
+    private void sortInternal(List<ResolvedComponentInfo> inputList) {
         try {
             long beforeRank = System.currentTimeMillis();
             if (!isComputed) {
@@ -274,14 +279,14 @@ public class ResolverListController {
     }
 
     @WorkerThread
-    public void topK(List<ResolvedComponentInfo> inputList, int k) {
+    public final void topK(List<ResolvedComponentInfo> inputList, int k) {
         if (inputList == null || inputList.isEmpty() || k <= 0) {
             return;
         }
         if (inputList.size() <= k) {
             // Fall into normal sort when number of ranked elements
             // needed is not smaller than size of input list.
-            sort(inputList);
+            sortInternal(inputList);
             return;
         }
         try {
