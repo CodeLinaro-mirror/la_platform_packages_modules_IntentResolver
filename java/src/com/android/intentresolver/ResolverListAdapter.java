@@ -823,8 +823,6 @@ public class ResolverListAdapter extends BaseAdapter {
     public final List<ResolvedComponentInfo> getResolversForUser(UserHandle userHandle) {
         return mResolverListController.getResolversForIntentAsUser(
                 /* shouldGetResolvedFilter= */ true,
-                mResolverListCommunicator.shouldGetActivityMetadata(),
-                mResolverListCommunicator.shouldGetOnlyDefaultActivities(),
                 mIntents,
                 userHandle);
     }
@@ -897,10 +895,6 @@ public class ResolverListAdapter extends BaseAdapter {
 
         Intent getReplacementIntent(ActivityInfo activityInfo, Intent defIntent);
 
-        // ResolverListCommunicator
-        default void updateProfileViewButton() {
-        }
-
         void onPostListReady(ResolverListAdapter listAdapter, boolean updateUi,
                 boolean rebuildCompleted);
 
@@ -908,16 +902,6 @@ public class ResolverListAdapter extends BaseAdapter {
 
         default boolean useLayoutWithDefault() {
             return false;
-        }
-
-        boolean shouldGetActivityMetadata();
-
-        /**
-         * @return true to filter only apps that can handle
-         *     {@link android.content.Intent#CATEGORY_DEFAULT} intents
-         */
-        default boolean shouldGetOnlyDefaultActivities() {
-            return true;
         }
     }
 

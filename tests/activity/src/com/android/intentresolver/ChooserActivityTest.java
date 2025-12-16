@@ -1353,8 +1353,6 @@ public class ChooserActivityTest {
                         .resolverListController
                         .getResolversForIntentAsUser(
                                 Mockito.anyBoolean(),
-                                Mockito.anyBoolean(),
-                                Mockito.anyBoolean(),
                                 Mockito.isA(List.class),
                                 Mockito.any(UserHandle.class)))
                 .thenReturn(resolvedComponentInfos);
@@ -3258,8 +3256,6 @@ public class ChooserActivityTest {
                         .resolverListController
                         .getResolversForIntentAsUser(
                                 Mockito.anyBoolean(),
-                                Mockito.anyBoolean(),
-                                Mockito.anyBoolean(),
                                 Mockito.isA(List.class),
                                 eq(PERSONAL_USER_HANDLE)))
                                 .thenReturn(new ArrayList<>(personalResolvedComponentInfos));
@@ -3268,8 +3264,6 @@ public class ChooserActivityTest {
                         .getInstance()
                         .workResolverListController
                         .getResolversForIntentAsUser(
-                                Mockito.anyBoolean(),
-                                Mockito.anyBoolean(),
                                 Mockito.anyBoolean(),
                                 Mockito.isA(List.class),
                                 eq(WORK_PROFILE_USER_HANDLE)))
