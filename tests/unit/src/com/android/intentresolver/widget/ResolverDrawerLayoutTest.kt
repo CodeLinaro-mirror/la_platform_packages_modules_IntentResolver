@@ -22,15 +22,27 @@ import android.platform.test.flag.junit.SetFlagsRule
 import android.service.chooser.Flags.FLAG_INTERACTIVE_CHOOSER
 import android.view.View
 import androidx.test.core.app.ApplicationProvider
+import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.android.intentresolver.Flags
 import com.android.intentresolver.widget.ResolverDrawerLayout.calculateCollapsibleHeight
 import com.google.common.truth.Truth.assertThat
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
+import org.junit.runner.RunWith
 
+@RunWith(AndroidJUnit4::class)
 class ResolverDrawerLayoutTest {
     @get:Rule val flagRule = SetFlagsRule()
-    private val context: Context = ApplicationProvider.getApplicationContext()
+
+    private lateinit var context: Context
+    private lateinit var layout: ResolverDrawerLayout
+
+    @Before
+    fun setup() {
+        context = ApplicationProvider.getApplicationContext()
+        layout = ResolverDrawerLayout(context, null)
+    }
 
     /**
      * Total uncollapsible height is more than the drawer height and enough space left above the
@@ -114,6 +126,110 @@ class ResolverDrawerLayoutTest {
             )
 
         assertThat(collapsibleHeight).isEqualTo(20)
+    }
+
+    @Test
+    fun onSaveInstanceState_whenExpandedAndCollapsible_savesOpenState() {
+        // Make layout collapsible and expanded.
+        layout.setCollapsibleHeightForTest(100)
+        layout.setCollapseOffsetForTest(0f)
+
+        val state = layout.onSaveInstanceState() as ResolverDrawerLayout.SavedState
+
+        assertThat(state.open).isTrue()
+    }
+
+    @Test
+    fun onSaveInstanceState_whenCollapsedAndCollapsible_savesNotOpenState() {
+        // Make layout collapsible and collapsed.
+        layout.setCollapsibleHeightForTest(100)
+        layout.setCollapseOffsetForTest(100f)
+
+        val state = layout.onSaveInstanceState() as ResolverDrawerLayout.SavedState
+
+        assertThat(state.open).isFalse()
+    }
+
+    @Test
+    fun onSaveInstanceState_whenNotCollapsible_savesNotOpenState() {
+        // Make layout not collapsible.
+        layout.setCollapsibleHeightForTest(0)
+        layout.setCollapseOffsetForTest(0f)
+
+        val state = layout.onSaveInstanceState() as ResolverDrawerLayout.SavedState
+
+        assertThat(state.open).isFalse()
+    }
+
+    @Test
+    fun onRestoreInstanceState_withSavedState_restoresOpenState() {
+        val savedState = ResolverDrawerLayout.SavedState(View.BaseSavedState.EMPTY_STATE)
+        savedState.open = true
+
+        layout.onRestoreInstanceState(savedState)
+
+        assertThat(layout.getOpenOnLayoutForTest()).isTrue()
+    }
+
+    @Test
+    fun onRestoreInstanceState_withNonSavedState_doesNotCrash() {
+        // This should not crash and not throw.
+        layout.onRestoreInstanceState(View.BaseSavedState.EMPTY_STATE)
+    }
+
+    @EnableFlags(FLAG_INTERACTIVE_CHOOSER)
+    @Test
+    fun onLayout_whenRestoredToExpanded_remainsExpanded() {
+        // Add a child to make it collapsible.
+        val child = View(context)
+        val lp =
+            ResolverDrawerLayout.LayoutParams(ResolverDrawerLayout.LayoutParams.MATCH_PARENT, 500)
+        layout.addView(child, lp)
+        // Set max collapsed height so there is collapsible height.
+        layout.setMaxCollapsedHeight(100)
+
+        // Simulate restoring an "open" state.
+        val savedState = ResolverDrawerLayout.SavedState(View.BaseSavedState.EMPTY_STATE)
+        savedState.open = true
+        layout.onRestoreInstanceState(savedState)
+
+        // Trigger layout.
+        layout.measure(
+            View.MeasureSpec.makeMeasureSpec(500, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(1000, View.MeasureSpec.EXACTLY)
+        )
+        layout.layout(0, 0, 500, 1000)
+
+        // Assert it's expanded.
+        assertThat(layout.isExpanded).isTrue()
+    }
+
+    @EnableFlags(FLAG_INTERACTIVE_CHOOSER)
+    @Test
+    fun onLayout_whenRestoredToCollapsed_remainsCollapsed() {
+        // Add a child to make it collapsible.
+        val child = View(context)
+        val lp =
+            ResolverDrawerLayout.LayoutParams(ResolverDrawerLayout.LayoutParams.MATCH_PARENT, 500)
+        layout.addView(child, lp)
+        // Set max collapsed height so there is collapsible height.
+        layout.setMaxCollapsedHeight(100)
+
+        // Simulate restoring a "closed" state.
+        val savedState = ResolverDrawerLayout.SavedState(View.BaseSavedState.EMPTY_STATE)
+        savedState.open = false
+        layout.onRestoreInstanceState(savedState)
+
+        // Trigger layout.
+        layout.measure(
+            View.MeasureSpec.makeMeasureSpec(500, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(1000, View.MeasureSpec.EXACTLY)
+        )
+        layout.layout(0, 0, 500, 1000)
+
+        // Assert it's collapsed.
+        assertThat(layout.isExpanded).isFalse()
+        assertThat(layout.getCollapseOffsetForTest()).isGreaterThan(0f)
     }
 
     /**
@@ -204,5 +320,29 @@ class ResolverDrawerLayoutTest {
 
         // With EXACTLY, it should take the height from spec, regardless of the flag.
         assertThat(layout.measuredHeight).isEqualTo(1000)
+    }
+
+    private fun ResolverDrawerLayout.setCollapseOffsetForTest(value: Float) {
+        val field = ResolverDrawerLayout::class.java.getDeclaredField("mCollapseOffset")
+        field.isAccessible = true
+        field.set(this, value)
+    }
+
+    private fun ResolverDrawerLayout.setCollapsibleHeightForTest(value: Int) {
+        val field = ResolverDrawerLayout::class.java.getDeclaredField("mCollapsibleHeight")
+        field.isAccessible = true
+        field.set(this, value)
+    }
+
+    private fun ResolverDrawerLayout.getOpenOnLayoutForTest(): Boolean {
+        val field = ResolverDrawerLayout::class.java.getDeclaredField("mOpenOnLayout")
+        field.isAccessible = true
+        return field.getBoolean(this)
+    }
+
+    private fun ResolverDrawerLayout.getCollapseOffsetForTest(): Float {
+        val field = ResolverDrawerLayout::class.java.getDeclaredField("mCollapseOffset")
+        field.isAccessible = true
+        return field.getFloat(this)
     }
 }
