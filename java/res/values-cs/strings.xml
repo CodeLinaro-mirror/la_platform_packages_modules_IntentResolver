@@ -36,7 +36,7 @@
     <string name="whichSendToApplication" msgid="2724450540348806267">"Odeslat pomocí aplikace"</string>
     <string name="whichSendToApplicationNamed" msgid="1996548940365954543">"Odeslat pomocí aplikace <xliff:g id="APP">%1$s</xliff:g>"</string>
     <string name="whichSendToApplicationLabel" msgid="6909037198280591110">"Odeslat"</string>
-    <string name="whichHomeApplication" msgid="8797832422254564739">"Výběr aplikace na plochu"</string>
+    <string name="whichHomeApplication" msgid="8797832422254564739">"Výběr vstupní aplikace"</string>
     <string name="whichHomeApplicationNamed" msgid="3943122502791761387">"Použít aplikaci <xliff:g id="APP">%1$s</xliff:g> jako plochu"</string>
     <string name="whichHomeApplicationLabel" msgid="2066319585322981524">"Vyfotit"</string>
     <string name="whichImageCaptureApplication" msgid="7830965894804399333">"Vyfotit pomocí aplikace"</string>
