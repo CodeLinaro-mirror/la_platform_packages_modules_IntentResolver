@@ -1148,9 +1148,6 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
             return false;
         }
         int numberOfProfiles = mChooserMultiProfilePagerAdapter.getItemCount();
-        // TODO(b/280988288): If the ChooserActivity is shown we should consider showing the
-        //  correct intent-picker UIs (e.g., mini-resolver) if it was launched without
-        //  ACTION_SEND.
         if (numberOfProfiles == 1 && maybeAutolaunchIfSingleTarget()) {
             return true;
         } else if (maybeAutolaunchIfCrossProfileSupported()) {
@@ -1914,11 +1911,6 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                     /* directShareShortcutInfoCache */ Collections.emptyMap(),
                     /* directShareAppTargetCache */ Collections.emptyMap());
         }
-    }
-
-    @Override // ResolverListCommunicator
-    public boolean shouldGetActivityMetadata() {
-        return true;
     }
 
     public boolean shouldAutoLaunchSingleChoice(TargetInfo target) {

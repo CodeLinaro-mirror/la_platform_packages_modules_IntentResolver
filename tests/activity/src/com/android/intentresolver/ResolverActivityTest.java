@@ -1108,14 +1108,10 @@ public class ResolverActivityTest {
             List<ResolvedComponentInfo> workResolvedComponentInfos) {
         when(sOverrides.resolverListController.getResolversForIntentAsUser(
                 Mockito.anyBoolean(),
-                Mockito.anyBoolean(),
-                Mockito.anyBoolean(),
                 Mockito.isA(List.class),
                 eq(PERSONAL_USER_HANDLE)))
                         .thenReturn(new ArrayList<>(personalResolvedComponentInfos));
         when(sOverrides.workResolverListController.getResolversForIntentAsUser(
-                Mockito.anyBoolean(),
-                Mockito.anyBoolean(),
                 Mockito.anyBoolean(),
                 Mockito.isA(List.class),
                 eq(WORK_PROFILE_USER_HANDLE)))
