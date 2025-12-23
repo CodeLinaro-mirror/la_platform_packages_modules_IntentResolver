@@ -34,6 +34,7 @@ import android.service.chooser.ChooserAction
 import android.service.chooser.ChooserTarget
 import com.android.intentresolver.contentpreview.payloadtoggle.domain.model.ShareouselUpdate
 import com.android.intentresolver.contentpreview.payloadtoggle.domain.model.ValueUpdate
+import com.android.intentresolver.domain.UriCallerReadAccessValidator
 import com.android.intentresolver.inject.AdditionalContent
 import com.android.intentresolver.inject.ChooserIntent
 import com.android.intentresolver.inject.ChooserServiceFlags
@@ -71,16 +72,21 @@ constructor(
     @ChooserIntent private val chooserIntent: Intent,
     private val contentResolver: ContentInterface,
     private val flags: ChooserServiceFlags,
+    private val uriAccessValidator: UriCallerReadAccessValidator,
 ) : SelectionChangeCallback {
     private val mutex = Mutex()
+    private val validatedUri by lazy { if (uriAccessValidator.checkAccess(uri)) uri else null }
 
     override suspend fun onSelectionChanged(targetIntent: Intent): ShareouselUpdate? =
+        validatedUri?.let { uri -> onSelectionChanged(targetIntent, uri) }
+
+    private suspend fun onSelectionChanged(targetIntent: Intent, safeUri: Uri): ShareouselUpdate? =
         mutex
             .withLock {
                 contentResolver.call(
-                    requireNotNull(uri.authority) { "URI authority can not be null" },
+                    requireNotNull(safeUri.authority) { "URI authority can not be null" },
                     ON_SELECTION_CHANGED,
-                    uri.toString(),
+                    safeUri.toString(),
                     Bundle().apply {
                         putParcelable(
                             EXTRA_INTENT,

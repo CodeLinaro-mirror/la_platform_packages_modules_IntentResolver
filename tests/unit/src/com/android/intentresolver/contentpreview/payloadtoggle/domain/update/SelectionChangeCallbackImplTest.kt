@@ -43,6 +43,8 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.android.intentresolver.contentpreview.payloadtoggle.domain.model.ValueUpdate
 import com.android.intentresolver.contentpreview.payloadtoggle.domain.model.ValueUpdate.Absent
+import com.android.intentresolver.domain.FakeUriGrantsManager
+import com.android.intentresolver.domain.UriCallerReadAccessValidator
 import com.android.intentresolver.inject.FakeChooserServiceFlags
 import com.google.common.truth.Correspondence
 import com.google.common.truth.Correspondence.BinaryPredicate
@@ -73,9 +75,19 @@ class SelectionChangeCallbackImplTest {
             setFlag(Flags.FLAG_ENABLE_SHARESHEET_METADATA_EXTRA, false)
         }
 
+    private val uriCallerAccessValidator =
+        UriCallerReadAccessValidator(FakeUriGrantsManager(), 1234, "org.package")
+
     @Test
     fun testPayloadChangeCallbackContact() = runTest {
-        val testSubject = SelectionChangeCallbackImpl(uri, chooserIntent, contentResolver, flags)
+        val testSubject =
+            SelectionChangeCallbackImpl(
+                uri,
+                chooserIntent,
+                contentResolver,
+                flags,
+                uriCallerAccessValidator,
+            )
 
         val u1 = createUri(1)
         val u2 = createUri(2)
@@ -100,7 +112,7 @@ class SelectionChangeCallbackImplTest {
                 authorityCaptor.capture(),
                 methodCaptor.capture(),
                 argCaptor.capture(),
-                extraCaptor.capture()
+                extraCaptor.capture(),
             )
         assertWithMessage("Wrong additional content provider authority")
             .that(authorityCaptor.firstValue)
@@ -149,8 +161,8 @@ class SelectionChangeCallbackImplTest {
                         context,
                         1,
                         Intent("test"),
-                        PendingIntent.FLAG_IMMUTABLE
-                    )
+                        PendingIntent.FLAG_IMMUTABLE,
+                    ),
                 )
                 .build()
         val a2 =
@@ -161,8 +173,8 @@ class SelectionChangeCallbackImplTest {
                         context,
                         1,
                         Intent("test"),
-                        PendingIntent.FLAG_IMMUTABLE
-                    )
+                        PendingIntent.FLAG_IMMUTABLE,
+                    ),
                 )
                 .build()
         whenever(contentResolver.call(any<String>(), any(), any(), any()))
@@ -170,7 +182,14 @@ class SelectionChangeCallbackImplTest {
                 Bundle().apply { putParcelableArray(EXTRA_CHOOSER_CUSTOM_ACTIONS, arrayOf(a1, a2)) }
             )
 
-        val testSubject = SelectionChangeCallbackImpl(uri, chooserIntent, contentResolver, flags)
+        val testSubject =
+            SelectionChangeCallbackImpl(
+                uri,
+                chooserIntent,
+                contentResolver,
+                flags,
+                uriCallerAccessValidator,
+            )
 
         val targetIntent = Intent(ACTION_SEND_MULTIPLE)
         val result = testSubject.onSelectionChanged(targetIntent)
@@ -199,8 +218,8 @@ class SelectionChangeCallbackImplTest {
                         context,
                         1,
                         Intent("test"),
-                        PendingIntent.FLAG_IMMUTABLE
-                    )
+                        PendingIntent.FLAG_IMMUTABLE,
+                    ),
                 )
                 .build()
         whenever(contentResolver.call(any<String>(), any(), any(), any()))
@@ -208,7 +227,14 @@ class SelectionChangeCallbackImplTest {
                 Bundle().apply { putParcelable(EXTRA_CHOOSER_MODIFY_SHARE_ACTION, modifyShare) }
             )
 
-        val testSubject = SelectionChangeCallbackImpl(uri, chooserIntent, contentResolver, flags)
+        val testSubject =
+            SelectionChangeCallbackImpl(
+                uri,
+                chooserIntent,
+                contentResolver,
+                flags,
+                uriCallerAccessValidator,
+            )
 
         val targetIntent = Intent(ACTION_SEND)
         val result = testSubject.onSelectionChanged(targetIntent)
@@ -243,7 +269,14 @@ class SelectionChangeCallbackImplTest {
                 Bundle().apply { putParcelableArray(EXTRA_ALTERNATE_INTENTS, alternateIntents) }
             )
 
-        val testSubject = SelectionChangeCallbackImpl(uri, chooserIntent, contentResolver, flags)
+        val testSubject =
+            SelectionChangeCallbackImpl(
+                uri,
+                chooserIntent,
+                contentResolver,
+                flags,
+                uriCallerAccessValidator,
+            )
 
         val targetIntent = Intent(ACTION_SEND)
         val result = testSubject.onSelectionChanged(targetIntent)
@@ -278,7 +311,7 @@ class SelectionChangeCallbackImplTest {
                 Icon.createWithContentUri(createUri(1)),
                 0.99f,
                 ComponentName("org.pkg.app", ".ClassA"),
-                null
+                null,
             )
         val t2 =
             ChooserTarget(
@@ -286,14 +319,21 @@ class SelectionChangeCallbackImplTest {
                 Icon.createWithContentUri(createUri(1)),
                 1f,
                 ComponentName("org.pkg.app", ".ClassB"),
-                null
+                null,
             )
         whenever(contentResolver.call(any<String>(), any(), any(), any()))
             .thenReturn(
                 Bundle().apply { putParcelableArray(EXTRA_CHOOSER_TARGETS, arrayOf(t1, t2)) }
             )
 
-        val testSubject = SelectionChangeCallbackImpl(uri, chooserIntent, contentResolver, flags)
+        val testSubject =
+            SelectionChangeCallbackImpl(
+                uri,
+                chooserIntent,
+                contentResolver,
+                flags,
+                uriCallerAccessValidator,
+            )
 
         val targetIntent = Intent(ACTION_SEND)
         val result = testSubject.onSelectionChanged(targetIntent)
@@ -309,7 +349,7 @@ class SelectionChangeCallbackImplTest {
                             expected.icon == actual?.icon &&
                             expected.score == actual?.score
                     },
-                    ""
+                    "",
                 )
             )
             .containsExactly(t1, t2)
@@ -335,7 +375,14 @@ class SelectionChangeCallbackImplTest {
                 }
             )
 
-        val testSubject = SelectionChangeCallbackImpl(uri, chooserIntent, contentResolver, flags)
+        val testSubject =
+            SelectionChangeCallbackImpl(
+                uri,
+                chooserIntent,
+                contentResolver,
+                flags,
+                uriCallerAccessValidator,
+            )
 
         val targetIntent = Intent(ACTION_SEND)
         val result = testSubject.onSelectionChanged(targetIntent)
@@ -362,7 +409,14 @@ class SelectionChangeCallbackImplTest {
                 }
             )
 
-        val testSubject = SelectionChangeCallbackImpl(uri, chooserIntent, contentResolver, flags)
+        val testSubject =
+            SelectionChangeCallbackImpl(
+                uri,
+                chooserIntent,
+                contentResolver,
+                flags,
+                uriCallerAccessValidator,
+            )
 
         val targetIntent = Intent(ACTION_SEND)
         val result = testSubject.onSelectionChanged(targetIntent)
@@ -383,7 +437,14 @@ class SelectionChangeCallbackImplTest {
         whenever(contentResolver.call(any<String>(), any(), any(), any()))
             .thenReturn(Bundle().apply { putCharSequence(EXTRA_METADATA_TEXT, metadataText) })
 
-        val testSubject = SelectionChangeCallbackImpl(uri, chooserIntent, contentResolver, flags)
+        val testSubject =
+            SelectionChangeCallbackImpl(
+                uri,
+                chooserIntent,
+                contentResolver,
+                flags,
+                uriCallerAccessValidator,
+            )
 
         val targetIntent = Intent(ACTION_SEND)
         val result = testSubject.onSelectionChanged(targetIntent)
@@ -405,7 +466,14 @@ class SelectionChangeCallbackImplTest {
         whenever(contentResolver.call(any<String>(), any(), any(), any()))
             .thenReturn(Bundle().apply { putCharSequence(EXTRA_METADATA_TEXT, metadataText) })
 
-        val testSubject = SelectionChangeCallbackImpl(uri, chooserIntent, contentResolver, flags)
+        val testSubject =
+            SelectionChangeCallbackImpl(
+                uri,
+                chooserIntent,
+                contentResolver,
+                flags,
+                uriCallerAccessValidator,
+            )
 
         val targetIntent = Intent(ACTION_SEND)
         val result = testSubject.onSelectionChanged(targetIntent)
@@ -436,7 +504,14 @@ class SelectionChangeCallbackImplTest {
                 }
             )
 
-        val testSubject = SelectionChangeCallbackImpl(uri, chooserIntent, contentResolver, flags)
+        val testSubject =
+            SelectionChangeCallbackImpl(
+                uri,
+                chooserIntent,
+                contentResolver,
+                flags,
+                uriCallerAccessValidator,
+            )
 
         val targetIntent = Intent(ACTION_SEND)
         val result = testSubject.onSelectionChanged(targetIntent)
@@ -449,6 +524,27 @@ class SelectionChangeCallbackImplTest {
         assertThat(result.refinementIntentSender.getOrThrow()).isNull()
         assertThat(result.resultIntentSender.getOrThrow()).isNull()
         assertThat(result.metadataText.getOrThrow()).isNull()
+    }
+
+    @Test
+    fun testContentProviderUriIsNotAccessibleToTheCaller_nullShareouselUpdateReturned() = runTest {
+        whenever(contentResolver.call(any<String>(), any(), any(), any())).thenReturn(Bundle())
+        val uriReadAccessValidator =
+            UriCallerReadAccessValidator(
+                FakeUriGrantsManager(mutableSetOf(uri)),
+                1234,
+                "org.pkg.app",
+            )
+        val testSubject =
+            SelectionChangeCallbackImpl(
+                uri,
+                chooserIntent,
+                contentResolver,
+                flags,
+                uriReadAccessValidator,
+            )
+
+        assertThat(testSubject.onSelectionChanged(Intent(ACTION_SEND))).isNull()
     }
 }
 
