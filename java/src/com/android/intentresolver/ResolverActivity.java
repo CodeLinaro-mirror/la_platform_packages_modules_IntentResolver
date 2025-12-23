@@ -561,11 +561,6 @@ public class ResolverActivity extends Hilt_ResolverActivity implements
         }
     }
 
-    @Override // ResolverListCommunicator
-    public Intent getReplacementIntent(ActivityInfo aInfo, Intent defIntent) {
-        return defIntent;
-    }
-
     protected void onListRebuilt(ResolverListAdapter listAdapter, boolean rebuildCompleted) {
         final ItemClickListener listener = new ItemClickListener();
         setupAdapterListView((ListView) mMultiProfilePagerAdapter.getActiveAdapterView(), listener);
