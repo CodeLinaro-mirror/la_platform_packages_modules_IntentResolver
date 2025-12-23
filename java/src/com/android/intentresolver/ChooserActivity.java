@@ -35,7 +35,6 @@ import static com.android.intentresolver.profiles.MultiProfilePagerAdapter.PROFI
 import static com.android.intentresolver.widget.ResolverDrawerLayoutExt.getVisibleAndCollapsedBoundsInWindow;
 import static com.android.intentresolver.widget.ViewExtensionsKt.isFullyVisible;
 import static com.android.internal.util.LatencyTracker.ACTION_LOAD_SHARE_SHEET;
-import static com.android.systemui.shared.Flags.usePreferredImageEditor;
 
 import static java.util.Objects.requireNonNull;
 
@@ -642,20 +641,13 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                     break;
 
                     case EDIT_ACTION: {
-                        if (usePreferredImageEditor()) {
-                            mShareResultSender.onActionSelected(ShareAction.SYSTEM_EDIT);
-                            mImageEditorActionFactory.getImageEditorTargetInfoAsync(
-                                    getCoroutineScope(getLifecycle()),
-                                    completion.getRefinedIntent(),
-                                    targetInfo -> launchImageEditor(targetInfo));
-                            return;
-                        } else {
-                            if (refinedActionFactory.getEditButtonRunnable() != null) {
-                                refinedActionFactory.getEditButtonRunnable().run();
-                            }
-                        }
+                        mShareResultSender.onActionSelected(ShareAction.SYSTEM_EDIT);
+                        mImageEditorActionFactory.getImageEditorTargetInfoAsync(
+                                getCoroutineScope(getLifecycle()),
+                                completion.getRefinedIntent(),
+                                targetInfo -> launchImageEditor(targetInfo));
+                        return;
                     }
-                    break;
                 }
 
                 dismissDrawerAndFinish();
@@ -678,24 +670,22 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                 mRequest.getMetadataText());
         updateStickyContentPreview();
 
-        if (usePreferredImageEditor()) {
-            mImageEditorActionFactory.getImageEditorTargetInfoAsync(
-                    getCoroutineScope(getLifecycle()),
-                    mRequest.getTargetIntent(),
-                    targetInfo -> mChooserContentPreviewUi.setImageEditorCallback(() -> {
-                        if (!mRefinementManager.maybeHandleSelection(
-                                RefinementType.EDIT_ACTION,
-                                List.of(mRequest.getTargetIntent()),
-                                null,
-                                mRequest.getRefinementIntentSender(),
-                                getApplication(),
-                                getMainThreadHandler())) {
-                            // No refinement needed, launch it.
-                            mShareResultSender.onActionSelected(ShareAction.SYSTEM_EDIT);
-                            launchImageEditor(targetInfo);
-                        }
-                    }));
-        }
+        mImageEditorActionFactory.getImageEditorTargetInfoAsync(
+                getCoroutineScope(getLifecycle()),
+                mRequest.getTargetIntent(),
+                targetInfo -> mChooserContentPreviewUi.setImageEditorCallback(() -> {
+                    if (!mRefinementManager.maybeHandleSelection(
+                            RefinementType.EDIT_ACTION,
+                            List.of(mRequest.getTargetIntent()),
+                            null,
+                            mRequest.getRefinementIntentSender(),
+                            getApplication(),
+                            getMainThreadHandler())) {
+                        // No refinement needed, launch it.
+                        mShareResultSender.onActionSelected(ShareAction.SYSTEM_EDIT);
+                        launchImageEditor(targetInfo);
+                    }
+                }));
 
         if (shouldShowStickyContentPreview()) {
             getEventLog().logActionShareWithPreview(
