@@ -72,13 +72,7 @@ class ChooserListAdapterDataTest {
         val resolvedTargets = listOf(createResolvedComponentInfo(1), createResolvedComponentInfo(2))
         val targetIntent = Intent(Intent.ACTION_SEND)
         whenever(
-                resolverListController.getResolversForIntentAsUser(
-                    true,
-                    resolverListCommunicator.shouldGetActivityMetadata(),
-                    resolverListCommunicator.shouldGetOnlyDefaultActivities(),
-                    payloadIntents,
-                    userHandle,
-                )
+                resolverListController.getResolversForIntentAsUser(true, payloadIntents, userHandle)
             )
             .thenReturn(ArrayList(resolvedTargets))
         val initialActivityInfo = createActivityInfo(3)
@@ -132,13 +126,7 @@ class ChooserListAdapterDataTest {
         val resolvedTargets = listOf(createResolvedComponentInfo(1), createResolvedComponentInfo(2))
         val targetIntent = Intent(Intent.ACTION_SEND)
         whenever(
-                resolverListController.getResolversForIntentAsUser(
-                    true,
-                    resolverListCommunicator.shouldGetActivityMetadata(),
-                    resolverListCommunicator.shouldGetOnlyDefaultActivities(),
-                    payloadIntents,
-                    userHandle,
-                )
+                resolverListController.getResolversForIntentAsUser(true, payloadIntents, userHandle)
             )
             .thenReturn(ArrayList(resolvedTargets))
         val activityInfo = resolvedTargets[1].getResolveInfoAt(0).activityInfo

@@ -53,7 +53,8 @@ public class ChooserListController extends ResolverListController {
                 referrerPackageName,
                 launchedFromUid,
                 resolverComparator,
-                queryIntentsAsUser);
+                queryIntentsAsUser,
+                /*shouldGetActivityMetadata =*/ true);
         mFilteredComponents = filteredComponents;
         mPinnedComponents = pinnedComponents;
         mRankedGroupSize = rankedGroupSize;

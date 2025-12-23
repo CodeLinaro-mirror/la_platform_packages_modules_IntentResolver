@@ -294,15 +294,7 @@ class ChooserActivityShareouselTest() {
         fakeCursorResolver.setUris(1, 0, emptyMap())
         with(ChooserActivityOverrideData.getInstance()) {
             resolverListController.stub {
-                on {
-                    getResolversForIntentAsUser(
-                        anyBoolean(),
-                        anyBoolean(),
-                        anyBoolean(),
-                        any(),
-                        any(),
-                    )
-                } doReturn emptyList()
+                on { getResolversForIntentAsUser(anyBoolean(), any(), any()) } doReturn emptyList()
             }
         }
         val initialItemUri = makeItemUri("0", DEFAULT_MIME_TYPE)
@@ -396,11 +388,9 @@ class ChooserActivityShareouselTest() {
 
     private fun mockListController(resolverListController: ResolverListController) {
         resolverListController.stub {
-            on {
-                getResolversForIntentAsUser(anyBoolean(), anyBoolean(), anyBoolean(), any(), any())
-            } doAnswer
+            on { getResolversForIntentAsUser(anyBoolean(), any(), any()) } doAnswer
                 { invocation ->
-                    fakeTargetResolutionLogic(invocation.getArgument<List<Intent>>(3))
+                    fakeTargetResolutionLogic(invocation.getArgument<List<Intent>>(1))
                 }
         }
     }
