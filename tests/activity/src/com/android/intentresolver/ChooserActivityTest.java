@@ -40,7 +40,6 @@ import static com.android.intentresolver.ChooserListAdapter.CALLER_TARGET_SCORE_
 import static com.android.intentresolver.ChooserListAdapter.SHORTCUT_TARGET_SCORE_BOOST;
 import static com.android.intentresolver.MatcherUtils.first;
 import static com.android.intentresolver.TestUtils.createSendImageIntent;
-import static com.android.systemui.shared.Flags.FLAG_SCREENSHOT_CONTEXT_URL;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
@@ -927,7 +926,6 @@ public class ChooserActivityTest {
     }
 
     @Test
-    @EnableFlags(FLAG_SCREENSHOT_CONTEXT_URL)
     public void testFilePlusTextSharing_logIsTextToggleShown_isTrue() {
         Uri uri = createTestContentProviderUri("image/png", null);
         Intent sendIntent = createSendImageIntent(uri);
@@ -959,7 +957,6 @@ public class ChooserActivityTest {
 
 
     @Test
-    @EnableFlags(FLAG_SCREENSHOT_CONTEXT_URL)
     public void testFilePlusTextSharing_noExtraText_logIsTextToggleShown_isFalse()
             throws InterruptedException {
         Uri uri = createTestContentProviderUri("image/png", null);
@@ -1791,7 +1788,6 @@ public class ChooserActivityTest {
     }
 
     @Test
-    @EnableFlags(FLAG_SCREENSHOT_CONTEXT_URL)
     public void testFilePlusTextShare_selectTarget_logIncludedText_isTrue() {
         Uri uri = createTestContentProviderUri("image/png", null);
         Intent sendIntent = createSendImageIntent(uri);
@@ -1828,7 +1824,6 @@ public class ChooserActivityTest {
     }
 
     @Test
-    @EnableFlags(FLAG_SCREENSHOT_CONTEXT_URL)
     public void testFilePlusTextShare_selectTarget_uncheckTextToggle_logIncludedText_isFalse() {
         Uri uri = createTestContentProviderUri("image/png", null);
         Intent sendIntent = createSendImageIntent(uri);
