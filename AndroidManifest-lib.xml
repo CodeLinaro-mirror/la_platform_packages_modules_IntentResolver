@@ -34,4 +34,5 @@
     <uses-permission android:name="android.permission.REPORT_USAGE_STATS" />
     <uses-permission android:name="android.permission.LOG_COMPAT_CHANGE" />
     <uses-permission android:name="android.permission.READ_COMPAT_CHANGE_CONFIG" />
+    <uses-permission android:name="android.permission.BIND_TO_TAP_TO_SHARE_SERVICE" />
 </manifest>
