@@ -55,7 +55,6 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.IntentSender;
 import android.content.SharedPreferences;
-import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.content.pm.ShortcutInfo;
@@ -1904,30 +1903,6 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         mProfileRecords.clear();
     }
 
-    @Override // ResolverListCommunicator
-    public Intent getReplacementIntent(ActivityInfo aInfo, Intent defIntent) {
-        Intent result = defIntent;
-        if (mRequest.getReplacementExtras() != null) {
-            final Bundle replExtras =
-                    mRequest.getReplacementExtras().getBundle(aInfo.packageName);
-            if (replExtras != null) {
-                result = new Intent(defIntent);
-                result.putExtras(replExtras);
-            }
-        }
-        if (aInfo.name.equals(IntentForwarderActivity.FORWARD_INTENT_TO_PARENT)
-                || aInfo.name.equals(IntentForwarderActivity.FORWARD_INTENT_TO_MANAGED_PROFILE)) {
-            result = Intent.createChooser(result,
-                    getIntent().getCharSequenceExtra(Intent.EXTRA_TITLE));
-
-            // Don't auto-launch single intents if the intent is being forwarded. This is done
-            // because automatically launching a resolving application as a response to the user
-            // action of switching accounts is pretty unexpected.
-            result.putExtra(Intent.EXTRA_AUTO_LAUNCH_SINGLE_CHOICE, false);
-        }
-        return result;
-    }
-
     private void maybeSendShareResult(TargetInfo cti, UserHandle launchedAsUser) {
         final ComponentName target = cti.getResolvedComponentName();
         if (target != null) {
@@ -2379,12 +2354,12 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         return new ChooserListController(
                 this,
                 mPackageManager,
-                mRequest.getTargetIntent(),
-                mRequest.getReferrerPackage(),
+                mRequest,
+                // TODO: incorporate into the ChooserRequest
+                getIntent().getCharSequenceExtra(Intent.EXTRA_TITLE),
                 mViewModel.getActivityModel().getLaunchedFromUid(),
                 resolverComparator,
                 mProfiles.getQueryIntentsHandle(userHandle),
-                mRequest.getFilteredComponentNames(),
                 mPinnedSharedPrefs,
                 mMaxTargetsPerRow);
     }

@@ -157,6 +157,10 @@ public class ResolverWrapperActivity extends ResolverActivity {
             mCrossProfileIntentsChecker = mock(CrossProfileIntentsChecker.class);
             when(mCrossProfileIntentsChecker.hasCrossProfileIntents(any(), anyInt(), anyInt()))
                     .thenAnswer(invocation -> hasCrossProfileIntents);
+            when(resolverListController.getReplacementIntent(any(), any())).thenAnswer(
+                    invocation -> invocation.getArguments()[1]);
+            when(workResolverListController.getReplacementIntent(any(), any())).thenAnswer(
+                    invocation -> invocation.getArguments()[1]);
         }
     }
 
