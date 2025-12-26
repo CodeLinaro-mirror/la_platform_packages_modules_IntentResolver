@@ -32,8 +32,8 @@
               android:defaultFocusHighlightEnabled="false"
               app:focusOutlineWidth="@dimen/chooser_item_focus_outline_width"
               app:focusOutlineCornerRadius="@dimen/chooser_item_focus_outline_corner_radius"
-              app:focusOutlineColor="@androidprv:color/materialColorSecondaryFixed"
-              app:focusInnerOutlineColor="@androidprv:color/materialColorOnSecondaryFixedVariant">
+              app:focusOutlineColor="@color/materialColorSecondaryFixed"
+              app:focusInnerOutlineColor="@color/materialColorOnSecondaryFixedVariant">
 
     <ImageView android:id="@android:id/icon"
                android:layout_width="@dimen/chooser_icon_width_with_padding"

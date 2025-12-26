@@ -37,7 +37,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:fontFamily="@androidprv:string/config_headlineFontFamilyMedium"
-            android:textColor="?android:attr/textColorPrimary"
+            android:textColor="@color/materialColorOnSurface"
             android:textSize="18sp"
             android:lineHeight="24sp"
             android:gravity="center_horizontal"
@@ -48,7 +48,7 @@
             android:layout_marginTop="16dp"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textColor="?android:attr/textColorSecondary"
+            android:textColor="@color/materialColorOnSurfaceVariant"
             android:textSize="14sp"
             android:lineHeight="20sp"
             android:gravity="center_horizontal"
@@ -63,7 +63,7 @@
             android:padding="12dp"
             android:fontFamily="@androidprv:string/config_headlineFontFamilyMedium"
             android:textSize="14sp"
-            android:textColor="?android:attr/textColorPrimary"
+            android:textColor="@color/materialColorOnSurface"
             android:layout_centerHorizontal="true"
             android:background="@drawable/chooser_action_button_bg"
             />
@@ -84,7 +84,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/noApplications"
-            android:textColor="@androidprv:color/materialColorOnSurfaceVariant"
+            android:textColor="@color/materialColorOnSurfaceVariant"
             android:padding="@dimen/chooser_edge_margin_normal"
             android:gravity="center"/>
     </RelativeLayout>
