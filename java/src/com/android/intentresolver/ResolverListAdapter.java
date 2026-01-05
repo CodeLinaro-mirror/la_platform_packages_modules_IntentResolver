@@ -59,6 +59,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Predicate;
 
 public class ResolverListAdapter extends BaseAdapter {
     private static final String TAG = "ResolverListAdapter";
@@ -95,6 +96,8 @@ public class ResolverListAdapter extends BaseAdapter {
     private boolean mIsTabLoaded;
     // Represents the UserSpace in which the Initial Intents should be resolved.
     private final UserHandle mInitialIntentsUserSpace;
+
+    private Predicate<DisplayResolveInfo> mAppTargetPredicate = (target) -> true;
 
     public ResolverListAdapter(
             Context context,
@@ -169,16 +172,16 @@ public class ResolverListAdapter extends BaseAdapter {
         return ImmutableList.copyOf(mDisplayList);
     }
 
-    public void handlePackagesChanged() {
-        mResolverListCommunicator.onHandlePackagesChanged(this);
-    }
-
     public void setPlaceholderCount(int count) {
         mPlaceholderCount = count;
     }
 
     public int getPlaceholderCount() {
         return mPlaceholderCount;
+    }
+
+    public final void setAppTargetPredicate(Predicate<DisplayResolveInfo> predicate) {
+        mAppTargetPredicate = predicate;
     }
 
     @Nullable
@@ -620,7 +623,10 @@ public class ResolverListAdapter extends BaseAdapter {
     }
 
     // Check whether {@code dri} should be added into mDisplayList.
-    protected boolean shouldAddResolveInfo(DisplayResolveInfo dri) {
+    private boolean shouldAddResolveInfo(DisplayResolveInfo dri) {
+        if (!mAppTargetPredicate.test(dri)) {
+            return false;
+        }
         // Checks if this info is already listed in display.
         for (DisplayResolveInfo existingInfo : mDisplayList) {
             if (ResolveInfoHelpers
@@ -913,8 +919,6 @@ public class ResolverListAdapter extends BaseAdapter {
         default boolean shouldGetOnlyDefaultActivities() {
             return true;
         }
-
-        void onHandlePackagesChanged(ResolverListAdapter listAdapter);
     }
 
     /**

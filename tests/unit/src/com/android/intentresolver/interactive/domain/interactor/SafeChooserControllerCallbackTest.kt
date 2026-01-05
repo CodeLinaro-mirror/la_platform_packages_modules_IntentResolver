@@ -33,12 +33,12 @@ class SafeChooserControllerCallbackTest {
         val testSubject = SafeChooserControllerCallback(callback)
 
         testSubject.registerChooserController(mock())
-        testSubject.onBoundsChanged(Rect(0, 0, 0, 0))
+        testSubject.onBoundsChanged(Rect(0, 0, 0, 0), Rect(0, 0, 0, 0))
         testSubject.onClosed()
 
         verify(callback) {
             0 * { registerChooserController(any()) }
-            0 * { onBoundsChanged(any()) }
+            0 * { onBoundsChanged(any(), any()) }
             0 * { onClosed() }
         }
     }

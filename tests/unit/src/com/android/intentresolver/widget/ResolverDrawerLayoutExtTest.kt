@@ -21,7 +21,7 @@ import android.view.View
 import android.view.View.GONE
 import android.view.View.INVISIBLE
 import android.view.View.VISIBLE
-import com.google.common.truth.Truth
+import com.google.common.truth.Truth.assertThat
 import org.junit.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.doAnswer
@@ -57,13 +57,16 @@ class ResolverDrawerLayoutExtTest {
                         rect.set(50, 50, 350, 450)
                     }
                 on { isLaidOut } doReturn true
+                on { collapsedTop } doReturn 150
             }
 
-        val rect = Rect()
-        drawer.getVisibleBoundsInWindow(rect) { bounds ->
+        val bounds = Rect()
+        val collapsedBounds = Rect()
+        drawer.getVisibleAndCollapsedBoundsInWindow(bounds, collapsedBounds) { bounds ->
             bounds.set(requireNotNull(viewBounds[this]))
         }
 
-        Truth.assertThat(rect).isEqualTo(Rect(150, 150, 250, 450))
+        assertThat(bounds).isEqualTo(Rect(150, 150, 250, 450))
+        assertThat(collapsedBounds).isEqualTo(Rect(150, 200, 250, 450))
     }
 }

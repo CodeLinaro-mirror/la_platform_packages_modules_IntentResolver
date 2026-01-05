@@ -16,6 +16,13 @@ flag {
 }
 
 flag {
+  name: "desktop_ui"
+  namespace: "intentresolver"
+  description: "Enable desktop UI for Chooser."
+  bug: "453752027"
+}
+
+flag {
   name: "refine_system_actions"
   namespace: "intentresolver"
   description: "This flag enables sending system actions to the caller refinement flow"
@@ -44,6 +51,26 @@ flag {
   namespace: "intentresolver"
   description: "Limit the number of background threads (currently 4) that can be used to load per-target resources"
   bug: "420992996"
+  metadata {
+    purpose: PURPOSE_BUGFIX
+  }
+}
+
+flag {
+  name: "use_actual_preview_height"
+  namespace: "intentresolver"
+  description: "Use actual preview height instead of the estimated value."
+  bug: "405235852"
+  metadata {
+    purpose: PURPOSE_BUGFIX
+  }
+}
+
+flag {
+  name: "use_recycler_view_decorations"
+  namespace: "intentresolver"
+  description: "Use RecyclerView decorations to draw the app divider and footer."
+  bug: "338453190"
   metadata {
     purpose: PURPOSE_BUGFIX
   }

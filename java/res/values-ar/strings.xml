@@ -56,7 +56,7 @@
     <string name="other_files" msgid="4501185823517473875">"{count,plural, =1{+ ملف واحد}zero{+ # ملف}two{+ ملفان}few{+ # ملفات}many{+ # ملفًا}other{+ # ملف}}"</string>
     <string name="more_files" msgid="1043875756612339842">"{count,plural, =1{وملف واحد آخر}zero{و# ملف آخر}two{وملفان آخران}few{و# ملفات أخرى}many{و# ملفًا آخر}other{و# ملف آخر}}"</string>
     <string name="sharing_text" msgid="8137537443603304062">"مشاركة النص"</string>
-    <string name="sharing_link" msgid="2307694372813942916">"جارٍ مشاركة الرابط"</string>
+    <string name="sharing_link" msgid="2307694372813942916">"مشاركة الرابط"</string>
     <string name="sharing_images" msgid="5251443722186962006">"{count,plural, =1{جارٍ مشاركة صورة واحدة}zero{جارٍ مشاركة # صورة}two{جارٍ مشاركة صورتَين}few{جارٍ مشاركة # صور}many{جارٍ مشاركة # صورة}other{جارٍ مشاركة # صورة}}"</string>
     <string name="sharing_videos" msgid="3583423190182877434">"{count,plural, =1{جارٍ مشاركة فيديو واحد}zero{جارٍ مشاركة # فيديو}two{جارٍ مشاركة فيديوهَين}few{جارٍ مشاركة # فيديوهات}many{جارٍ مشاركة # فيديو}other{جارٍ مشاركة # فيديو}}"</string>
     <string name="sharing_files" msgid="1275646542246028823">"{count,plural, =1{مشاركة ملف واحد}zero{مشاركة # ملف}two{مشاركة ملفَّين}few{مشاركة # ملفات}many{مشاركة # ملفًّا}other{مشاركة # ملف}}"</string>

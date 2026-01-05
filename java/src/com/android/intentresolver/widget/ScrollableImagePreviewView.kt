@@ -39,6 +39,7 @@ import androidx.core.view.ViewCompat
 import androidx.recyclerview.widget.DefaultItemAnimator
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.android.intentresolver.Flags.useActualPreviewHeight
 import com.android.intentresolver.R
 import com.android.intentresolver.util.throttle
 import com.android.intentresolver.widget.ImagePreviewView.TransitionElementStatusCallback
@@ -145,6 +146,9 @@ class ScrollableImagePreviewView : RecyclerView, ImagePreviewView {
         super.onMeasure(widthSpec, heightSpec)
         if (!isMeasured) {
             isMeasured = true
+            if (useActualPreviewHeight()) {
+                previewAdapter.previewHeight = measuredHeight
+            }
             updateMaxWidthHint(widthSpec)
             updateMaxAspectRatio()
             maybeLoadAspectRatios()
@@ -153,16 +157,14 @@ class ScrollableImagePreviewView : RecyclerView, ImagePreviewView {
 
     private fun updateMaxWidthHint(widthSpec: Int) {
         if (maxWidthHint > 0) return
-        if (View.MeasureSpec.getMode(widthSpec) != View.MeasureSpec.UNSPECIFIED) {
-            maxWidthHint = View.MeasureSpec.getSize(widthSpec)
+        if (MeasureSpec.getMode(widthSpec) != MeasureSpec.UNSPECIFIED) {
+            maxWidthHint = MeasureSpec.getSize(widthSpec)
         }
     }
 
     override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {
         super.onLayout(changed, l, t, r, b)
-        setOverScrollMode(
-            if (areAllChildrenVisible) View.OVER_SCROLL_NEVER else View.OVER_SCROLL_ALWAYS
-        )
+        setOverScrollMode(if (areAllChildrenVisible) OVER_SCROLL_NEVER else OVER_SCROLL_ALWAYS)
     }
 
     override fun onAttachedToWindow() {
@@ -212,7 +214,6 @@ class ScrollableImagePreviewView : RecyclerView, ImagePreviewView {
             BatchPreviewLoader(
                 previewAdapter.imageLoader ?: error("Image loader is not set"),
                 previews,
-                Size(previewHeight, previewHeight),
                 totalItemCount,
                 onUpdate = previewAdapter::addPreviews,
                 onCompletion = {
@@ -232,7 +233,11 @@ class ScrollableImagePreviewView : RecyclerView, ImagePreviewView {
 
     private fun maybeLoadAspectRatios() {
         if (isMeasured && isAttachedToWindow()) {
-            batchLoader?.let { it.loadAspectRatios(getMaxWidth(), this::updatePreviewSize) }
+            batchLoader?.loadAspectRatios(
+                getMaxWidth(),
+                Size(previewHeight, previewHeight),
+                this::updatePreviewSize,
+            )
         }
     }
 
@@ -707,7 +712,6 @@ class ScrollableImagePreviewView : RecyclerView, ImagePreviewView {
     class BatchPreviewLoader(
         private val imageLoader: CachingImageLoader,
         private val previews: Flow<Preview>,
-        private val previewSize: Size,
         val totalItemCount: Int,
         private val onUpdate: (List<Preview>) -> Unit,
         private val onCompletion: () -> Unit,
@@ -721,7 +725,11 @@ class ScrollableImagePreviewView : RecyclerView, ImagePreviewView {
             scope = createScope()
         }
 
-        fun loadAspectRatios(maxWidth: Int, previewSizeUpdater: (Preview, Int, Int) -> Int) {
+        fun loadAspectRatios(
+            maxWidth: Int,
+            previewSize: Size,
+            previewSizeUpdater: (Preview, Int, Int) -> Int,
+        ) {
             val previewInfos = ArrayList<PreviewWidthInfo>(totalItemCount)
             var blockStart = 0 // inclusive
             var blockEnd = 0 // exclusive
