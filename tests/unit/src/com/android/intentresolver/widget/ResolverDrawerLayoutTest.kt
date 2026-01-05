@@ -17,6 +17,7 @@
 package com.android.intentresolver.widget
 
 import android.content.Context
+import android.platform.test.annotations.DisableFlags
 import android.platform.test.annotations.EnableFlags
 import android.platform.test.flag.junit.SetFlagsRule
 import android.service.chooser.Flags.FLAG_INTERACTIVE_CHOOSER
@@ -196,7 +197,7 @@ class ResolverDrawerLayoutTest {
         // Trigger layout.
         layout.measure(
             View.MeasureSpec.makeMeasureSpec(500, View.MeasureSpec.EXACTLY),
-            View.MeasureSpec.makeMeasureSpec(1000, View.MeasureSpec.EXACTLY)
+            View.MeasureSpec.makeMeasureSpec(1000, View.MeasureSpec.EXACTLY),
         )
         layout.layout(0, 0, 500, 1000)
 
@@ -223,7 +224,7 @@ class ResolverDrawerLayoutTest {
         // Trigger layout.
         layout.measure(
             View.MeasureSpec.makeMeasureSpec(500, View.MeasureSpec.EXACTLY),
-            View.MeasureSpec.makeMeasureSpec(1000, View.MeasureSpec.EXACTLY)
+            View.MeasureSpec.makeMeasureSpec(1000, View.MeasureSpec.EXACTLY),
         )
         layout.layout(0, 0, 500, 1000)
 
@@ -286,6 +287,7 @@ class ResolverDrawerLayoutTest {
      * when the measure spec is AT_MOST.
      */
     @Test
+    @DisableFlags(Flags.FLAG_DESKTOP_UI)
     fun onMeasure_withoutDesktopUi_atMostHeight_usesFullHeight() {
         val layout = ResolverDrawerLayout(context)
         val child = View(context)
