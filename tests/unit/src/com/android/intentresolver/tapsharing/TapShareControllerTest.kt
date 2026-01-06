@@ -125,7 +125,40 @@ class TapShareControllerTest {
     @Test
     fun setup_componentNotEnabled_doesNothing() = testScope.runTest {
         // Arrange
+        whenever(mockPackageManager.getComponentEnabledSetting(tapEventServiceComponent))
+            .doReturn(PackageManager.COMPONENT_ENABLED_STATE_DEFAULT)
         serviceInfo.enabled = false
+
+        // Act
+        controller.setup(mockDelegate, testUser)
+
+        // Assert
+        verify(mockConnector, never()).awaitNearbyDeviceSelection(any(), any())
+    }
+
+    @Test
+    fun setup_componentExplicitlyEnabled_awaitsDeviceSelection() = testScope.runTest {
+        // Arrange
+        whenever(mockPackageManager.getComponentEnabledSetting(tapEventServiceComponent))
+            .doReturn(PackageManager.COMPONENT_ENABLED_STATE_ENABLED)
+        whenever(mockConnector.awaitNearbyDeviceSelection(any(), any())) doReturn Unit
+        whenever(mockPackageManager.resolveActivity(argThat { intent ->
+            intent != null && intent.component == tapShareFulfillmentActivity
+        }, eq(0))) doReturn resolveInfo
+
+
+        // Act
+        controller.setup(mockDelegate, testUser)
+
+        // Assert
+        verify(mockConnector).awaitNearbyDeviceSelection(eq(referrer), eq(mockUserContext))
+    }
+
+    @Test
+    fun setup_componentExplicitlyDisabled_doesNothing() = testScope.runTest {
+        // Arrange
+        whenever(mockPackageManager.getComponentEnabledSetting(tapEventServiceComponent))
+            .doReturn(PackageManager.COMPONENT_ENABLED_STATE_DISABLED)
 
         // Act
         controller.setup(mockDelegate, testUser)
