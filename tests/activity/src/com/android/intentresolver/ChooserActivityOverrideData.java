@@ -40,27 +40,25 @@ import java.util.function.Function;
  * this singleton to modify behavior.
  */
 public class ChooserActivityOverrideData {
-    private static ChooserActivityOverrideData sInstance = null;
+    private static final ChooserActivityOverrideData sInstance = new ChooserActivityOverrideData();
 
     public static ChooserActivityOverrideData getInstance() {
-        if (sInstance == null) {
-            sInstance = new ChooserActivityOverrideData();
-        }
         return sInstance;
     }
-    public Function<TargetInfo, Boolean> onSafelyStartInternalCallback;
-    public Function2<UserHandle, Consumer<ShortcutLoader.Result>, ShortcutLoader>
+
+    public volatile Function<TargetInfo, Boolean> onSafelyStartInternalCallback;
+    public volatile Function2<UserHandle, Consumer<ShortcutLoader.Result>, ShortcutLoader>
             shortcutLoaderFactory = (userHandle, callback) -> null;
-    public ChooserListController resolverListController;
-    public ChooserListController workResolverListController;
-    public Boolean isVoiceInteraction;
-    public Cursor resolverCursor;
-    public boolean resolverForceException;
-    public Resources resources;
-    public boolean hasCrossProfileIntents;
-    public boolean isQuietModeEnabled;
-    public UserHandle personalUserHandle;
-    public CrossProfileIntentsChecker mCrossProfileIntentsChecker;
+    public volatile ChooserListController resolverListController;
+    public volatile ChooserListController workResolverListController;
+    public volatile Boolean isVoiceInteraction;
+    public volatile Cursor resolverCursor;
+    public volatile boolean resolverForceException;
+    public volatile Resources resources;
+    public volatile boolean hasCrossProfileIntents;
+    public volatile boolean isQuietModeEnabled;
+    public volatile UserHandle personalUserHandle;
+    public volatile CrossProfileIntentsChecker mCrossProfileIntentsChecker;
 
     public void reset() {
         onSafelyStartInternalCallback = null;
@@ -77,6 +75,10 @@ public class ChooserActivityOverrideData {
         mCrossProfileIntentsChecker = mock(CrossProfileIntentsChecker.class);
         when(mCrossProfileIntentsChecker.hasCrossProfileIntents(any(), anyInt(), anyInt()))
                 .thenAnswer(invocation -> hasCrossProfileIntents);
+        when(resolverListController.getReplacementIntent(any(), any())).thenAnswer(
+                invocation -> invocation.getArguments()[1]);
+        when(workResolverListController.getReplacementIntent(any(), any())).thenAnswer(
+                invocation -> invocation.getArguments()[1]);
     }
 
     private ChooserActivityOverrideData() {}
