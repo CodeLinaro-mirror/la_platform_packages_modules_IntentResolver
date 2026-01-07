@@ -43,7 +43,6 @@ import com.android.intentresolver.Flags.useActualPreviewHeight
 import com.android.intentresolver.R
 import com.android.intentresolver.util.throttle
 import com.android.intentresolver.widget.ImagePreviewView.TransitionElementStatusCallback
-import com.android.systemui.shared.Flags.usePreferredImageEditor
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -516,36 +515,22 @@ class ScrollableImagePreviewView : RecyclerView, ImagePreviewView {
                 }
             }
 
-            if (usePreferredImageEditor()) {
-                editActionContainer?.apply {
-                    if (imageEditorCallback != null) {
-                        visibility = View.VISIBLE
-                        setOnClickListener { imageEditorCallback.run() }
+            editActionContainer?.apply {
+                if (imageEditorCallback != null) {
+                    visibility = View.VISIBLE
+                    setOnClickListener { imageEditorCallback.run() }
 
-                        if (editButtonRoleDescription != null) {
-                            ViewCompat.setAccessibilityDelegate(
-                                this,
-                                ViewRoleDescriptionAccessibilityDelegate(editButtonRoleDescription),
-                            )
-                        }
-                    } else {
-                        visibility = View.GONE
+                    if (editButtonRoleDescription != null) {
+                        ViewCompat.setAccessibilityDelegate(
+                            this,
+                            ViewRoleDescriptionAccessibilityDelegate(editButtonRoleDescription),
+                        )
                     }
-                }
-            } else {
-                preview.editAction?.also { onClick ->
-                    editActionContainer?.apply {
-                        setOnClickListener { onClick.run() }
-                        visibility = View.VISIBLE
-                        if (editButtonRoleDescription != null) {
-                            ViewCompat.setAccessibilityDelegate(
-                                this,
-                                ViewRoleDescriptionAccessibilityDelegate(editButtonRoleDescription),
-                            )
-                        }
-                    }
+                } else {
+                    visibility = View.GONE
                 }
             }
+
             resetScope().launch {
                 loadImage(preview, previewSize, imageLoader)
                 if (preview.type == PreviewType.Image && previewReadyCallback != null) {

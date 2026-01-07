@@ -19,6 +19,7 @@ package com.android.intentresolver;
 import static android.app.VoiceInteractor.PickOptionRequest.Option;
 import static android.content.Intent.FLAG_ACTIVITY_NEW_TASK;
 import static android.service.chooser.Flags.interactiveChooser;
+import static android.service.chooser.Flags.tapToShare;
 import static android.view.WindowManager.LayoutParams.SYSTEM_FLAG_HIDE_NON_SYSTEM_OVERLAY_WINDOWS;
 
 import static androidx.core.view.ViewKt.doOnNextLayout;
@@ -34,7 +35,6 @@ import static com.android.intentresolver.profiles.MultiProfilePagerAdapter.PROFI
 import static com.android.intentresolver.widget.ResolverDrawerLayoutExt.getVisibleAndCollapsedBoundsInWindow;
 import static com.android.intentresolver.widget.ViewExtensionsKt.isFullyVisible;
 import static com.android.internal.util.LatencyTracker.ACTION_LOAD_SHARE_SHEET;
-import static com.android.systemui.shared.Flags.usePreferredImageEditor;
 
 import static java.util.Objects.requireNonNull;
 
@@ -135,6 +135,8 @@ import com.android.intentresolver.platform.NearbyShare;
 import com.android.intentresolver.profiles.ChooserMultiProfilePagerAdapter;
 import com.android.intentresolver.profiles.MultiProfilePagerAdapter.ProfileType;
 import com.android.intentresolver.profiles.OnProfileSelectedListener;
+import com.android.intentresolver.tapsharing.ITapShareController;
+import com.android.intentresolver.tapsharing.TapShareDelegate;
 import com.android.intentresolver.profiles.OnSwitchOnWorkSelectedListener;
 import com.android.intentresolver.profiles.TabConfig;
 import com.android.intentresolver.shared.model.ActivityModel;
@@ -275,6 +277,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
 
     @Inject public ImageEditorActionFactory mImageEditorActionFactory;
     @Inject @NearbyShare public Optional<ComponentName> mNearbyShare;
+    @Inject public ITapShareController mTapShareController;
     @Inject
     @Caching
     public TargetDataLoader mTargetDataLoader;
@@ -638,20 +641,13 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                     break;
 
                     case EDIT_ACTION: {
-                        if (usePreferredImageEditor()) {
-                            mShareResultSender.onActionSelected(ShareAction.SYSTEM_EDIT);
-                            mImageEditorActionFactory.getImageEditorTargetInfoAsync(
-                                    getCoroutineScope(getLifecycle()),
-                                    completion.getRefinedIntent(),
-                                    targetInfo -> launchImageEditor(targetInfo));
-                            return;
-                        } else {
-                            if (refinedActionFactory.getEditButtonRunnable() != null) {
-                                refinedActionFactory.getEditButtonRunnable().run();
-                            }
-                        }
+                        mShareResultSender.onActionSelected(ShareAction.SYSTEM_EDIT);
+                        mImageEditorActionFactory.getImageEditorTargetInfoAsync(
+                                getCoroutineScope(getLifecycle()),
+                                completion.getRefinedIntent(),
+                                targetInfo -> launchImageEditor(targetInfo));
+                        return;
                     }
-                    break;
                 }
 
                 dismissDrawerAndFinish();
@@ -674,24 +670,22 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                 mRequest.getMetadataText());
         updateStickyContentPreview();
 
-        if (usePreferredImageEditor()) {
-            mImageEditorActionFactory.getImageEditorTargetInfoAsync(
-                    getCoroutineScope(getLifecycle()),
-                    mRequest.getTargetIntent(),
-                    targetInfo -> mChooserContentPreviewUi.setImageEditorCallback(() -> {
-                        if (!mRefinementManager.maybeHandleSelection(
-                                RefinementType.EDIT_ACTION,
-                                List.of(mRequest.getTargetIntent()),
-                                null,
-                                mRequest.getRefinementIntentSender(),
-                                getApplication(),
-                                getMainThreadHandler())) {
-                            // No refinement needed, launch it.
-                            mShareResultSender.onActionSelected(ShareAction.SYSTEM_EDIT);
-                            launchImageEditor(targetInfo);
-                        }
-                    }));
-        }
+        mImageEditorActionFactory.getImageEditorTargetInfoAsync(
+                getCoroutineScope(getLifecycle()),
+                mRequest.getTargetIntent(),
+                targetInfo -> mChooserContentPreviewUi.setImageEditorCallback(() -> {
+                    if (!mRefinementManager.maybeHandleSelection(
+                            RefinementType.EDIT_ACTION,
+                            List.of(mRequest.getTargetIntent()),
+                            null,
+                            mRequest.getRefinementIntentSender(),
+                            getApplication(),
+                            getMainThreadHandler())) {
+                        // No refinement needed, launch it.
+                        mShareResultSender.onActionSelected(ShareAction.SYSTEM_EDIT);
+                        launchImageEditor(targetInfo);
+                    }
+                }));
 
         if (shouldShowStickyContentPreview()) {
             getEventLog().logActionShareWithPreview(
@@ -727,6 +721,50 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                     0, this::dismissDrawerAndFinish);
             configureInteractiveSessionWindow();
             updateInteractiveArea();
+        }
+
+        if (tapToShare()) {
+            mTapShareController.setup(
+                new TapShareDelegate() {
+                    @Nullable
+                    @Override
+                    public Uri getReferrer() {
+                        return ChooserActivity.this.getReferrer();
+                    }
+
+                    @NonNull
+                    @Override
+                    public ChooserRequest getRequest() {
+                        return mRequest;
+                    }
+
+                    @Override
+                    public void onNearbyDeviceSelected(
+                            @NonNull ResolveInfo resolveInfo, @NonNull Intent sendIntent) {
+                        final TargetInfo targetInfo =
+                                DisplayResolveInfo.newDisplayResolveInfo(
+                                        mRequest.getTargetIntent(),
+                                        resolveInfo,
+                                        /* pLabel */ "",
+                                        /* pExtInfo */ "",
+                                        sendIntent);
+
+                        if (mRefinementManager.maybeHandleSelection(
+                                targetInfo,
+                                mRequest.getRefinementIntentSender(),
+                                getApplication(),
+                                getMainThreadHandler())) {
+                            // Refinement is in progress. The observer will handle the launch
+                            // and finish.
+                            return;
+                        }
+
+                        maybeRemoveSharedText(targetInfo);
+                        safelyStartActivity(targetInfo);
+                        dismissDrawerAndFinish();
+                    }
+                },
+                mProfiles.getLaunchedAsProfile().getPrimary().getHandle());
         }
     }
 
