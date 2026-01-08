@@ -16,8 +16,6 @@
 
 package com.android.intentresolver
 
-import android.content.Intent
-import android.content.pm.ActivityInfo
 import java.util.concurrent.atomic.AtomicInteger
 
 class FakeResolverListCommunicator(private val layoutWithDefaults: Boolean = true) :
@@ -27,10 +25,6 @@ class FakeResolverListCommunicator(private val layoutWithDefaults: Boolean = tru
 
     val sendVoiceCommandCount
         get() = sendVoiceCounter.get()
-
-    override fun getReplacementIntent(activityInfo: ActivityInfo?, defIntent: Intent): Intent {
-        return defIntent
-    }
 
     override fun onPostListReady(
         listAdapter: ResolverListAdapter?,

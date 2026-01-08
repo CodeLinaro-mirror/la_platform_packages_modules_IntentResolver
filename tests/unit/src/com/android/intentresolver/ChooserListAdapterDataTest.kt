@@ -32,6 +32,7 @@ import com.android.internal.logging.InstanceId
 import com.google.common.truth.Truth.assertThat
 import org.junit.Test
 import org.mockito.kotlin.any
+import org.mockito.kotlin.doAnswer
 import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
@@ -58,6 +59,7 @@ class ChooserListAdapterDataTest {
         mock<ResolverListController> {
             on { filterIneligibleActivities(any(), any()) } doReturn null
             on { filterLowPriority(any(), any()) } doReturn null
+            on { getReplacementIntent(any(), any()) } doAnswer { it.arguments[1] as Intent }
         }
     private val resolverListCommunicator = FakeResolverListCommunicator()
     private val userHandle = UserHandle.of(UserHandle.USER_CURRENT)

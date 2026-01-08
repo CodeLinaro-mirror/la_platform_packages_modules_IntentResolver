@@ -40,7 +40,6 @@ import static com.android.intentresolver.ChooserListAdapter.CALLER_TARGET_SCORE_
 import static com.android.intentresolver.ChooserListAdapter.SHORTCUT_TARGET_SCORE_BOOST;
 import static com.android.intentresolver.MatcherUtils.first;
 import static com.android.intentresolver.TestUtils.createSendImageIntent;
-import static com.android.systemui.shared.Flags.FLAG_SCREENSHOT_CONTEXT_URL;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
@@ -83,6 +82,7 @@ import android.content.res.Resources;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.Color;
+import android.graphics.Point;
 import android.graphics.Rect;
 import android.graphics.Typeface;
 import android.graphics.drawable.Icon;
@@ -120,6 +120,10 @@ import androidx.test.espresso.matcher.BoundedDiagnosingMatcher;
 import androidx.test.espresso.matcher.ViewMatchers;
 import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.rule.ActivityTestRule;
+import androidx.test.uiautomator.By;
+import androidx.test.uiautomator.UiDevice;
+import androidx.test.uiautomator.UiObject2;
+import androidx.test.uiautomator.Until;
 
 import com.android.intentresolver.chooser.DisplayResolveInfo;
 import com.android.intentresolver.contentpreview.FakeThumbnailLoader;
@@ -200,6 +204,8 @@ public class ChooserActivityTest {
     private static FakeEventLog getEventLog(ChooserWrapperActivity activity) {
         return (FakeEventLog) activity.mEventLog;
     }
+
+    private static final long DEFAULT_TIMEOUT_MS = 10_000;
 
     private static final UserHandle PERSONAL_USER_HANDLE = InstrumentationRegistry
             .getInstrumentation().getTargetContext().getUser();
@@ -927,7 +933,6 @@ public class ChooserActivityTest {
     }
 
     @Test
-    @EnableFlags(FLAG_SCREENSHOT_CONTEXT_URL)
     public void testFilePlusTextSharing_logIsTextToggleShown_isTrue() {
         Uri uri = createTestContentProviderUri("image/png", null);
         Intent sendIntent = createSendImageIntent(uri);
@@ -959,7 +964,6 @@ public class ChooserActivityTest {
 
 
     @Test
-    @EnableFlags(FLAG_SCREENSHOT_CONTEXT_URL)
     public void testFilePlusTextSharing_noExtraText_logIsTextToggleShown_isFalse()
             throws InterruptedException {
         Uri uri = createTestContentProviderUri("image/png", null);
@@ -1012,6 +1016,8 @@ public class ChooserActivityTest {
         assertThat("text/plain", is(clipDescription.getMimeType(0)));
 
         assertEquals(mActivityRule.getActivityResult().getResultCode(), RESULT_OK);
+
+        dismissClipboardUi();
     }
 
     @Test
@@ -1031,6 +1037,22 @@ public class ChooserActivityTest {
         assertThat(eventLog.getActionSelected())
                 .isEqualTo(new FakeEventLog.ActionSelected(
                         /* targetType = */ EventLog.SELECTION_TYPE_COPY));
+
+        dismissClipboardUi();
+    }
+
+    private void dismissClipboardUi() {
+        // waiting for the clipboard UI to go away
+        UiDevice device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
+        UiObject2 clipboardUi = device.findObject(By.res("com.android.systemui", "clipboard_ui"));
+        if (clipboardUi == null) {
+            return;
+        }
+        Point p = clipboardUi.getVisibleCenter();
+        device.swipe(p.x, p.y, 0, p.y, 10);
+        device.wait(
+                Until.gone(By.res("com.android.systemui", "clipboard_ui")),
+                DEFAULT_TIMEOUT_MS);
     }
 
     @Test
@@ -1602,6 +1624,58 @@ public class ChooserActivityTest {
     }
 
     @Test
+    public void onTargetSelected_withReplacementExtras_intentModified() {
+        AtomicReference<Intent> launchedIntent = new AtomicReference<>();
+        ChooserActivityOverrideData.getInstance().onSafelyStartInternalCallback = (targetInfo) -> {
+            launchedIntent.set(targetInfo.getResolvedIntent());
+            return true;
+        };
+        Intent sendIntent = createSendTextIntent();
+        List<ResolvedComponentInfo> resolvedComponentInfos = createResolvedComponentsForTest(2);
+
+        // Setup a component to target
+        ResolveInfo resolveInfo = resolvedComponentInfos.get(0).getResolveInfoAt(0);
+        String targetPackage = resolveInfo.activityInfo.packageName;
+        String targetClass = resolveInfo.activityInfo.name;
+        ComponentName targetComponent = new ComponentName(targetPackage, targetClass);
+
+        // Create replacement extras
+        final Bundle replacementExtras = new Bundle();
+        final String key = "extra_key";
+        final String extraValue = "extra_value";
+        replacementExtras.putString(key, extraValue);
+
+        when(
+                ChooserActivityOverrideData
+                        .getInstance()
+                        .resolverListController
+                        .getReplacementIntent(any(), any()))
+                .thenAnswer(invocation -> {
+                    ActivityInfo ai = invocation.getArgument(0);
+                    Intent intent = invocation.getArgument(1);
+                    if (targetComponent.equals(ai.getComponentName())) {
+                        intent = new Intent(intent);
+                        intent.putExtras(replacementExtras);
+                    }
+                    return intent;
+                });
+        setupResolverControllers(resolvedComponentInfos);
+
+        Intent chooserIntent = Intent.createChooser(sendIntent, null);
+        chooserIntent.putExtra(Intent.EXTRA_REPLACEMENT_EXTRAS, replacementExtras);
+
+        mActivityRule.launchActivity(chooserIntent);
+        waitForIdle();
+
+        // Simulate click on the first target
+        onView(withText(resolveInfo.activityInfo.name)).perform(click());
+        waitForIdle();
+
+        assertThat(launchedIntent.get()).isNotNull();
+        assertThat(launchedIntent.get().getStringExtra("extra_key")).isEqualTo(extraValue);
+    }
+
+    @Test
     public void testGetBaseScore() {
         final float testBaseScore = 0.89f;
 
@@ -1791,7 +1865,6 @@ public class ChooserActivityTest {
     }
 
     @Test
-    @EnableFlags(FLAG_SCREENSHOT_CONTEXT_URL)
     public void testFilePlusTextShare_selectTarget_logIncludedText_isTrue() {
         Uri uri = createTestContentProviderUri("image/png", null);
         Intent sendIntent = createSendImageIntent(uri);
@@ -1828,7 +1901,6 @@ public class ChooserActivityTest {
     }
 
     @Test
-    @EnableFlags(FLAG_SCREENSHOT_CONTEXT_URL)
     public void testFilePlusTextShare_selectTarget_uncheckTextToggle_logIncludedText_isFalse() {
         Uri uri = createTestContentProviderUri("image/png", null);
         Intent sendIntent = createSendImageIntent(uri);
