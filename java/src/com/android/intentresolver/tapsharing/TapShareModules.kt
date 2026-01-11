@@ -18,11 +18,12 @@ package com.android.intentresolver.tapsharing
 
 import android.app.Activity
 import android.content.ComponentName
-import android.content.res.Resources
 import android.service.chooser.Flags.tapToShare
-import com.android.intentresolver.R
+import android.provider.Settings.Secure.TAP_EVENT_SERVICE_COMPONENT
+import android.provider.Settings.Secure.TAP_SHARE_FULFILLMENT_ACTIVITY_COMPONENT
 import com.android.intentresolver.inject.ActivityOwned
 import com.android.intentresolver.inject.ApplicationOwned
+import com.android.intentresolver.platform.SecureSettings
 import com.android.intentresolver.inject.Background
 import dagger.Module
 import dagger.Provides
@@ -51,18 +52,16 @@ abstract class TapTargetModule {
         @Provides
         @Singleton
         @TapEventService
-        // TODO(b/461778971): Provide the real component name in a follow-up CL.
-        fun provideTapEventServiceComponent(
-            @ApplicationOwned resources: Resources
-        ): ComponentName? = null
+        fun provideTapEventServiceComponent(settings: SecureSettings): ComponentName? =
+            settings.getStringOrNull(TAP_EVENT_SERVICE_COMPONENT)
+                ?.let(ComponentName::unflattenFromString)
 
         @Provides
         @Singleton
         @TapShareFulfillmentActivity
-        // TODO(b/461778971): Provide the real component name in a follow-up CL.
-        fun provideTapShareFulfillmentActivityComponent(
-            @ApplicationOwned resources: Resources
-        ): ComponentName? = null
+        fun provideTapShareFulfillmentActivityComponent(settings: SecureSettings): ComponentName? =
+            settings.getStringOrNull(TAP_SHARE_FULFILLMENT_ACTIVITY_COMPONENT)
+                ?.let(ComponentName::unflattenFromString)
     }
 }
 
