@@ -27,6 +27,9 @@ import android.app.Activity
 import android.util.Log
 import com.android.intentresolver.data.model.ChooserRequest
 import com.android.intentresolver.inject.ActivityOwned
+import android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DEFAULT
+import android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DISABLED
+import android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_ENABLED
 import com.android.intentresolver.inject.Background
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -123,10 +126,17 @@ class TapShareController(
 
     private fun isComponentEnabled(packageManager: PackageManager): Boolean =
         runCatching {
-            packageManager.getServiceInfo(
-                tapEventServiceComponent,
-                PackageManager.ComponentInfoFlags.of(0L)
-            ).isEnabled
+            when (packageManager.getComponentEnabledSetting(tapEventServiceComponent)) {
+                COMPONENT_ENABLED_STATE_ENABLED -> true
+                COMPONENT_ENABLED_STATE_DISABLED -> false
+                COMPONENT_ENABLED_STATE_DEFAULT ->
+                    // If the state is DEFAULT, fall back to the manifest value.
+                    packageManager.getServiceInfo(
+                        tapEventServiceComponent,
+                        PackageManager.ComponentInfoFlags.of(0L)
+                    ).isEnabled
+                else -> false
+            }
         }.getOrDefault(false)
 
     companion object {
