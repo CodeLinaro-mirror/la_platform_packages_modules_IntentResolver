@@ -47,16 +47,6 @@ flag {
 }
 
 flag {
-  name: "use_actual_preview_height"
-  namespace: "intentresolver"
-  description: "Use actual preview height instead of the estimated value."
-  bug: "405235852"
-  metadata {
-    purpose: PURPOSE_BUGFIX
-  }
-}
-
-flag {
   name: "use_recycler_view_decorations"
   namespace: "intentresolver"
   description: "Use RecyclerView decorations to draw the app divider and footer."

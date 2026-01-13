@@ -39,7 +39,6 @@ import androidx.core.view.ViewCompat
 import androidx.recyclerview.widget.DefaultItemAnimator
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.android.intentresolver.Flags.useActualPreviewHeight
 import com.android.intentresolver.R
 import com.android.intentresolver.util.throttle
 import com.android.intentresolver.widget.ImagePreviewView.TransitionElementStatusCallback
@@ -135,19 +134,11 @@ class ScrollableImagePreviewView : RecyclerView, ImagePreviewView {
     private var maxAspectRatioString = MAX_ASPECT_RATIO_STRING
     private var outerSpacing: Int = 0
 
-    var previewHeight: Int
-        get() = previewAdapter.previewHeight
-        set(value) {
-            previewAdapter.previewHeight = value
-        }
-
     override fun onMeasure(widthSpec: Int, heightSpec: Int) {
         super.onMeasure(widthSpec, heightSpec)
         if (!isMeasured) {
             isMeasured = true
-            if (useActualPreviewHeight()) {
-                previewAdapter.previewHeight = measuredHeight
-            }
+            previewAdapter.previewHeight = measuredHeight
             updateMaxWidthHint(widthSpec)
             updateMaxAspectRatio()
             maybeLoadAspectRatios()
@@ -234,7 +225,7 @@ class ScrollableImagePreviewView : RecyclerView, ImagePreviewView {
         if (isMeasured && isAttachedToWindow()) {
             batchLoader?.loadAspectRatios(
                 getMaxWidth(),
-                Size(previewHeight, previewHeight),
+                Size(previewAdapter.previewHeight, previewAdapter.previewHeight),
                 this::updatePreviewSize,
             )
         }
