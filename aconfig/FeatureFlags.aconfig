@@ -6,16 +6,6 @@ container: "system"
 # bug: "Feature_Bug_#" or "<none>"
 
 flag {
-  name: "always_show_shareousel"
-  namespace: "intentresolver"
-  description: "Show Shareousel even if there are no targets."
-  bug: "396690329"
-  metadata {
-    purpose: PURPOSE_BUGFIX
-  }
-}
-
-flag {
   name: "desktop_ui"
   namespace: "intentresolver"
   description: "Enable desktop UI for Chooser."
