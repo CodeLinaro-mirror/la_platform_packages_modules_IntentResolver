@@ -16,7 +16,6 @@
 
 package com.android.intentresolver.contentpreview;
 
-import static com.android.intentresolver.Flags.useActualPreviewHeight;
 import static com.android.intentresolver.contentpreview.ContentPreviewType.CONTENT_PREVIEW_FILE;
 import static com.android.intentresolver.contentpreview.ContentPreviewType.CONTENT_PREVIEW_IMAGE;
 import static com.android.intentresolver.contentpreview.ContentPreviewType.CONTENT_PREVIEW_PAYLOAD_SELECTION;
@@ -213,9 +212,7 @@ public final class ChooserContentPreviewUi {
                 previewData.getUriCount(),
                 headlineGenerator,
                 metadata,
-                useActualPreviewHeight()
-                        ? resources.getDimensionPixelSize(R.dimen.chooser_preview_image_height_tall)
-                        : resources.getDimensionPixelSize(R.dimen.chooser_preview_image_max_dimen)
+                resources.getDimensionPixelSize(R.dimen.chooser_preview_image_height_tall)
         );
     }
 
