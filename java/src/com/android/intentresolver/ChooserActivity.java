@@ -26,7 +26,6 @@ import static androidx.core.view.ViewKt.doOnNextLayout;
 import static androidx.lifecycle.LifecycleKt.getCoroutineScope;
 
 import static com.android.intentresolver.ChooserActionFactory.EDIT_SOURCE;
-import static com.android.intentresolver.Flags.alwaysShowShareousel;
 import static com.android.intentresolver.Flags.desktopUi;
 import static com.android.intentresolver.Flags.refineSystemActions;
 import static com.android.intentresolver.ext.CreationExtrasExtKt.replaceDefaultArgs;
@@ -134,14 +133,14 @@ import com.android.intentresolver.platform.NearbyShare;
 import com.android.intentresolver.profiles.ChooserMultiProfilePagerAdapter;
 import com.android.intentresolver.profiles.MultiProfilePagerAdapter.ProfileType;
 import com.android.intentresolver.profiles.OnProfileSelectedListener;
-import com.android.intentresolver.tapsharing.ITapShareController;
-import com.android.intentresolver.tapsharing.TapShareDelegate;
 import com.android.intentresolver.profiles.OnSwitchOnWorkSelectedListener;
 import com.android.intentresolver.profiles.TabConfig;
 import com.android.intentresolver.shared.model.ActivityModel;
 import com.android.intentresolver.shared.model.Profile;
 import com.android.intentresolver.shortcuts.AppPredictorFactory;
 import com.android.intentresolver.shortcuts.ShortcutLoader;
+import com.android.intentresolver.tapsharing.ITapShareController;
+import com.android.intentresolver.tapsharing.TapShareDelegate;
 import com.android.intentresolver.ui.ActionTitle;
 import com.android.intentresolver.ui.DrawerUiModeController;
 import com.android.intentresolver.ui.ProfilePagerResources;
@@ -2869,8 +2868,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
      *         user is empty
      */
     protected boolean shouldShowContentPreviewWhenEmpty() {
-        return alwaysShowShareousel()
-                && (mViewModel.getPreviewDataProvider().getPreviewType()
+        return (mViewModel.getPreviewDataProvider().getPreviewType()
                         == ContentPreviewType.CONTENT_PREVIEW_PAYLOAD_SELECTION);
     }
 
