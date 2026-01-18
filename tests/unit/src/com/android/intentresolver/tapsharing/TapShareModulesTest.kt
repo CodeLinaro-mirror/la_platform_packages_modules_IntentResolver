@@ -18,13 +18,14 @@ package com.android.intentresolver.tapsharing
 
 import android.content.ComponentName
 import android.app.Activity
-import android.content.res.Resources
+import android.provider.Settings.Secure.TAP_EVENT_SERVICE_COMPONENT
+import android.provider.Settings.Secure.TAP_SHARE_FULFILLMENT_ACTIVITY_COMPONENT
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import android.platform.test.annotations.DisableFlags
 import android.platform.test.annotations.EnableFlags
 import android.platform.test.flag.junit.SetFlagsRule
 import android.service.chooser.Flags
-import com.android.intentresolver.R
+import com.android.intentresolver.platform.SecureSettings
 import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -49,7 +50,7 @@ class TapShareModulesTest {
     @Mock
     private lateinit var mockActivity: Activity
     @Mock
-    private lateinit var mockResources: Resources
+    private lateinit var mockSettings: SecureSettings
 
     private val testScope: CoroutineScope = TestScope()
     private val testTapEventService = ComponentName("com.test", "com.test.TapEventService")
@@ -145,20 +146,61 @@ class TapShareModulesTest {
     }
 
     @Test
-    fun provideTapEventServiceComponent_returnsNull() {
-        // Act
-        val componentName = TapTargetModule.provideTapEventServiceComponent(mockResources)
+    fun provideTapEventServiceComponent_fromSettings() {
+        `when`(mockSettings.getStringOrNull(TAP_EVENT_SERVICE_COMPONENT))
+            .thenReturn(testTapEventService.flattenToString())
 
-        // Assert
+        val componentName = TapTargetModule.provideTapEventServiceComponent(mockSettings)
+
+        assertThat(componentName).isEqualTo(testTapEventService)
+    }
+
+    @Test
+    fun provideTapEventServiceComponent_fromSettings_emptyReturnsNull() {
+        `when`(mockSettings.getStringOrNull(TAP_EVENT_SERVICE_COMPONENT)).thenReturn("")
+
+        val componentName = TapTargetModule.provideTapEventServiceComponent(mockSettings)
+
         assertThat(componentName).isNull()
     }
 
     @Test
-    fun provideTapShareFulfillmentActivityComponent_returnsNull() {
-        // Act
-        val componentName = TapTargetModule.provideTapShareFulfillmentActivityComponent(mockResources)
+    fun provideTapEventServiceComponent_fromSettings_nullReturnsNull() {
+        `when`(mockSettings.getStringOrNull(TAP_EVENT_SERVICE_COMPONENT)).thenReturn(null)
 
-        // Assert
+        val componentName = TapTargetModule.provideTapEventServiceComponent(mockSettings)
+
+        assertThat(componentName).isNull()
+    }
+
+    @Test
+    fun provideTapShareFulfillmentActivityComponent_fromSettings() {
+        `when`(mockSettings.getStringOrNull(TAP_SHARE_FULFILLMENT_ACTIVITY_COMPONENT))
+            .thenReturn(testFulfillmentActivity.flattenToString())
+
+        val componentName =
+            TapTargetModule.provideTapShareFulfillmentActivityComponent(mockSettings)
+
+        assertThat(componentName).isEqualTo(testFulfillmentActivity)
+    }
+
+    @Test
+    fun provideTapShareFulfillmentActivityComponent_fromSettings_emptyReturnsNull() {
+        `when`(mockSettings.getStringOrNull(TAP_SHARE_FULFILLMENT_ACTIVITY_COMPONENT)).thenReturn("")
+
+        val componentName =
+            TapTargetModule.provideTapShareFulfillmentActivityComponent(mockSettings)
+
+        assertThat(componentName).isNull()
+    }
+
+    @Test
+    fun provideTapShareFulfillmentActivityComponent_fromSettings_nullReturnsNull() {
+        `when`(mockSettings.getStringOrNull(TAP_SHARE_FULFILLMENT_ACTIVITY_COMPONENT)).thenReturn(null)
+
+        val componentName =
+            TapTargetModule.provideTapShareFulfillmentActivityComponent(mockSettings)
+
         assertThat(componentName).isNull()
     }
 }
