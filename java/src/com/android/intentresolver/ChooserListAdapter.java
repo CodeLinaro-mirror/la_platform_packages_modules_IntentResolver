@@ -868,9 +868,7 @@ public class ChooserListAdapter extends ResolverListAdapter {
 
     @Override
     @MainThread
-    protected void onComponentsSorted(
-            @Nullable List<ResolvedComponentInfo> sortedComponents, boolean doPostProcessing) {
-        processSortedList(sortedComponents, doPostProcessing);
+    protected void onComponentsSorted(boolean doPostProcessing) {
         if (doPostProcessing) {
             notifyDataSetChanged();
         }
