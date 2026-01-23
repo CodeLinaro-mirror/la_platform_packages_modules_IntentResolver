@@ -402,7 +402,7 @@ public class ResolverListAdapter extends BaseAdapter {
                     otherProfileInfo,
                     mPm,
                     mTargetIntent,
-                    mResolverListCommunicator
+                    mResolverListController
             );
         } else {
             mOtherProfile = null;
@@ -474,7 +474,7 @@ public class ResolverListAdapter extends BaseAdapter {
     }
 
     @WorkerThread
-    protected void sortComponents(List<ResolvedComponentInfo> components) {
+    private void sortComponents(List<ResolvedComponentInfo> components) {
         mResolverListController.sort(components);
     }
 
@@ -573,8 +573,8 @@ public class ResolverListAdapter extends BaseAdapter {
         final Intent intent = rci.getIntentAt(0);
         final ResolveInfo add = rci.getResolveInfoAt(0);
         final Intent replaceIntent =
-                mResolverListCommunicator.getReplacementIntent(add.activityInfo, intent);
-        final Intent defaultIntent = mResolverListCommunicator.getReplacementIntent(
+                mResolverListController.getReplacementIntent(add.activityInfo, intent);
+        final Intent defaultIntent = mResolverListController.getReplacementIntent(
                 add.activityInfo, mTargetIntent);
         final DisplayResolveInfo dri = DisplayResolveInfo.newDisplayResolveInfo(
                 intent,
@@ -823,8 +823,6 @@ public class ResolverListAdapter extends BaseAdapter {
     public final List<ResolvedComponentInfo> getResolversForUser(UserHandle userHandle) {
         return mResolverListController.getResolversForIntentAsUser(
                 /* shouldGetResolvedFilter= */ true,
-                mResolverListCommunicator.shouldGetActivityMetadata(),
-                mResolverListCommunicator.shouldGetOnlyDefaultActivities(),
                 mIntents,
                 userHandle);
     }
@@ -872,13 +870,13 @@ public class ResolverListAdapter extends BaseAdapter {
             ResolvedComponentInfo resolvedComponentInfo,
             PackageManager pm,
             Intent targetIntent,
-            ResolverListCommunicator resolverListCommunicator) {
+            ResolverListController resolverListController) {
         ResolveInfo resolveInfo = resolvedComponentInfo.getResolveInfoAt(0);
 
-        Intent pOrigIntent = resolverListCommunicator.getReplacementIntent(
+        Intent pOrigIntent = resolverListController.getReplacementIntent(
                 resolveInfo.activityInfo,
                 resolvedComponentInfo.getIntentAt(0));
-        Intent replacementIntent = resolverListCommunicator.getReplacementIntent(
+        Intent replacementIntent = resolverListController.getReplacementIntent(
                 resolveInfo.activityInfo, targetIntent);
 
         return DisplayResolveInfo.newDisplayResolveInfo(
@@ -895,12 +893,6 @@ public class ResolverListAdapter extends BaseAdapter {
      */
     public interface ResolverListCommunicator {
 
-        Intent getReplacementIntent(ActivityInfo activityInfo, Intent defIntent);
-
-        // ResolverListCommunicator
-        default void updateProfileViewButton() {
-        }
-
         void onPostListReady(ResolverListAdapter listAdapter, boolean updateUi,
                 boolean rebuildCompleted);
 
@@ -908,16 +900,6 @@ public class ResolverListAdapter extends BaseAdapter {
 
         default boolean useLayoutWithDefault() {
             return false;
-        }
-
-        boolean shouldGetActivityMetadata();
-
-        /**
-         * @return true to filter only apps that can handle
-         *     {@link android.content.Intent#CATEGORY_DEFAULT} intents
-         */
-        default boolean shouldGetOnlyDefaultActivities() {
-            return true;
         }
     }
 

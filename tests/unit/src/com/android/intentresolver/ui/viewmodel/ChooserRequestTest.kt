@@ -40,7 +40,6 @@ import com.android.intentresolver.validation.Importance
 import com.android.intentresolver.validation.Invalid
 import com.android.intentresolver.validation.NoValue
 import com.android.intentresolver.validation.Valid
-import com.android.systemui.shared.Flags
 import com.google.common.truth.Truth.assertThat
 import org.junit.Rule
 import org.junit.Test
@@ -274,44 +273,28 @@ class ChooserRequestTest {
     }
 
     @Test
-    @DisableFlags(Flags.FLAG_SCREENSHOT_CONTEXT_URL)
-    fun testCallerAllowsTextToggle_flagOff() {
+    fun testCallerAllowsTextToggle_sysuiPackage_returnsTrue() {
         val intent = Intent().putExtras(bundleOf(EXTRA_INTENT to Intent(ACTION_SEND)))
         val model =
             createActivityModel(targetIntent = intent, launchedFromPackage = "com.android.systemui")
         val result = readChooserRequest(model)
 
         assertThat(result).isInstanceOf(Valid::class.java)
-        result as Valid<ChooserRequest>
+        val value = (result as Valid<ChooserRequest>).value
 
-        assertThat(result.value.callerAllowsTextToggle).isFalse()
+        assertThat(value.callerAllowsTextToggle).isTrue()
     }
 
     @Test
-    @EnableFlags(Flags.FLAG_SCREENSHOT_CONTEXT_URL)
-    fun testCallerAllowsTextToggle_sysuiPackage() {
-        val intent = Intent().putExtras(bundleOf(EXTRA_INTENT to Intent(ACTION_SEND)))
-        val model =
-            createActivityModel(targetIntent = intent, launchedFromPackage = "com.android.systemui")
-        val result = readChooserRequest(model)
-
-        assertThat(result).isInstanceOf(Valid::class.java)
-        result as Valid<ChooserRequest>
-
-        assertThat(result.value.callerAllowsTextToggle).isTrue()
-    }
-
-    @Test
-    @EnableFlags(Flags.FLAG_SCREENSHOT_CONTEXT_URL)
-    fun testCallerAllowsTextToggle_otherPackage() {
+    fun testCallerAllowsTextToggle_otherPackage_returnsFalse() {
         val intent = Intent().putExtras(bundleOf(EXTRA_INTENT to Intent(ACTION_SEND)))
         val model =
             createActivityModel(targetIntent = intent, launchedFromPackage = "com.hello.world")
         val result = readChooserRequest(model)
 
         assertThat(result).isInstanceOf(Valid::class.java)
-        result as Valid<ChooserRequest>
+        val value = (result as Valid<ChooserRequest>).value
 
-        assertThat(result.value.callerAllowsTextToggle).isFalse()
+        assertThat(value.callerAllowsTextToggle).isFalse()
     }
 }

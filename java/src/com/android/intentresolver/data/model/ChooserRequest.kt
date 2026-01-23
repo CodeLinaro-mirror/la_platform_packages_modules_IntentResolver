@@ -31,7 +31,6 @@ import androidx.annotation.StringRes
 import com.android.intentresolver.ContentTypeHint
 import com.android.intentresolver.ext.hasAction
 import com.android.intentresolver.util.sanitizePayloadIntents
-import com.android.systemui.shared.Flags.screenshotContextUrl
 
 const val ANDROID_APP_SCHEME = "android-app"
 
@@ -211,6 +210,5 @@ data class ChooserRequest(
      */
     val crossProfilePayloadIntents by lazy { sanitizePayloadIntents(payloadIntents) }
 
-    val callerAllowsTextToggle =
-        screenshotContextUrl() && "com.android.systemui".equals(referrerPackage)
+    val callerAllowsTextToggle = "com.android.systemui".equals(referrerPackage)
 }

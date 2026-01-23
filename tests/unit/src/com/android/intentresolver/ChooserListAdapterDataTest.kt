@@ -32,6 +32,7 @@ import com.android.internal.logging.InstanceId
 import com.google.common.truth.Truth.assertThat
 import org.junit.Test
 import org.mockito.kotlin.any
+import org.mockito.kotlin.doAnswer
 import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
@@ -58,6 +59,7 @@ class ChooserListAdapterDataTest {
         mock<ResolverListController> {
             on { filterIneligibleActivities(any(), any()) } doReturn null
             on { filterLowPriority(any(), any()) } doReturn null
+            on { getReplacementIntent(any(), any()) } doAnswer { it.arguments[1] as Intent }
         }
     private val resolverListCommunicator = FakeResolverListCommunicator()
     private val userHandle = UserHandle.of(UserHandle.USER_CURRENT)
@@ -72,13 +74,7 @@ class ChooserListAdapterDataTest {
         val resolvedTargets = listOf(createResolvedComponentInfo(1), createResolvedComponentInfo(2))
         val targetIntent = Intent(Intent.ACTION_SEND)
         whenever(
-                resolverListController.getResolversForIntentAsUser(
-                    true,
-                    resolverListCommunicator.shouldGetActivityMetadata(),
-                    resolverListCommunicator.shouldGetOnlyDefaultActivities(),
-                    payloadIntents,
-                    userHandle,
-                )
+                resolverListController.getResolversForIntentAsUser(true, payloadIntents, userHandle)
             )
             .thenReturn(ArrayList(resolvedTargets))
         val initialActivityInfo = createActivityInfo(3)
@@ -132,13 +128,7 @@ class ChooserListAdapterDataTest {
         val resolvedTargets = listOf(createResolvedComponentInfo(1), createResolvedComponentInfo(2))
         val targetIntent = Intent(Intent.ACTION_SEND)
         whenever(
-                resolverListController.getResolversForIntentAsUser(
-                    true,
-                    resolverListCommunicator.shouldGetActivityMetadata(),
-                    resolverListCommunicator.shouldGetOnlyDefaultActivities(),
-                    payloadIntents,
-                    userHandle,
-                )
+                resolverListController.getResolversForIntentAsUser(true, payloadIntents, userHandle)
             )
             .thenReturn(ArrayList(resolvedTargets))
         val activityInfo = resolvedTargets[1].getResolveInfoAt(0).activityInfo

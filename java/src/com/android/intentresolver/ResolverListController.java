@@ -60,6 +60,7 @@ public class ResolverListController {
     private static final String TAG = "ResolverListController";
     private static final boolean DEBUG = false;
     private final UserHandle mQueryIntentsAsUser;
+    private final boolean mShouldGetActivityMetadata;
 
     private AbstractResolverComparator mResolverComparator;
     private boolean isComputed = false;
@@ -71,7 +72,8 @@ public class ResolverListController {
             String referrerPackage,
             int launchedFromUid,
             AbstractResolverComparator resolverComparator,
-            UserHandle queryIntentsAsUser) {
+            UserHandle queryIntentsAsUser,
+            boolean shouldGetActivityMetadata) {
         mContext = context;
         mpm = pm;
         mLaunchedFromUid = launchedFromUid;
@@ -79,6 +81,7 @@ public class ResolverListController {
         mReferrerPackage = referrerPackage;
         mResolverComparator = resolverComparator;
         mQueryIntentsAsUser = queryIntentsAsUser;
+        mShouldGetActivityMetadata = shouldGetActivityMetadata;
     }
 
     @VisibleForTesting
@@ -103,15 +106,13 @@ public class ResolverListController {
      */
     public List<ResolvedComponentInfo> getResolversForIntentAsUser(
             boolean shouldGetResolvedFilter,
-            boolean shouldGetActivityMetadata,
-            boolean shouldGetOnlyDefaultActivities,
             List<Intent> intents,
             UserHandle userHandle) {
-        int baseFlags = (shouldGetOnlyDefaultActivities ? PackageManager.MATCH_DEFAULT_ONLY : 0)
+        int baseFlags = PackageManager.MATCH_DEFAULT_ONLY
                 | PackageManager.MATCH_DIRECT_BOOT_AWARE
                 | PackageManager.MATCH_DIRECT_BOOT_UNAWARE
                 | (shouldGetResolvedFilter ? PackageManager.GET_RESOLVED_FILTER : 0)
-                | (shouldGetActivityMetadata ? PackageManager.GET_META_DATA : 0)
+                | (mShouldGetActivityMetadata ? PackageManager.GET_META_DATA : 0)
                 | PackageManager.MATCH_CLONE_PROFILE;
         return getResolversForIntentAsUserInternal(intents, userHandle, baseFlags);
     }
@@ -257,6 +258,11 @@ public class ResolverListController {
 
     @WorkerThread
     public void sort(List<ResolvedComponentInfo> inputList) {
+        sortInternal(inputList);
+    }
+
+    @WorkerThread
+    private void sortInternal(List<ResolvedComponentInfo> inputList) {
         try {
             long beforeRank = System.currentTimeMillis();
             if (!isComputed) {
@@ -274,14 +280,14 @@ public class ResolverListController {
     }
 
     @WorkerThread
-    public void topK(List<ResolvedComponentInfo> inputList, int k) {
+    public final void topK(List<ResolvedComponentInfo> inputList, int k) {
         if (inputList == null || inputList.isEmpty() || k <= 0) {
             return;
         }
         if (inputList.size() <= k) {
             // Fall into normal sort when number of ranked elements
             // needed is not smaller than size of input list.
-            sort(inputList);
+            sortInternal(inputList);
             return;
         }
         try {
@@ -366,5 +372,10 @@ public class ResolverListController {
 
     public void destroy() {
         mResolverComparator.destroy();
+    }
+
+    /** Customize the launching intent for the target. */
+    public Intent getReplacementIntent(ActivityInfo aInfo, Intent defIntent) {
+        return defIntent;
     }
 }

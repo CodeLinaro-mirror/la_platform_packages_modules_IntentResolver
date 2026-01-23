@@ -561,11 +561,6 @@ public class ResolverActivity extends Hilt_ResolverActivity implements
         }
     }
 
-    @Override // ResolverListCommunicator
-    public Intent getReplacementIntent(ActivityInfo aInfo, Intent defIntent) {
-        return defIntent;
-    }
-
     protected void onListRebuilt(ResolverListAdapter listAdapter, boolean rebuildCompleted) {
         final ItemClickListener listener = new ItemClickListener();
         setupAdapterListView((ListView) mMultiProfilePagerAdapter.getActiveAdapterView(), listener);
@@ -735,11 +730,6 @@ public class ResolverActivity extends Hilt_ResolverActivity implements
         return !target.isSuspended();
     }
 
-    @Override // ResolverListCommunicator
-    public boolean shouldGetActivityMetadata() {
-        return false;
-    }
-
     public boolean shouldAutoLaunchSingleChoice(TargetInfo target) {
         return !target.isSuspended();
     }
@@ -762,7 +752,8 @@ public class ResolverActivity extends Hilt_ResolverActivity implements
                 mViewModel.getActivityModel().getReferrerPackage(),
                 mViewModel.getActivityModel().getLaunchedFromUid(),
                 resolverComparator,
-                mProfiles.getQueryIntentsHandle(userHandle));
+                mProfiles.getQueryIntentsHandle(userHandle),
+                /*shouldGetActivityMetadata =*/ false);
     }
 
     /**
