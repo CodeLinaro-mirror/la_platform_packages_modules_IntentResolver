@@ -39,7 +39,7 @@ import org.mockito.junit.MockitoJUnit
 import org.mockito.junit.MockitoRule
 
 @RunWith(AndroidJUnit4::class)
-class TapShareModulesTest {
+class TapShareModuleTest {
 
     @get:Rule
     val mockitoRule: MockitoRule = MockitoJUnit.rule()
@@ -150,7 +150,7 @@ class TapShareModulesTest {
         `when`(mockSettings.getStringOrNull(TAP_EVENT_SERVICE_COMPONENT))
             .thenReturn(testTapEventService.flattenToString())
 
-        val componentName = TapTargetModule.provideTapEventServiceComponent(mockSettings)
+        val componentName = TapShareModule.provideTapEventServiceComponent(mockSettings)
 
         assertThat(componentName).isEqualTo(testTapEventService)
     }
@@ -159,7 +159,7 @@ class TapShareModulesTest {
     fun provideTapEventServiceComponent_fromSettings_emptyReturnsNull() {
         `when`(mockSettings.getStringOrNull(TAP_EVENT_SERVICE_COMPONENT)).thenReturn("")
 
-        val componentName = TapTargetModule.provideTapEventServiceComponent(mockSettings)
+        val componentName = TapShareModule.provideTapEventServiceComponent(mockSettings)
 
         assertThat(componentName).isNull()
     }
@@ -168,7 +168,7 @@ class TapShareModulesTest {
     fun provideTapEventServiceComponent_fromSettings_nullReturnsNull() {
         `when`(mockSettings.getStringOrNull(TAP_EVENT_SERVICE_COMPONENT)).thenReturn(null)
 
-        val componentName = TapTargetModule.provideTapEventServiceComponent(mockSettings)
+        val componentName = TapShareModule.provideTapEventServiceComponent(mockSettings)
 
         assertThat(componentName).isNull()
     }
@@ -179,7 +179,7 @@ class TapShareModulesTest {
             .thenReturn(testFulfillmentActivity.flattenToString())
 
         val componentName =
-            TapTargetModule.provideTapShareFulfillmentActivityComponent(mockSettings)
+            TapShareModule.provideTapShareFulfillmentActivityComponent(mockSettings)
 
         assertThat(componentName).isEqualTo(testFulfillmentActivity)
     }
@@ -189,7 +189,7 @@ class TapShareModulesTest {
         `when`(mockSettings.getStringOrNull(TAP_SHARE_FULFILLMENT_ACTIVITY_COMPONENT)).thenReturn("")
 
         val componentName =
-            TapTargetModule.provideTapShareFulfillmentActivityComponent(mockSettings)
+            TapShareModule.provideTapShareFulfillmentActivityComponent(mockSettings)
 
         assertThat(componentName).isNull()
     }
@@ -199,7 +199,7 @@ class TapShareModulesTest {
         `when`(mockSettings.getStringOrNull(TAP_SHARE_FULFILLMENT_ACTIVITY_COMPONENT)).thenReturn(null)
 
         val componentName =
-            TapTargetModule.provideTapShareFulfillmentActivityComponent(mockSettings)
+            TapShareModule.provideTapShareFulfillmentActivityComponent(mockSettings)
 
         assertThat(componentName).isNull()
     }

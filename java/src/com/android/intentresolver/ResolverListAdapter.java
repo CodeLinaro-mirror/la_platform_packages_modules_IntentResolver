@@ -439,7 +439,8 @@ public class ResolverListAdapter extends BaseAdapter {
         if (filteredResolveList == null || filteredResolveList.size() < 2) {
             // No asynchronous work to do.
             setPlaceholderCount(0);
-            processSortedList(filteredResolveList, doPostProcessing);
+            processSortedList(filteredResolveList);
+            onSortedListProcessed(doPostProcessing);
             return true;
         }
 
@@ -467,7 +468,11 @@ public class ResolverListAdapter extends BaseAdapter {
                 throw t;
             } finally {
                 final List<ResolvedComponentInfo> result = sortedComponents;
-                mCallbackExecutor.execute(() -> onComponentsSorted(result, doPostProcessing));
+                mCallbackExecutor.execute(() -> {
+                    processSortedList(result);
+                    onSortedListProcessed(doPostProcessing);
+                    onComponentsSorted(doPostProcessing);
+                });
             }
         });
         return false;
@@ -479,14 +484,11 @@ public class ResolverListAdapter extends BaseAdapter {
     }
 
     @MainThread
-    protected void onComponentsSorted(
-            @Nullable List<ResolvedComponentInfo> sortedComponents, boolean doPostProcessing) {
-        processSortedList(sortedComponents, doPostProcessing);
+    protected void onComponentsSorted(boolean doPostProcessing) {
         notifyDataSetChanged();
     }
 
-    protected void processSortedList(
-            @Nullable List<ResolvedComponentInfo> sortedComponents, boolean doPostProcessing) {
+    private void processSortedList(@Nullable List<ResolvedComponentInfo> sortedComponents) {
         final int n = sortedComponents != null ? sortedComponents.size() : 0;
         Trace.beginSection("ResolverListAdapter#processSortedList:" + n);
         if (n != 0) {
@@ -531,7 +533,6 @@ public class ResolverListAdapter extends BaseAdapter {
                 }
             }
 
-
             for (ResolvedComponentInfo rci : sortedComponents) {
                 final ResolveInfo ri = rci.getResolveInfoAt(0);
                 if (ri != null) {
@@ -540,10 +541,13 @@ public class ResolverListAdapter extends BaseAdapter {
             }
         }
 
+        Trace.endSection();
+    }
+
+    private void onSortedListProcessed(boolean doPostProcessing) {
         mResolverListCommunicator.sendVoiceChoicesIfNeeded();
         postListReadyRunnable(doPostProcessing, /* rebuildCompleted */ true);
         mIsTabLoaded = true;
-        Trace.endSection();
     }
 
     /**
