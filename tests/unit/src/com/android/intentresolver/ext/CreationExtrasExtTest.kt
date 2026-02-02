@@ -17,7 +17,7 @@
 package com.android.intentresolver.ext
 
 import android.graphics.Point
-import androidx.core.os.bundleOf
+import android.os.Bundle
 import androidx.lifecycle.DEFAULT_ARGS_KEY
 import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewmodel.MutableCreationExtras
@@ -40,7 +40,7 @@ class CreationExtrasExtTest {
     fun addDefaultArgs_addsToExisting() {
         val creationExtras: CreationExtras =
             MutableCreationExtras().apply {
-                set(DEFAULT_ARGS_KEY, bundleOf("POINT1" to Point(1, 1)))
+                set(DEFAULT_ARGS_KEY, Bundle().apply { putParcelable("POINT1", Point(1, 1)) })
             }
 
         val updated = creationExtras.addDefaultArgs("POINT2" to Point(2, 2))
@@ -56,7 +56,7 @@ class CreationExtrasExtTest {
     fun replaceDefaultArgs_replacesExisting() {
         val creationExtras: CreationExtras =
             MutableCreationExtras().apply {
-                set(DEFAULT_ARGS_KEY, bundleOf("POINT1" to Point(1, 1)))
+                set(DEFAULT_ARGS_KEY, Bundle().apply { putParcelable("POINT1", Point(1, 1)) })
             }
 
         val updated = creationExtras.replaceDefaultArgs("POINT2" to Point(2, 2))
