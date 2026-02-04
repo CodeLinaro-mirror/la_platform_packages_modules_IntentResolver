@@ -65,8 +65,6 @@ class ChooserListAdapterTest {
             context,
             emptyList(),
             emptyArray(),
-            emptyList(),
-            false,
             resolverListController,
             userHandle,
             Intent(),
