@@ -18,7 +18,6 @@ package com.android.intentresolver.ext
 
 import android.os.Bundle
 import android.os.Parcelable
-import androidx.core.os.bundleOf
 import androidx.lifecycle.DEFAULT_ARGS_KEY
 import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewmodel.MutableCreationExtras
@@ -29,12 +28,13 @@ import androidx.lifecycle.viewmodel.MutableCreationExtras
  */
 fun CreationExtras.addDefaultArgs(vararg values: Pair<String, Parcelable>): CreationExtras {
     val defaultArgs: Bundle = get(DEFAULT_ARGS_KEY) ?: Bundle()
-    defaultArgs.putAll(bundleOf(*values))
+    defaultArgs.apply { for ((key, value) in values) putParcelable(key, value) }
     return MutableCreationExtras(this).apply { set(DEFAULT_ARGS_KEY, defaultArgs) }
 }
 
 fun CreationExtras.replaceDefaultArgs(vararg values: Pair<String, Parcelable>): CreationExtras {
     val mutableExtras = if (this is MutableCreationExtras) this else MutableCreationExtras(this)
-    mutableExtras[DEFAULT_ARGS_KEY] = bundleOf(*values)
+    mutableExtras[DEFAULT_ARGS_KEY] =
+        Bundle().apply { for ((key, value) in values) putParcelable(key, value) }
     return mutableExtras
 }

@@ -32,6 +32,7 @@ import android.content.Intent.EXTRA_REPLACEMENT_EXTRAS
 import android.content.IntentSender
 import android.graphics.Rect
 import android.os.Binder
+import android.os.Bundle
 import android.os.IBinder
 import android.os.IBinder.DeathRecipient
 import android.os.IInterface
@@ -41,7 +42,6 @@ import android.os.ShellCallback
 import android.service.chooser.ChooserTarget
 import android.service.chooser.IChooserController
 import android.service.chooser.IChooserControllerCallback
-import androidx.core.os.bundleOf
 import androidx.lifecycle.SavedStateHandle
 import com.android.intentresolver.contentpreview.payloadtoggle.data.repository.PendingSelectionCallbackRepository
 import com.android.intentresolver.data.model.ChooserRequest
@@ -332,7 +332,11 @@ class InteractiveSessionInteractorTest {
                 )
             )
         val newAdditionalIntents = arrayOf(Intent(ACTION_RUN))
-        val newReplacementExtras = bundleOf("ONE" to 1, "TWO" to 2)
+        val newReplacementExtras =
+            Bundle().apply {
+                putInt("ONE", 1)
+                putInt("TWO", 2)
+            }
         val newInitialIntents = arrayOf(Intent(ACTION_QUICK_VIEW))
         val newResultSender = IntentSender(Binder())
         val newRefinementSender = IntentSender(Binder())
