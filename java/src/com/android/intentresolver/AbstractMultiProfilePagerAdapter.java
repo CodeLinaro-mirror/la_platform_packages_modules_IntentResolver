@@ -15,6 +15,8 @@
  */
 package com.android.intentresolver;
 
+import static com.android.intentresolver.util.IntentUtils.isCrossProfileIntent;
+
 import android.annotation.IntDef;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
@@ -360,9 +362,9 @@ public abstract class AbstractMultiProfilePagerAdapter extends PagerAdapter {
                 @UserIdInt int target) {
             IPackageManager packageManager = AppGlobals.getPackageManager();
 
-            return intents.stream().anyMatch(intent ->
-                    null != IntentForwarderActivity.canForward(intent, source, target,
-                            packageManager, intent.resolveTypeIfNeeded(mContentResolver)));
+            return intents.stream()
+                    .anyMatch(intent -> isCrossProfileIntent(
+                            intent, source, target, packageManager, mContentResolver));
         }
     }
 
