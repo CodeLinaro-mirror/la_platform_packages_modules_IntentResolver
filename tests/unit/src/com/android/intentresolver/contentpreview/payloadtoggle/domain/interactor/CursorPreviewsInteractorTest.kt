@@ -21,12 +21,12 @@ package com.android.intentresolver.contentpreview.payloadtoggle.domain.interacto
 import android.database.Cursor
 import android.database.MatrixCursor
 import android.net.Uri
+import android.os.Bundle
 import android.provider.MediaStore.MediaColumns.HEIGHT
 import android.provider.MediaStore.MediaColumns.WIDTH
 import android.service.chooser.AdditionalContentContract.Columns.URI
 import android.service.chooser.AdditionalContentContract.CursorExtraKeys.POSITION
 import android.util.Size
-import androidx.core.os.bundleOf
 import com.android.intentresolver.contentpreview.FileInfo
 import com.android.intentresolver.contentpreview.UriMetadataReader
 import com.android.intentresolver.contentpreview.payloadtoggle.data.repository.cursorPreviewsRepository
@@ -102,7 +102,7 @@ class CursorPreviewsInteractorTest {
         val cursor: CursorView<CursorRow?> =
             MatrixCursor(arrayOf(URI, WIDTH, HEIGHT))
                 .apply {
-                    extras = bundleOf(POSITION to cursorStartPosition)
+                    extras = Bundle().apply { putInt(POSITION, cursorStartPosition) }
                     for (i in cursorRange) {
                         val size = cursorSizes[i]
                         addRow(
@@ -341,7 +341,7 @@ class CursorPreviewsInteractorTest {
         ) { deps ->
             val cursor =
                 MatrixCursor(arrayOf(URI)).apply {
-                    extras = bundleOf(POSITION to 4)
+                    extras = Bundle().apply { putInt(POSITION, 4) }
                     for (i in 0 until 10) {
                         addRow(arrayOf(uri(i)))
                     }

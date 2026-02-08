@@ -19,12 +19,9 @@ package com.android.intentresolver.widget
 import android.graphics.Bitmap
 import android.net.Uri
 import android.util.Size
-import com.android.intentresolver.captureMany
-import com.android.intentresolver.mock
 import com.android.intentresolver.widget.ScrollableImagePreviewView.BatchPreviewLoader
 import com.android.intentresolver.widget.ScrollableImagePreviewView.Preview
 import com.android.intentresolver.widget.ScrollableImagePreviewView.PreviewType
-import com.android.intentresolver.withArgCaptor
 import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -40,9 +37,11 @@ import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
-import org.mockito.Mockito.atLeast
-import org.mockito.Mockito.times
-import org.mockito.Mockito.verify
+import org.mockito.kotlin.argumentCaptor
+import org.mockito.kotlin.atLeast
+import org.mockito.kotlin.mock
+import org.mockito.kotlin.times
+import org.mockito.kotlin.verify
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class BatchPreviewLoaderTest {
@@ -81,7 +80,9 @@ class BatchPreviewLoaderTest {
         dispatcher.scheduler.advanceUntilIdle()
 
         verify(onCompletion, times(1)).invoke()
-        val list = withArgCaptor { verify(onUpdate, times(1)).invoke(capture()) }.map { it.uri }
+        val captor = argumentCaptor<List<Preview>>()
+        verify(onUpdate, times(1)).invoke(captor.capture())
+        val list = captor.firstValue.map { it.uri }
         assertThat(list).containsExactly(uriOne, uriTwo).inOrder()
     }
 
@@ -104,7 +105,9 @@ class BatchPreviewLoaderTest {
         dispatcher.scheduler.advanceUntilIdle()
 
         verify(onCompletion, times(1)).invoke()
-        val list = withArgCaptor { verify(onUpdate, times(1)).invoke(capture()) }.map { it.uri }
+        val captor = argumentCaptor<List<Preview>>()
+        verify(onUpdate, times(1)).invoke(captor.capture())
+        val list = captor.firstValue.map { it.uri }
         assertThat(list).containsExactly(uriOne, uriThree).inOrder()
     }
 
@@ -129,8 +132,10 @@ class BatchPreviewLoaderTest {
         dispatcher.scheduler.advanceUntilIdle()
 
         verify(onCompletion, times(1)).invoke()
+        val captor = argumentCaptor<List<Preview>>()
+        verify(onUpdate, atLeast(1)).invoke(captor.capture())
         val list =
-            captureMany { verify(onUpdate, atLeast(1)).invoke(capture()) }
+            captor.allValues
                 .fold(ArrayList<Preview>()) { acc, update -> acc.apply { addAll(update) } }
                 .map { it.uri }
         assertThat(list).containsExactly(*uris).inOrder()
@@ -158,8 +163,10 @@ class BatchPreviewLoaderTest {
         dispatcher.scheduler.advanceUntilIdle()
 
         verify(onCompletion, times(1)).invoke()
+        val captor = argumentCaptor<List<Preview>>()
+        verify(onUpdate, atLeast(1)).invoke(captor.capture())
         val list =
-            captureMany { verify(onUpdate, atLeast(1)).invoke(capture()) }
+            captor.allValues
                 .fold(ArrayList<Preview>()) { acc, update -> acc.apply { addAll(update) } }
                 .map { it.uri }
         assertThat(list).containsExactly(*expectedUris).inOrder()

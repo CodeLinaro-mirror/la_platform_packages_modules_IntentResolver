@@ -28,11 +28,9 @@ import android.content.Intent.EXTRA_REFERRER
 import android.content.Intent.EXTRA_TEXT
 import android.content.Intent.EXTRA_TITLE
 import android.net.Uri
-import android.platform.test.annotations.DisableFlags
-import android.platform.test.annotations.EnableFlags
+import android.os.Bundle
 import android.platform.test.flag.junit.SetFlagsRule
 import androidx.core.net.toUri
-import androidx.core.os.bundleOf
 import com.android.intentresolver.ContentTypeHint
 import com.android.intentresolver.data.model.ChooserRequest
 import com.android.intentresolver.shared.model.ActivityModel
@@ -80,7 +78,7 @@ class ChooserRequestTest {
     fun referrerFillIn() {
         val referrer = Uri.parse("android-app://example.com")
         val model = createActivityModel(targetIntent = Intent(ACTION_SEND), referrer)
-        model.intent.putExtras(bundleOf(EXTRA_REFERRER to referrer))
+        model.intent.putExtras(Bundle().apply { putParcelable(EXTRA_REFERRER, referrer) })
 
         val result = readChooserRequest(model)
 
@@ -95,7 +93,8 @@ class ChooserRequestTest {
     @Test
     fun referrerPackage_isNullWithNonAppReferrer() {
         val referrer = Uri.parse("http://example.com")
-        val intent = Intent().putExtras(bundleOf(EXTRA_INTENT to Intent(ACTION_SEND)))
+        val intent =
+            Intent().putExtras(Bundle().apply { putParcelable(EXTRA_INTENT, Intent(ACTION_SEND)) })
 
         val model = createActivityModel(targetIntent = intent, referrer = referrer)
 
@@ -112,7 +111,7 @@ class ChooserRequestTest {
         val referrer = Uri.parse("android-app://example.com")
         val model = createActivityModel(targetIntent = Intent(ACTION_SEND), referrer)
 
-        model.intent.putExtras(bundleOf(EXTRA_REFERRER to referrer))
+        model.intent.putExtras(Bundle().apply { putParcelable(EXTRA_REFERRER, referrer) })
 
         val result = readChooserRequest(model)
 
@@ -138,7 +137,8 @@ class ChooserRequestTest {
 
     @Test
     fun testRequest_withOnlyRequiredValues() {
-        val intent = Intent().putExtras(bundleOf(EXTRA_INTENT to Intent(ACTION_SEND)))
+        val intent =
+            Intent().putExtras(Bundle().apply { putParcelable(EXTRA_INTENT, Intent(ACTION_SEND)) })
         val model = createActivityModel(targetIntent = intent)
 
         val result = readChooserRequest(model)
@@ -274,7 +274,8 @@ class ChooserRequestTest {
 
     @Test
     fun testCallerAllowsTextToggle_sysuiPackage_returnsTrue() {
-        val intent = Intent().putExtras(bundleOf(EXTRA_INTENT to Intent(ACTION_SEND)))
+        val intent =
+            Intent().putExtras(Bundle().apply { putParcelable(EXTRA_INTENT, Intent(ACTION_SEND)) })
         val model =
             createActivityModel(targetIntent = intent, launchedFromPackage = "com.android.systemui")
         val result = readChooserRequest(model)
@@ -287,7 +288,8 @@ class ChooserRequestTest {
 
     @Test
     fun testCallerAllowsTextToggle_otherPackage_returnsFalse() {
-        val intent = Intent().putExtras(bundleOf(EXTRA_INTENT to Intent(ACTION_SEND)))
+        val intent =
+            Intent().putExtras(Bundle().apply { putParcelable(EXTRA_INTENT, Intent(ACTION_SEND)) })
         val model =
             createActivityModel(targetIntent = intent, launchedFromPackage = "com.hello.world")
         val result = readChooserRequest(model)

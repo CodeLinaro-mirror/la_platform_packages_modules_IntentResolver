@@ -20,10 +20,10 @@ import android.content.ContentInterface
 import android.content.Intent
 import android.database.Cursor
 import android.net.Uri
+import android.os.Bundle
 import android.provider.MediaStore.MediaColumns.HEIGHT
 import android.provider.MediaStore.MediaColumns.WIDTH
 import android.service.chooser.AdditionalContentContract.Columns.URI
-import androidx.core.os.bundleOf
 import com.android.intentresolver.contentpreview.payloadtoggle.domain.model.CursorRow
 import com.android.intentresolver.contentpreview.readSize
 import com.android.intentresolver.domain.UriCallerReadAccessValidator
@@ -58,7 +58,7 @@ constructor(
                     contentResolver.query(
                         safeUri,
                         arrayOf(URI, WIDTH, HEIGHT),
-                        bundleOf(Intent.EXTRA_INTENT to chooserIntent),
+                        Bundle().apply { putParcelable(Intent.EXTRA_INTENT, chooserIntent) },
                         signal,
                     )
                 }
