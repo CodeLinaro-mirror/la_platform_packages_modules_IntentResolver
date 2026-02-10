@@ -41,6 +41,7 @@ import android.app.ActivityManager;
 import android.app.ActivityOptions;
 import android.app.ActivityThread;
 import android.app.VoiceInteractor;
+import android.app.WindowConfiguration;
 import android.app.admin.DevicePolicyEventLogger;
 import android.app.prediction.AppPredictor;
 import android.app.prediction.AppTarget;
@@ -2889,9 +2890,12 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
     }
 
     private boolean isDesktopEnvironment() {
-        return getPackageManager().hasSystemFeature(
-                PackageManager.FEATURE_FREEFORM_WINDOW_MANAGEMENT)
-                && isInMultiWindowMode();
+        Configuration config = getResources().getConfiguration();
+        WindowConfiguration winConfig = config == null
+                ? null
+                : config.windowConfiguration;
+        return winConfig != null
+                && winConfig.getWindowingMode() == WindowConfiguration.WINDOWING_MODE_FREEFORM;
     }
 
     private boolean isWindowEnterAnimationDisabled() {
