@@ -16,8 +16,6 @@
 
 package com.android.intentresolver.grid;
 
-import static com.android.intentresolver.Flags.useRecyclerViewDecorations;
-
 import android.animation.AnimatorSet;
 import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
@@ -26,15 +24,12 @@ import android.database.DataSetObserver;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.View.MeasureSpec;
-import android.view.View.OnClickListener;
 import android.view.ViewGroup;
 import android.view.ViewGroup.LayoutParams;
 import android.view.animation.DecelerateInterpolator;
-import android.widget.Space;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.android.intentresolver.ChooserListAdapter;
@@ -78,9 +73,7 @@ public final class ChooserGridAdapter
 
     private static final int VIEW_TYPE_DIRECT_SHARE = 0;
     private static final int VIEW_TYPE_NORMAL = 1;
-    private static final int VIEW_TYPE_AZ_LABEL = 4;
     private static final int VIEW_TYPE_CALLER_AND_RANK = 5;
-    private static final int VIEW_TYPE_FOOTER = 6;
 
     private final ChooserActivityDelegate mChooserActivityDelegate;
     private final ChooserListAdapter mChooserListAdapter;
@@ -89,14 +82,8 @@ public final class ChooserGridAdapter
     private final int mMaxTargetsPerRow;
     private final boolean mShouldShowDirectTargets;
     private final int mChooserRowTextOptionTranslatePixelSize;
-    @Nullable
-    private RecyclerView mRecyclerView;
 
     private int mChooserTargetWidth = 0;
-
-    private int mFooterHeight = 0;
-
-    private boolean mAzLabelVisibility = false;
 
     public ChooserGridAdapter(
             Context context,
@@ -132,25 +119,6 @@ public final class ChooserGridAdapter
         });
     }
 
-    @Override
-    public void onAttachedToRecyclerView(@NonNull RecyclerView recyclerView) {
-        mRecyclerView = recyclerView;
-    }
-
-    @Override
-    public void onDetachedFromRecyclerView(@NonNull RecyclerView recyclerView) {
-        mRecyclerView = null;
-    }
-
-    public void setFooterHeight(int height) {
-        if (mFooterHeight != height) {
-            mFooterHeight = height;
-            // we always have at least one view, the footer, see getItemCount() and
-            // getFooterRowCount()
-            notifyItemChanged(getItemCount() - 1);
-        }
-    }
-
     /**
      * Calculate the chooser target width to maximize space per item
      *
@@ -175,15 +143,10 @@ public final class ChooserGridAdapter
         return (int) (
                 getServiceTargetRowCount()
                         + getCallerAndRankedTargetRowCount()
-                        + getAzLabelRowCount()
                         + Math.ceil(
                         (float) mChooserListAdapter.getAlphaTargetCount()
                                 / mMaxTargetsPerRow)
             );
-    }
-
-    public int getFooterRowCount() {
-        return useRecyclerViewDecorations() ? 0 : 1;
     }
 
     public int getCallerAndRankedTargetRowCount() {
@@ -201,90 +164,31 @@ public final class ChooserGridAdapter
         return 0;
     }
 
-    public int getAzLabelRowCount() {
-        // Only show a label if the a-z list is showing
-        if (useRecyclerViewDecorations()) return 0;
-        return (mChooserListAdapter.getAlphaTargetCount() > 0) ? 1 : 0;
-    }
-
-    private int getAzLabelRowPosition() {
-        int azRowCount = getAzLabelRowCount();
-        if (azRowCount == 0) {
-            return -1;
-        }
-
-        return getServiceTargetRowCount()
-                + getCallerAndRankedTargetRowCount();
-    }
-
     @Override
     public int getItemCount() {
         return getServiceTargetRowCount()
                 + getCallerAndRankedTargetRowCount()
-                + getAzLabelRowCount()
-                + mChooserListAdapter.getAlphaTargetCount()
-                + getFooterRowCount();
+                + mChooserListAdapter.getAlphaTargetCount();
     }
 
     @NonNull
     @Override
     public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        switch (viewType) {
-            case VIEW_TYPE_AZ_LABEL:
-                return new ItemViewHolder(
-                        createAzLabelView(parent),
-                        viewType,
-                        null,
-                        null);
-            case VIEW_TYPE_NORMAL:
-                return new ItemViewHolder(
-                        mChooserListAdapter.createView(parent),
-                        viewType,
-                        mChooserActivityDelegate::onTargetSelected,
-                        mChooserActivityDelegate::onTargetLongPressed);
-            case VIEW_TYPE_DIRECT_SHARE:
-            case VIEW_TYPE_CALLER_AND_RANK:
-                return createItemGroupViewHolder(viewType, parent);
-            case VIEW_TYPE_FOOTER:
-                Space sp = new Space(parent.getContext());
-                sp.setLayoutParams(new RecyclerView.LayoutParams(
-                        LayoutParams.MATCH_PARENT, mFooterHeight));
-                return new FooterViewHolder(sp, viewType);
-            default:
-                // Since we catch all possible viewTypes above, no chance this is being called.
-                throw new IllegalStateException("unmatched view type");
-        }
-    }
-
-    /**
-     * Set the app divider's visibility, when it's present.
-     */
-    public void setAzLabelVisibility(boolean isVisible) {
-        if (mAzLabelVisibility == isVisible) {
-            return;
-        }
-        mAzLabelVisibility = isVisible;
-        int azRowPos = getAzLabelRowPosition();
-        if (azRowPos >= 0) {
-            if (mRecyclerView != null) {
-                for (int i = 0, size = mRecyclerView.getChildCount(); i < size; i++) {
-                    View child = mRecyclerView.getChildAt(i);
-                    if (mRecyclerView.getChildAdapterPosition(child) == azRowPos) {
-                        child.setVisibility(isVisible ? View.VISIBLE : View.GONE);
-                    }
-                }
-                return;
-            }
-            notifyItemChanged(azRowPos);
-        }
+        return switch (viewType) {
+            case VIEW_TYPE_NORMAL -> new ItemViewHolder(
+                    mChooserListAdapter.createView(parent),
+                    viewType,
+                    mChooserActivityDelegate::onTargetSelected,
+                    mChooserActivityDelegate::onTargetLongPressed);
+            case VIEW_TYPE_DIRECT_SHARE, VIEW_TYPE_CALLER_AND_RANK -> createItemGroupViewHolder(
+                    viewType, parent);
+            // Since we catch all possible viewTypes above, no chance this is being called.
+            default -> throw new IllegalStateException("unmatched view type");
+        };
     }
 
     @Override
-    public void onBindViewHolder(RecyclerView.ViewHolder holder, int position) {
-        if (holder.getItemViewType() == VIEW_TYPE_AZ_LABEL) {
-            holder.itemView.setVisibility(
-                    mAzLabelVisibility ? View.VISIBLE : View.INVISIBLE);
-        }
+    public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
         int viewType = ((ViewHolderBase) holder).getViewType();
         switch (viewType) {
             case VIEW_TYPE_DIRECT_SHARE:
@@ -311,13 +215,6 @@ public final class ChooserGridAdapter
         countSum += (count = getCallerAndRankedTargetRowCount());
         if (count > 0 && position < countSum) return VIEW_TYPE_CALLER_AND_RANK;
 
-        countSum += (count = getAzLabelRowCount());
-        if (count > 0 && position < countSum) return VIEW_TYPE_AZ_LABEL;
-
-        if (!useRecyclerViewDecorations() && (position == getItemCount() - 1)) {
-            return VIEW_TYPE_FOOTER;
-        }
-
         return VIEW_TYPE_NORMAL;
     }
 
@@ -327,17 +224,12 @@ public final class ChooserGridAdapter
 
     @Override
     public boolean hasDividerAboveRow(int firstRowPos) {
-        return useRecyclerViewDecorations()
-                && firstRowPos > 0
+        return firstRowPos > 0
                 && getItemViewType(firstRowPos) == VIEW_TYPE_NORMAL
                 && getItemViewType(firstRowPos - 1) == VIEW_TYPE_CALLER_AND_RANK;
     }
 
-    private View createAzLabelView(ViewGroup parent) {
-        return mLayoutInflater.inflate(R.layout.chooser_az_label_row, parent, false);
-    }
-
-    private ItemGroupViewHolder loadViewsIntoGroup(ItemGroupViewHolder holder) {
+    private void loadViewsIntoGroup(ItemGroupViewHolder holder) {
         final int spec = MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED);
         final int exactSpec = MeasureSpec.makeMeasureSpec(mChooserTargetWidth, MeasureSpec.EXACTLY);
         int columnCount = holder.getColumnCount();
@@ -347,12 +239,8 @@ public final class ChooserGridAdapter
         for (int i = 0; i < columnCount; i++) {
             final View v = mChooserListAdapter.createView(holder.getRowByIndex(i));
             final int column = i;
-            v.setOnClickListener(new OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    mChooserActivityDelegate.onTargetSelected(holder.getItemIndex(column));
-                }
-            });
+            v.setOnClickListener(
+                    v2 -> mChooserActivityDelegate.onTargetSelected(holder.getItemIndex(column)));
 
             // Show menu for both direct share and app share targets after long click.
             v.setOnLongClickListener(v1 -> {
@@ -390,7 +278,6 @@ public final class ChooserGridAdapter
         }
 
         viewGroup.setTag(holder);
-        return holder;
     }
 
     private void setViewBounds(View view, int widthPx, int heightPx) {
@@ -428,12 +315,6 @@ public final class ChooserGridAdapter
         // Merge caller and ranked standard into a single row
         int positionType = mChooserListAdapter.getPositionTargetType(rowPosition);
         if (positionType == ChooserListAdapter.TARGET_CALLER) {
-            return ChooserListAdapter.TARGET_STANDARD;
-        }
-
-        // If an A-Z label is shown, prevent a separator from appearing by making the A-Z
-        // row type the same as the suggestion row type
-        if (getAzLabelRowCount() > 0 && positionType == ChooserListAdapter.TARGET_STANDARD_AZ) {
             return ChooserListAdapter.TARGET_STANDARD;
         }
 
@@ -513,7 +394,7 @@ public final class ChooserGridAdapter
             return serviceCount + position * mMaxTargetsPerRow;
         }
 
-        position -= getAzLabelRowCount() + callerAndRankedRows;
+        position -= callerAndRankedRows;
 
         return callerAndRankedCount + serviceCount + position;
     }

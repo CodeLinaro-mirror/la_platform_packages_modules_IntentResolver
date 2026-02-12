@@ -45,13 +45,3 @@ flag {
     purpose: PURPOSE_BUGFIX
   }
 }
-
-flag {
-  name: "use_recycler_view_decorations"
-  namespace: "intentresolver"
-  description: "Use RecyclerView decorations to draw the app divider and footer."
-  bug: "338453190"
-  metadata {
-    purpose: PURPOSE_BUGFIX
-  }
-}
