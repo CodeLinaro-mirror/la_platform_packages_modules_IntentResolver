@@ -16,8 +16,6 @@
 
 package com.android.intentresolver.profiles;
 
-import static com.android.intentresolver.Flags.useRecyclerViewDecorations;
-
 import android.content.Context;
 import android.os.UserHandle;
 import android.view.LayoutInflater;
@@ -115,11 +113,7 @@ public class ChooserMultiProfilePagerAdapter extends MultiProfilePagerAdapter<
      */
     public void setIsCollapsed(boolean isCollapsed) {
         for (int i = 0, size = getItemCount(); i < size; i++) {
-            if (useRecyclerViewDecorations()) {
-                getListViewForIndex(i).setShowAppDivider(!isCollapsed);
-            } else {
-                getPageAdapterForIndex(i).setAzLabelVisibility(!isCollapsed);
-            }
+            getListViewForIndex(i).setShowAppDivider(!isCollapsed);
         }
     }
 
@@ -162,11 +156,7 @@ public class ChooserMultiProfilePagerAdapter extends MultiProfilePagerAdapter<
     /** Apply the specified {@code height} as the footer in each tab's adapter. */
     public void setFooterHeightInEveryAdapter(int height) {
         for (int i = 0; i < getItemCount(); ++i) {
-            if (useRecyclerViewDecorations()) {
-                getListViewForIndex(i).setFooterHeight(height);
-            } else {
-                getPageAdapterForIndex(i).setFooterHeight(height);
-            }
+            getListViewForIndex(i).setFooterHeight(height);
         }
     }
 
