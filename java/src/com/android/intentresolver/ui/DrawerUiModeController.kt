@@ -34,33 +34,30 @@ class DrawerUiModeController @Inject constructor(private val activity: Activity)
     private val bottomsheetMode: BottomsheetMode = BottomsheetMode()
     private val dialogMode: DialogMode = DialogMode()
     private var mode: UiMode? = null
-    private val drawer by lazy {
-        activity.requireViewById<ResolverDrawerLayout>(com.android.internal.R.id.contentPanel)
-    }
 
     fun switchToBottomsheet() {
         if (mode !== bottomsheetMode) {
             mode = bottomsheetMode
-            bottomsheetMode.configure(drawer)
+            bottomsheetMode.configure(activity)
         }
     }
 
     fun switchToDialog() {
         if (mode !== dialogMode) {
             mode = dialogMode
-            dialogMode.configure(drawer)
+            dialogMode.configure(activity)
         }
     }
 
     fun applyInsets(pagerAdapter: ChooserMultiProfilePagerAdapter, insets: Insets) {
-        mode?.appyInsets(drawer, pagerAdapter, insets)
+        mode?.appyInsets(activity, pagerAdapter, insets)
     }
 
     private sealed class UiMode {
-        abstract fun configure(drawer: ResolverDrawerLayout)
+        abstract fun configure(activity: Activity)
 
         abstract fun appyInsets(
-            drawer: ResolverDrawerLayout,
+            activity: Activity,
             pagerAdapter: ChooserMultiProfilePagerAdapter,
             insets: Insets,
         )
@@ -77,7 +74,9 @@ class DrawerUiModeController @Inject constructor(private val activity: Activity)
     }
 
     private class BottomsheetMode : UiMode() {
-        override fun configure(drawer: ResolverDrawerLayout) {
+        override fun configure(activity: Activity) {
+            activity.chooserContainer?.setPadding(0, 0, 0, 0)
+            val drawer = activity.drawer
             drawer.showAtTop = false
             drawer.setViewsVisibility(
                 dialogBottomDecor = false,
@@ -95,10 +94,11 @@ class DrawerUiModeController @Inject constructor(private val activity: Activity)
         }
 
         override fun appyInsets(
-            drawer: ResolverDrawerLayout,
+            activity: Activity,
             pagerAdapter: ChooserMultiProfilePagerAdapter,
             insets: Insets,
         ) {
+            val drawer = activity.drawer
             drawer.setPadding(insets.left, insets.top, insets.right, 0)
             // Need extra padding so the list can fully scroll up
             // To accommodate for window insets
@@ -111,7 +111,13 @@ class DrawerUiModeController @Inject constructor(private val activity: Activity)
     }
 
     private class DialogMode : UiMode() {
-        override fun configure(drawer: ResolverDrawerLayout) {
+        override fun configure(activity: Activity) {
+            activity.chooserContainer?.let { container ->
+                val padding =
+                    activity.resources.getDimensionPixelSize(R.dimen.dialog_vertical_spacing)
+                container.setPadding(0, padding, 0, padding)
+            }
+            val drawer = activity.drawer
             drawer.showAtTop = true
             drawer.setViewsVisibility(
                 dialogBottomDecor = true,
@@ -126,10 +132,11 @@ class DrawerUiModeController @Inject constructor(private val activity: Activity)
         }
 
         override fun appyInsets(
-            drawer: ResolverDrawerLayout,
+            activity: Activity,
             pagerAdapter: ChooserMultiProfilePagerAdapter,
             insets: Insets,
         ) {
+            val drawer = activity.drawer
             drawer.setPadding(0, 0, 0, 0)
             // Need extra padding so the list can fully scroll up
             // To accommodate for window insets
@@ -141,3 +148,9 @@ class DrawerUiModeController @Inject constructor(private val activity: Activity)
         }
     }
 }
+
+private val Activity.drawer: ResolverDrawerLayout
+    get() = requireViewById(com.android.internal.R.id.contentPanel)
+
+private val Activity.chooserContainer: View?
+    get() = findViewById(R.id.chooser_container)
