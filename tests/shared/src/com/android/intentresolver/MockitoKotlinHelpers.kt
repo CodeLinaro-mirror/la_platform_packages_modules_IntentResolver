@@ -22,7 +22,6 @@ import kotlin.DeprecationLevel.ERROR
 import kotlin.DeprecationLevel.WARNING
 import org.mockito.ArgumentCaptor
 import org.mockito.ArgumentMatcher
-import org.mockito.ArgumentMatchers
 import org.mockito.MockSettings
 import org.mockito.Mockito
 import org.mockito.stubbing.Answer
@@ -46,7 +45,7 @@ import org.mockito.stubbing.Stubber
 @Deprecated(
     "Replace with mockito-kotlin. See http://go/mockito-kotlin",
     ReplaceWith(expression = "eq", imports = ["org.mockito.kotlin.eq"]),
-    level = ERROR
+    level = ERROR,
 )
 inline fun <T> eq(obj: T): T = Mockito.eq<T>(obj) ?: obj
 
@@ -59,7 +58,7 @@ inline fun <T> eq(obj: T): T = Mockito.eq<T>(obj) ?: obj
 @Deprecated(
     "Replace with mockito-kotlin. See http://go/mockito-kotlin",
     ReplaceWith(expression = "same(obj)", imports = ["org.mockito.kotlin.same"]),
-    level = ERROR
+    level = ERROR,
 )
 inline fun <T> same(obj: T): T = Mockito.same<T>(obj) ?: obj
 
@@ -72,14 +71,14 @@ inline fun <T> same(obj: T): T = Mockito.same<T>(obj) ?: obj
 @Deprecated(
     "Replace with mockito-kotlin. See http://go/mockito-kotlin",
     ReplaceWith(expression = "any(type)", imports = ["org.mockito.kotlin.any"]),
-    level = WARNING
+    level = WARNING,
 )
 inline fun <T> any(type: Class<T>): T = Mockito.any<T>(type)
 
 @Deprecated(
     "Replace with mockito-kotlin. See http://go/mockito-kotlin",
     ReplaceWith(expression = "any()", imports = ["org.mockito.kotlin.any"]),
-    level = WARNING
+    level = WARNING,
 )
 inline fun <reified T> any(): T = any(T::class.java)
 
@@ -92,7 +91,7 @@ inline fun <reified T> any(): T = any(T::class.java)
 @Deprecated(
     "Replace with mockito-kotlin. See http://go/mockito-kotlin",
     ReplaceWith(expression = "argThat(matcher)", imports = ["org.mockito.kotlin.argThat"]),
-    level = WARNING
+    level = WARNING,
 )
 inline fun <T> argThat(matcher: ArgumentMatcher<T>): T = Mockito.argThat(matcher)
 
@@ -104,7 +103,7 @@ inline fun <T> argThat(matcher: ArgumentMatcher<T>): T = Mockito.argThat(matcher
 @Deprecated(
     "Replace with mockito-kotlin. See http://go/mockito-kotlin",
     ReplaceWith(expression = "anyOrNull()", imports = ["org.mockito.kotlin.anyOrNull"]),
-    level = ERROR
+    level = ERROR,
 )
 inline fun <reified T> nullable(): T? = Mockito.nullable(T::class.java)
 
@@ -119,7 +118,7 @@ inline fun <reified T> nullable(): T? = Mockito.nullable(T::class.java)
 @Deprecated(
     "Replace with mockito-kotlin. See http://go/mockito-kotlin",
     ReplaceWith(expression = "capture(argumentCaptor)", imports = ["org.mockito.kotlin.capture"]),
-    level = ERROR
+    level = ERROR,
 )
 inline fun <T> capture(argumentCaptor: ArgumentCaptor<T>): T = argumentCaptor.capture()
 
@@ -133,7 +132,7 @@ inline fun <T> capture(argumentCaptor: ArgumentCaptor<T>): T = argumentCaptor.ca
 @Deprecated(
     "Replace with mockito-kotlin. See http://go/mockito-kotlin",
     ReplaceWith(expression = "argumentCaptor()", imports = ["org.mockito.kotlin.argumentCaptor"]),
-    level = ERROR
+    level = ERROR,
 )
 inline fun <reified T : Any> argumentCaptor(): ArgumentCaptor<T> =
     ArgumentCaptor.forClass(T::class.java)
@@ -163,16 +162,8 @@ inline fun <reified T : Any> argumentCaptor(): ArgumentCaptor<T> =
 @Deprecated("Replace with mockito-kotlin. See http://go/mockito-kotlin", level = WARNING)
 inline fun <reified T : Any> mock(
     mockSettings: MockSettings = Mockito.withSettings(),
-    apply: T.() -> Unit = {}
+    apply: T.() -> Unit = {},
 ): T = Mockito.mock(T::class.java, mockSettings).apply(apply)
-
-/** Matches any array of type T. */
-@Deprecated(
-    "Replace with mockito-kotlin. See http://go/mockito-kotlin",
-    ReplaceWith(expression = "anyArray()", imports = ["org.mockito.kotlin.anyArray"]),
-    level = ERROR
-)
-inline fun <reified T : Any?> anyArray(): Array<T> = Mockito.any(Array<T>::class.java) ?: arrayOf()
 
 /**
  * Helper function for stubbing methods without the need to use backticks.
@@ -184,7 +175,7 @@ inline fun <reified T : Any?> anyArray(): Array<T> = Mockito.any(Array<T>::class
 @Deprecated(
     "Replace with mockito-kotlin. See http://go/mockito-kotlin",
     ReplaceWith(expression = "whenever(methodCall)", imports = ["org.mockito.kotlin.whenever"]),
-    level = ERROR
+    level = ERROR,
 )
 inline fun <T> whenever(methodCall: T): OngoingStubbing<T> = Mockito.`when`(methodCall)
 
@@ -203,87 +194,9 @@ inline fun <T> whenever(methodCall: T): OngoingStubbing<T> = Mockito.`when`(meth
 @Deprecated(
     "Replace with mockito-kotlin. See http://go/mockito-kotlin",
     ReplaceWith(expression = "whenever(mock)", imports = ["org.mockito.kotlin.whenever"]),
-    level = ERROR
+    level = ERROR,
 )
 inline fun <T> Stubber.whenever(mock: T): T = `when`(mock)
-
-/**
- * A kotlin implemented wrapper of [ArgumentCaptor] which prevents the following exception when
- * kotlin tests are mocking kotlin objects and the methods take non-null parameters:
- *
- *     java.lang.NullPointerException: capture() must not be null
- */
-@Deprecated("Replace with mockito-kotlin. See http://go/mockito-kotlin", level = WARNING)
-class KotlinArgumentCaptor<T> constructor(clazz: Class<T>) {
-    private val wrapped: ArgumentCaptor<T> = ArgumentCaptor.forClass(clazz)
-    fun capture(): T = wrapped.capture()
-    val value: T
-        get() = wrapped.value
-    val allValues: List<T>
-        get() = wrapped.allValues
-}
-
-/**
- * Helper function for creating an argumentCaptor in kotlin.
- *
- * Generic T is nullable because implicitly bounded by Any?.
- *
- * @see org.mockito.kotlin.argumentCaptor
- */
-@Deprecated(
-    "Replace with mockito-kotlin. See http://go/mockito-kotlin",
-    ReplaceWith(expression = "argumentCaptor()", imports = ["org.mockito.kotlin.argumentCaptor"]),
-    level = WARNING
-)
-inline fun <reified T : Any> kotlinArgumentCaptor(): KotlinArgumentCaptor<T> =
-    KotlinArgumentCaptor(T::class.java)
-
-/**
- * Helper function for creating and using a single-use ArgumentCaptor in kotlin.
- *
- * val captor = argumentCaptor<Foo>() verify(...).someMethod(captor.capture()) val captured =
- * captor.value
- *
- * becomes:
- *
- * val captured = withArgCaptor<Foo> { verify(...).someMethod(capture()) }
- *
- * NOTE: this uses the KotlinArgumentCaptor to avoid the NullPointerException.
- *
- * @see org.mockito.kotlin.verify
- */
-@Suppress("DeprecatedCallableAddReplaceWith")
-@Deprecated("Replace with mockito-kotlin. See http://go/mockito-kotlin", level = WARNING)
-inline fun <reified T : Any> withArgCaptor(block: KotlinArgumentCaptor<T>.() -> Unit): T =
-    kotlinArgumentCaptor<T>().apply { block() }.value
-
-/**
- * Variant of [withArgCaptor] for capturing multiple arguments.
- *
- * val captor = argumentCaptor<Foo>() verify(...).someMethod(captor.capture()) val captured:
- * List<Foo> = captor.allValues
- *
- * becomes:
- *
- * val capturedList = captureMany<Foo> { verify(...).someMethod(capture()) }
- *
- * @see org.mockito.kotlin.verify
- */
-@Deprecated(
-    "Replace with mockito-kotlin. See http://go/mockito-kotlin",
-    ReplaceWith(expression = "capture()", imports = ["org.mockito.kotlin.capture"]),
-    level = WARNING
-)
-inline fun <reified T : Any> captureMany(block: KotlinArgumentCaptor<T>.() -> Unit): List<T> =
-    kotlinArgumentCaptor<T>().apply { block() }.allValues
-
-/** @see org.mockito.kotlin.anyOrNull */
-@Deprecated(
-    "Replace with mockito-kotlin. See http://go/mockito-kotlin",
-    ReplaceWith(expression = "anyOrNull()", imports = ["org.mockito.kotlin.anyOrNull"]),
-    level = ERROR
-)
-inline fun <reified T> anyOrNull() = ArgumentMatchers.argThat(ArgumentMatcher<T?> { true })
 
 /**
  * @see org.mockito.kotlin.mock

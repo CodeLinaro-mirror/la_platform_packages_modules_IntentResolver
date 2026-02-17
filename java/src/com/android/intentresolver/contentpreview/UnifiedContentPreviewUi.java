@@ -16,7 +16,6 @@
 
 package com.android.intentresolver.contentpreview;
 
-import static com.android.intentresolver.Flags.useActualPreviewHeight;
 import static com.android.intentresolver.contentpreview.ContentPreviewType.CONTENT_PREVIEW_IMAGE;
 
 import android.content.res.Resources;
@@ -140,9 +139,6 @@ class UnifiedContentPreviewUi extends ContentPreviewUi {
 
         ScrollableImagePreviewView imagePreview =
                 mContentPreviewView.requireViewById(R.id.scrollable_image_preview);
-        if (!useActualPreviewHeight()) {
-            imagePreview.setPreviewHeight(mPreviewSize);
-        }
         imagePreview.setImageLoader(mImageLoader);
         imagePreview.setOnNoPreviewCallback(() -> imagePreview.setVisibility(View.GONE));
         imagePreview.setTransitionElementStatusCallback(mTransitionElementStatusCallback);

@@ -165,8 +165,6 @@ public class ChooserListAdapter extends ResolverListAdapter {
             Context context,
             List<Intent> payloadIntents,
             Intent[] initialIntents,
-            List<ResolveInfo> rList,
-            boolean filterLastUsed,
             ResolverListController resolverListController,
             UserHandle userHandle,
             Intent targetIntent,
@@ -181,8 +179,6 @@ public class ChooserListAdapter extends ResolverListAdapter {
                 context,
                 payloadIntents,
                 initialIntents,
-                rList,
-                filterLastUsed,
                 resolverListController,
                 userHandle,
                 targetIntent,
@@ -203,8 +199,6 @@ public class ChooserListAdapter extends ResolverListAdapter {
             Context context,
             List<Intent> payloadIntents,
             Intent[] initialIntents,
-            List<ResolveInfo> rList,
-            boolean filterLastUsed,
             ResolverListController resolverListController,
             UserHandle userHandle,
             Intent targetIntent,
@@ -222,9 +216,9 @@ public class ChooserListAdapter extends ResolverListAdapter {
         super(
                 context,
                 payloadIntents,
-                null,
-                rList,
-                filterLastUsed,
+                /*initialIntents = */ null,
+                /*rList = */ null,
+                /*filterLastUsed = */ false,
                 resolverListController,
                 userHandle,
                 targetIntent,
@@ -868,9 +862,7 @@ public class ChooserListAdapter extends ResolverListAdapter {
 
     @Override
     @MainThread
-    protected void onComponentsSorted(
-            @Nullable List<ResolvedComponentInfo> sortedComponents, boolean doPostProcessing) {
-        processSortedList(sortedComponents, doPostProcessing);
+    protected void onComponentsSorted(boolean doPostProcessing) {
         if (doPostProcessing) {
             notifyDataSetChanged();
         }
