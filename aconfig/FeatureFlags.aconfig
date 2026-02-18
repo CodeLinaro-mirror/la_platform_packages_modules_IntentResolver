@@ -36,12 +36,3 @@ flag {
   bug: "361792274"
 }
 
-flag {
-  name: "limit_target_data_loading_threads"
-  namespace: "intentresolver"
-  description: "Limit the number of background threads (currently 4) that can be used to load per-target resources"
-  bug: "420992996"
-  metadata {
-    purpose: PURPOSE_BUGFIX
-  }
-}
