@@ -51,7 +51,7 @@ class TextContentPreviewUiTest {
 
             override fun getModifyShareAction(): ActionRow.Action? = null
 
-            override fun getExcludeSharedTextAction(): Consumer<Boolean> = Consumer<Boolean> {}
+            override fun getIncludeSharedTextAction(): Consumer<Boolean> = Consumer<Boolean> {}
         }
     private val imageLoader = mock<ImageLoader>()
     private val headlineGenerator =
@@ -86,12 +86,7 @@ class TextContentPreviewUiTest {
         val headlineRow = gridLayout.requireViewById<View>(R.id.chooser_headline_row_container)
 
         val previewView =
-            testSubject.display(
-                context.resources,
-                layoutInflater,
-                gridLayout,
-                headlineRow,
-            )
+            testSubject.display(context.resources, layoutInflater, gridLayout, headlineRow)
 
         assertThat(previewView).isNotNull()
         val headlineView = headlineRow.findViewById<TextView>(R.id.headline)
@@ -124,12 +119,7 @@ class TextContentPreviewUiTest {
             )
 
         val previewView =
-            albumSubject.display(
-                context.resources,
-                layoutInflater,
-                gridLayout,
-                headlineRow,
-            )
+            albumSubject.display(context.resources, layoutInflater, gridLayout, headlineRow)
 
         assertThat(previewView).isNotNull()
         val headlineView = headlineRow.findViewById<TextView>(R.id.headline)
