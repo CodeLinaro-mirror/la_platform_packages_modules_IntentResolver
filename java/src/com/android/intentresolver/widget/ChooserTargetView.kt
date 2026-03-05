@@ -22,7 +22,6 @@ import android.util.AttributeSet
 import android.util.TypedValue
 import android.view.View
 import androidx.recyclerview.widget.RecyclerView
-import com.android.intentresolver.Flags.useRecyclerViewDecorations
 import com.android.intentresolver.R
 import com.android.intentresolver.grid.AllAppDividerDecoration
 import kotlin.math.roundToInt
@@ -48,10 +47,8 @@ class ChooserTargetView : RecyclerView, TargetListScrollStateQuery {
     ) : super(context, attrs, defStyleAttr)
 
     init {
-        if (useRecyclerViewDecorations()) {
-            addItemDecoration(dividerDecoration)
-            addItemDecoration(footerDecoration)
-        }
+        addItemDecoration(dividerDecoration)
+        addItemDecoration(footerDecoration)
     }
 
     override val isAtTop: Boolean

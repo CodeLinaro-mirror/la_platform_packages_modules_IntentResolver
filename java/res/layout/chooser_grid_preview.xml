@@ -20,9 +20,9 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:androidprv="http://schemas.android.com/apk/prv/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/chooser_container"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:paddingVertical="@dimen/dialog_vertical_spacing">
+    android:layout_height="match_parent">
 
     <com.android.intentresolver.widget.ResolverDrawerLayout
         android:layout_width="match_parent"

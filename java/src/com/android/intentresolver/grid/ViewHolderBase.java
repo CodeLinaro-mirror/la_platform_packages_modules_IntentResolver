@@ -22,7 +22,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 /** Base class for all {@link RecyclerView.ViewHolder} types in the {@link ChooserGridAdapter}. */
 public abstract class ViewHolderBase extends RecyclerView.ViewHolder {
-    private int mViewType;
+    private final int mViewType;
 
     ViewHolderBase(View itemView, int viewType) {
         super(itemView);
