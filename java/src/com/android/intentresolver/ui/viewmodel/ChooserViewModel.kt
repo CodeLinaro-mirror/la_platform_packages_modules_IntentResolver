@@ -30,6 +30,7 @@ import com.android.intentresolver.contentpreview.payloadtoggle.ui.viewmodel.Shar
 import com.android.intentresolver.data.model.ChooserRequest
 import com.android.intentresolver.data.repository.ActivityModelRepository
 import com.android.intentresolver.data.repository.ChooserRequestRepository
+import com.android.intentresolver.data.repository.ChooserSelectionRepository
 import com.android.intentresolver.domain.saveUpdates
 import com.android.intentresolver.inject.Background
 import com.android.intentresolver.interactive.domain.interactor.InteractiveSessionInteractor
@@ -69,6 +70,7 @@ constructor(
     private val contentResolver: ContentInterface,
     val imageLoader: ImageLoader,
     private val interactiveSessionInteractorLazy: Lazy<InteractiveSessionInteractor>,
+    private val selectionRepository: Lazy<ChooserSelectionRepository>,
 ) : ViewModel() {
 
     /** Parcelable-only references provided from the creating Activity */
@@ -81,6 +83,13 @@ constructor(
         viewModelScope.launch(bgDispatcher) { fetchPreviewsInteractor.get().activate() }
         shareouselViewModelProvider.get()
     }
+
+    /* Whether include link checkbox is checked */
+    var isTextIncluded: Boolean
+        get() = selectionRepository.get().isTextIncluded
+        set(value) {
+            selectionRepository.get().isTextIncluded = value
+        }
 
     /**
      * A [StateFlow] of [ChooserRequest].

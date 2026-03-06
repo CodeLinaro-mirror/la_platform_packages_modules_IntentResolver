@@ -64,6 +64,7 @@ class FilesPlusTextContentPreviewUi extends ContentPreviewUi {
     private final boolean mIsSingleImage;
     private final int mFileCount;
     private final boolean mAllowTextToggle;
+    private final boolean mIsTextIncluded;
     private ViewGroup mContentPreviewView;
     private View mHeadliveView;
     private boolean mIsMetadataUpdated = false;
@@ -84,7 +85,8 @@ class FilesPlusTextContentPreviewUi extends ContentPreviewUi {
             MimeTypeClassifier typeClassifier,
             HeadlineGenerator headlineGenerator,
             @Nullable CharSequence metadata,
-            boolean allowTextToggle) {
+            boolean allowTextToggle,
+            boolean isTextIncluded) {
         if (isSingleImage && fileCount != 1) {
             throw new IllegalArgumentException(
                     "fileCount = " + fileCount + " and isSingleImage = true");
@@ -100,6 +102,7 @@ class FilesPlusTextContentPreviewUi extends ContentPreviewUi {
         mHeadlineGenerator = headlineGenerator;
         mMetadata = metadata;
         mAllowTextToggle = allowTextToggle;
+        mIsTextIncluded = isTextIncluded;
     }
 
     @Override
@@ -222,19 +225,20 @@ class FilesPlusTextContentPreviewUi extends ContentPreviewUi {
                 Typeface.create(FontStyles.GSF_LABEL_MEDIUM_BASELINE, Typeface.NORMAL));
         CheckBox includeText = headlineView.requireViewById(R.id.include_text_action);
         boolean isLink = HttpUriMatcher.isHttpUri(mText.toString());
-        textView.setText(mText);
+        textView.setText(
+                mIsTextIncluded ? mText : getNoTextString(contentPreview.getResources()));
 
-        final Consumer<Boolean> shareTextAction = actionFactory.getExcludeSharedTextAction();
-        includeText.setChecked(true);
+        final Consumer<Boolean> shareTextAction = actionFactory.getIncludeSharedTextAction();
+        includeText.setChecked(mIsTextIncluded);
         includeText.setText(isLink ? R.string.include_link : R.string.include_text);
-        shareTextAction.accept(false);
+        shareTextAction.accept(mIsTextIncluded);
         includeText.setOnCheckedChangeListener((view, isChecked) -> {
             if (isChecked) {
                 textView.setText(mText);
             } else {
                 textView.setText(getNoTextString(contentPreview.getResources()));
             }
-            shareTextAction.accept(!isChecked);
+            shareTextAction.accept(isChecked);
             updateHeadline(headlineView, mFileCount, mAllImages, mAllVideos);
         });
         if (mAllowTextToggle) {
