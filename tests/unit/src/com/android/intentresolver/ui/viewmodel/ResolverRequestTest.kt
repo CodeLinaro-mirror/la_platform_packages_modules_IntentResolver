@@ -18,9 +18,9 @@ package com.android.intentresolver.ui.viewmodel
 import android.content.Intent
 import android.content.Intent.ACTION_VIEW
 import android.net.Uri
+import android.os.Bundle
 import android.os.UserHandle
 import androidx.core.net.toUri
-import androidx.core.os.bundleOf
 import com.android.intentresolver.ResolverActivity.PROFILE_WORK
 import com.android.intentresolver.shared.model.ActivityModel
 import com.android.intentresolver.shared.model.Profile.Type.WORK
@@ -106,11 +106,11 @@ class ResolverRequestTest {
         val activity = createActivityModel(targetIntent = intent)
 
         activity.intent.putExtras(
-            bundleOf(
-                EXTRA_CALLING_USER to UserHandle.of(123),
-                EXTRA_SELECTED_PROFILE to PROFILE_WORK,
-                EXTRA_IS_AUDIO_CAPTURE_DEVICE to true,
-            )
+            Bundle().apply {
+                putParcelable(EXTRA_CALLING_USER, UserHandle.of(123))
+                putInt(EXTRA_SELECTED_PROFILE, PROFILE_WORK)
+                putBoolean(EXTRA_IS_AUDIO_CAPTURE_DEVICE, true)
+            }
         )
 
         val result = readResolverRequest(activity)

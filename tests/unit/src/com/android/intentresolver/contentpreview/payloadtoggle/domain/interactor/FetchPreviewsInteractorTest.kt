@@ -20,8 +20,8 @@ package com.android.intentresolver.contentpreview.payloadtoggle.domain.interacto
 
 import android.database.MatrixCursor
 import android.net.Uri
+import android.os.Bundle
 import android.util.Size
-import androidx.core.os.bundleOf
 import com.android.intentresolver.contentpreview.FileInfo
 import com.android.intentresolver.contentpreview.UriMetadataReader
 import com.android.intentresolver.contentpreview.payloadtoggle.data.repository.cursorPreviewsRepository
@@ -98,7 +98,7 @@ class FetchPreviewsInteractorTest {
             mutex.withLock {
                 MatrixCursor(arrayOf("uri"))
                     .apply {
-                        extras = bundleOf("position" to cursorStartPosition)
+                        extras = Bundle().apply { putInt("position", cursorStartPosition) }
                         for (i in cursorRange) {
                             newRow().add("uri", uri(i).toString())
                         }

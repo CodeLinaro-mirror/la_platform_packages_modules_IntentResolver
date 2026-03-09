@@ -409,7 +409,11 @@ constructor(
                                 PackageManager.GET_META_DATA.toLong()
                             ),
                         )
-                    appInfo.enabled && (appInfo.flags and ApplicationInfo.FLAG_SUSPENDED) == 0
+                    appInfo.enabled &&
+                        (appInfo.flags and ApplicationInfo.FLAG_SUSPENDED) == 0 &&
+                        !(android.security.Flags.appLockApis() &&
+                            android.security.Flags.appLockCore() &&
+                            isPackageAppLockEnabled(packageName))
                 }
                 .getOrDefault(false)
         }
