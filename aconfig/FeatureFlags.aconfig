@@ -26,3 +26,9 @@ flag {
   bug: "361792274"
 }
 
+flag {
+  name: "include_link_sticky_checkbox"
+  namespace: "intentresolver"
+  description: "Enable sticky value for include link checkbox in share sheet."
+  bug: "459772076"
+}
