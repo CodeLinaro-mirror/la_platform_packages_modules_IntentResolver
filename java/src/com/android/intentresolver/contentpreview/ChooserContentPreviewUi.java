@@ -84,14 +84,14 @@ public final class ChooserContentPreviewUi {
 
         /**
          * <p>
-         * Creates an exclude-text action that can be called when the user changes shared text
+         * Creates an include-text action that can be called when the user changes shared text
          * status in the Media + Text preview.
          * </p>
          * <p>
-         * <code>true</code> argument value indicates that the text should be excluded.
+         * <code>true</code> argument value indicates that the text should be included.
          * </p>
          */
-        Consumer<Boolean> getExcludeSharedTextAction();
+        Consumer<Boolean> getIncludeSharedTextAction();
     }
 
     @VisibleForTesting
@@ -110,7 +110,8 @@ public final class ChooserContentPreviewUi {
             TransitionElementStatusCallback transitionElementStatusCallback,
             HeadlineGenerator headlineGenerator,
             ContentTypeHint contentTypeHint,
-            @Nullable CharSequence metadata) {
+            @Nullable CharSequence metadata,
+            boolean isTextIncluded) {
         mScope = scope;
         mModifyShareActionFactory = modifyShareActionFactory;
         mContentPreviewUi = createContentPreview(
@@ -123,7 +124,8 @@ public final class ChooserContentPreviewUi {
                 transitionElementStatusCallback,
                 headlineGenerator,
                 contentTypeHint,
-                metadata
+                metadata,
+                isTextIncluded
         );
         if (mContentPreviewUi.getType() != CONTENT_PREVIEW_IMAGE) {
             transitionElementStatusCallback.onAllTransitionElementsReady();
@@ -140,7 +142,8 @@ public final class ChooserContentPreviewUi {
             TransitionElementStatusCallback transitionElementStatusCallback,
             HeadlineGenerator headlineGenerator,
             ContentTypeHint contentTypeHint,
-            @Nullable CharSequence metadata
+            @Nullable CharSequence metadata,
+            boolean isTextIncluded
     ) {
         int previewType = previewData.getPreviewType();
         if (previewType == CONTENT_PREVIEW_TEXT) {
@@ -189,7 +192,8 @@ public final class ChooserContentPreviewUi {
                             typeClassifier,
                             headlineGenerator,
                             metadata,
-                            chooserRequest.getCallerAllowsTextToggle()
+                            chooserRequest.getCallerAllowsTextToggle(),
+                            isTextIncluded
                     );
             if (previewData.getUriCount() > 0) {
                 JavaFlowHelper.collectToList(

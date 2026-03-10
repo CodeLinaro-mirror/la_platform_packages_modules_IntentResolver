@@ -314,7 +314,6 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
 
     private final Map<Integer, ProfileRecord> mProfileRecords = new LinkedHashMap<>();
 
-    private boolean mExcludeSharedText = false;
     /**
      * When we intend to finish the activity with a shared element transition, we can't immediately
      * finish() when the transition is invoked, as the receiving end may not be able to start the
@@ -655,7 +654,8 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                 mEnterTransitionAnimationDelegate,
                 new HeadlineGeneratorImpl(this),
                 mRequest.getContentTypeHint(),
-                mRequest.getMetadataText());
+                mRequest.getMetadataText(),
+                mViewModel.isTextIncluded());
         updateStickyContentPreview();
 
         mImageEditorActionFactory.getImageEditorTargetInfoAsync(
@@ -1980,7 +1980,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         // should probably never happen. But why would this method ever be invoked with a
         // null target at all? Even an out-of-bounds index should never be "selected"...
         if ((currentListAdapter.getCount() > 0) && (targetInfo != null)) {
-            boolean includedExtraTextWhenSharingFile = !mExcludeSharedText
+            boolean includedExtraTextWhenSharingFile = mViewModel.isTextIncluded()
                 && mRequest.getCallerAllowsTextToggle()
                 && mChooserContentPreviewUi != null
                 && mChooserContentPreviewUi.hasFilesPlusTextContentPreviewUi();
@@ -2108,7 +2108,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         // "image/png" and provides an alternative intent to share only the link with mime type
         // "text/uri". Should there be a target that accepts only the latter, the alternative intent
         // will be used and we don't want to exclude the link from it.
-        if (mExcludeSharedText && originalTargetIntent.filterEquals(targetIntent)) {
+        if (!mViewModel.isTextIncluded() && originalTargetIntent.filterEquals(targetIntent)) {
             targetIntent.removeExtra(Intent.EXTRA_TEXT);
         }
     }
@@ -2349,8 +2349,8 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
             }
 
             @Override
-            public Consumer<Boolean> getExcludeSharedTextAction() {
-                return originalFactory.getExcludeSharedTextAction();
+            public Consumer<Boolean> getIncludeSharedTextAction() {
+                return originalFactory.getIncludeSharedTextAction();
             }
         };
     }
@@ -2363,7 +2363,9 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                 mRequest.getChooserActions(),
                 mImageEditor,
                 getEventLog(),
-                (isExcluded) -> mExcludeSharedText = isExcluded,
+                (isIncluded) -> {
+                    mViewModel.setTextIncluded(isIncluded);
+                },
                 this::getFirstVisibleImgPreviewView,
                 new ChooserActionFactory.ActionActivityStarter() {
                     @Override

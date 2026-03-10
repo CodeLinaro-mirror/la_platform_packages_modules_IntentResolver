@@ -39,10 +39,14 @@ class FileContentPreviewUiTest {
     private val actionFactory =
         object : ChooserContentPreviewUi.ActionFactory {
             override fun getEditButtonRunnable(): Runnable? = null
+
             override fun getCopyButtonRunnable(): Runnable? = null
+
             override fun createCustomActions(): List<ActionRow.Action> = emptyList()
+
             override fun getModifyShareAction(): ActionRow.Action? = null
-            override fun getExcludeSharedTextAction(): Consumer<Boolean> = Consumer<Boolean> {}
+
+            override fun getIncludeSharedTextAction(): Consumer<Boolean> = Consumer<Boolean> {}
         }
     private val headlineGenerator =
         mock<HeadlineGenerator> { on { getFilesHeadline(fileCount) } doReturn text }
@@ -51,12 +55,7 @@ class FileContentPreviewUiTest {
         get() = InstrumentationRegistry.getInstrumentation().context
 
     private val testSubject =
-        FileContentPreviewUi(
-            fileCount,
-            actionFactory,
-            headlineGenerator,
-            testMetadataText,
-        )
+        FileContentPreviewUi(fileCount, actionFactory, headlineGenerator, testMetadataText)
 
     @Test
     fun test_display_titleAndMetadataIsDisplayed() {
@@ -70,12 +69,7 @@ class FileContentPreviewUiTest {
         assertThat(headlineRow.findViewById<View>(R.id.metadata)).isNull()
 
         val previewView =
-            testSubject.display(
-                context.resources,
-                layoutInflater,
-                gridLayout,
-                headlineRow,
-            )
+            testSubject.display(context.resources, layoutInflater, gridLayout, headlineRow)
 
         assertThat(previewView).isNotNull()
         val headlineView = headlineRow.findViewById<TextView>(R.id.headline)
