@@ -17,20 +17,26 @@
 package com.android.intentresolver.widget
 
 import android.content.Context
+import android.os.Handler
+import android.os.Message
 import android.platform.test.annotations.DisableFlags
 import android.platform.test.annotations.EnableFlags
 import android.platform.test.flag.junit.SetFlagsRule
 import android.service.chooser.Flags.FLAG_INTERACTIVE_CHOOSER
+import android.view.HandlerActionQueue
 import android.view.View
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.android.intentresolver.Flags
 import com.android.intentresolver.widget.ResolverDrawerLayout.calculateCollapsibleHeight
 import com.google.common.truth.Truth.assertThat
+import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.mockito.kotlin.mock
+import org.mockito.kotlin.verify
 
 @RunWith(AndroidJUnit4::class)
 class ResolverDrawerLayoutTest {
@@ -324,6 +330,29 @@ class ResolverDrawerLayoutTest {
         assertThat(layout.measuredHeight).isEqualTo(1000)
     }
 
+    @Test
+    @EnableFlags(Flags.FLAG_FIX_RESOLVER_DRAWER_LAYOUT_DISMISS)
+    fun dismiss_noScrollingNeeded_callbackGetsInvoked() {
+        val onDismissListener = mock<ResolverDrawerLayout.OnDismissedListener>()
+        val layout = ResolverDrawerLayout(context)
+        val child = View(context)
+        child.layoutParams = ResolverDrawerLayout.LayoutParams(100, 100)
+        layout.addView(child)
+
+        val widthSpec = View.MeasureSpec.makeMeasureSpec(500, View.MeasureSpec.EXACTLY)
+        val heightSpec = View.MeasureSpec.makeMeasureSpec(1000, View.MeasureSpec.EXACTLY)
+
+        layout.measure(widthSpec, heightSpec)
+        layout.layout(0, 0, layout.measuredWidth, layout.measuredHeight)
+        layout.setCollapseOffsetForTest(100f)
+        layout.setOnDismissedListener(onDismissListener)
+
+        layout.dismiss()
+        assumeTrue(layout.runPending())
+
+        verify(onDismissListener) { 1 * { onDismissed() } }
+    }
+
     private fun ResolverDrawerLayout.setCollapseOffsetForTest(value: Float) {
         val field = ResolverDrawerLayout::class.java.getDeclaredField("mCollapseOffset")
         field.isAccessible = true
@@ -346,5 +375,22 @@ class ResolverDrawerLayoutTest {
         val field = ResolverDrawerLayout::class.java.getDeclaredField("mCollapseOffset")
         field.isAccessible = true
         return field.getFloat(this)
+    }
+
+    private fun ResolverDrawerLayout.runPending(): Boolean {
+        val field =
+            runCatching { View::class.java.getDeclaredField("mRunQueue") }.getOrNull()
+                ?: return false
+        field.isAccessible = true
+        val queue = field.get(this) as? HandlerActionQueue ?: return false
+        queue.executeActions(
+            object : Handler(context.mainLooper) {
+                override fun sendMessageAtTime(msg: Message, uptimeMillis: Long): Boolean {
+                    msg.callback?.run() ?: return super.sendMessageAtTime(msg, uptimeMillis)
+                    return true
+                }
+            }
+        )
+        return true
     }
 }
