@@ -109,7 +109,7 @@ class SelectionChangeCallbackImplTest {
                 authorityCaptor.capture(),
                 methodCaptor.capture(),
                 argCaptor.capture(),
-                extraCaptor.capture(),
+                extraCaptor.capture()
             )
         assertWithMessage("Wrong additional content provider authority")
             .that(authorityCaptor.firstValue)
@@ -158,8 +158,8 @@ class SelectionChangeCallbackImplTest {
                         context,
                         1,
                         Intent("test"),
-                        PendingIntent.FLAG_IMMUTABLE,
-                    ),
+                        PendingIntent.FLAG_IMMUTABLE
+                    )
                 )
                 .build()
         val a2 =
@@ -170,8 +170,8 @@ class SelectionChangeCallbackImplTest {
                         context,
                         1,
                         Intent("test"),
-                        PendingIntent.FLAG_IMMUTABLE,
-                    ),
+                        PendingIntent.FLAG_IMMUTABLE
+                    )
                 )
                 .build()
         whenever(contentResolver.call(any<String>(), any(), any(), any()))
@@ -215,8 +215,8 @@ class SelectionChangeCallbackImplTest {
                         context,
                         1,
                         Intent("test"),
-                        PendingIntent.FLAG_IMMUTABLE,
-                    ),
+                        PendingIntent.FLAG_IMMUTABLE
+                    )
                 )
                 .build()
         whenever(contentResolver.call(any<String>(), any(), any(), any()))
@@ -308,7 +308,7 @@ class SelectionChangeCallbackImplTest {
                 Icon.createWithContentUri(createUri(1)),
                 0.99f,
                 ComponentName("org.pkg.app", ".ClassA"),
-                null,
+                null
             )
         val t2 =
             ChooserTarget(
@@ -316,7 +316,7 @@ class SelectionChangeCallbackImplTest {
                 Icon.createWithContentUri(createUri(1)),
                 1f,
                 ComponentName("org.pkg.app", ".ClassB"),
-                null,
+                null
             )
         whenever(contentResolver.call(any<String>(), any(), any(), any()))
             .thenReturn(
@@ -345,7 +345,7 @@ class SelectionChangeCallbackImplTest {
                             expected.icon == actual?.icon &&
                             expected.score == actual?.score
                     },
-                    "",
+                    ""
                 )
             )
             .containsExactly(t1, t2)
@@ -536,13 +536,7 @@ class SelectionChangeCallbackImplTest {
                 "org.pkg.app",
             )
         val testSubject =
-            SelectionChangeCallbackImpl(
-                uri,
-                chooserIntent,
-                contentResolver,
-                flags,
-                uriReadAccessValidator,
-            )
+            SelectionChangeCallbackImpl(uri, chooserIntent, contentResolver, uriReadAccessValidator)
 
         assertThat(testSubject.onSelectionChanged(Intent(ACTION_SEND))).isNull()
     }

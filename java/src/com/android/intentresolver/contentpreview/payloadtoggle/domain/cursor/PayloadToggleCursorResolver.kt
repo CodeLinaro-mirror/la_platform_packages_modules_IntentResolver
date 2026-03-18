@@ -53,18 +53,17 @@ constructor(
     }
 
     override suspend fun getCursor(): CursorView<CursorRow?>? = withCancellationSignal { signal ->
-        validatedCursorUri
-            ?.let { safeUri ->
-                runCatching {
-                        contentResolver.query(
-                            cursorUri,
-                            arrayOf(URI, WIDTH, HEIGHT),
-                            bundleOf(Intent.EXTRA_INTENT to chooserIntent),
-                            signal,
-                        )
-                    }
-                    .getOrNull()
+        runCatching {
+                validatedCursorUri?.let { safeUri ->
+                    contentResolver.query(
+                        safeUri,
+                        arrayOf(URI, WIDTH, HEIGHT),
+                        bundleOf(Intent.EXTRA_INTENT to chooserIntent),
+                        signal,
+                    )
+                }
             }
+            .getOrNull()
             ?.viewBy { readUri()?.let { uri -> CursorRow(uri, readSize(), position) } }
     }
 

@@ -429,9 +429,14 @@ public class IntentForwarderActivity extends Activity  {
         @Nullable
         public CompletableFuture<ResolveInfo> resolveActivityAsUser(Intent intent,
                 String resolvedType, int flags, int userId) {
-            return CompletableFuture.supplyAsync(
-                    () -> getPackageManager().resolveActivityAsUser(intent,
-                            resolvedType, flags, userId));
+            return CompletableFuture.supplyAsync(() -> {
+                try {
+                    return getIPackageManager().resolveIntent(intent, resolvedType, flags, userId);
+                } catch (RemoteException e) {
+                    Slog.e(TAG, "Error resolving intent", e);
+                    return null;
+                }
+            });
         }
 
         @Override
