@@ -13,6 +13,16 @@ flag {
 }
 
 flag {
+  name: "fix_resolver_drawer_layout_dismiss"
+  namespace: "intentresolver"
+  description: "Enable fixed ResolverDrawerLayout dismiss logic."
+  bug: "452963194"
+  metadata {
+    purpose: PURPOSE_BUGFIX
+  }
+}
+
+flag {
   name: "shareousel_scroll_offscreen_selections"
   namespace: "intentresolver"
   description: "Whether to scroll items onscreen when they are partially offscreen and selected/unselected."
