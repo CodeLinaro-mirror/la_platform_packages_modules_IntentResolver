@@ -20,7 +20,6 @@ import android.app.ActivityManager
 import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.drawable.Drawable
-import com.android.intentresolver.Flags.limitTargetDataLoadingThreads
 import com.android.intentresolver.R
 import com.android.intentresolver.SimpleIconFactory
 import com.android.intentresolver.TargetPresentationGetter
@@ -49,10 +48,7 @@ object TargetDataLoaderModule {
     @TargetDataLoading
     fun targetDataLoadingDispatcher(
         @Background dispatcher: CoroutineDispatcher
-    ): CoroutineDispatcher =
-        if (limitTargetDataLoadingThreads())
-            dispatcher.limitedParallelism(MAX_TARGET_DATA_LOADING_THREADS)
-        else dispatcher
+    ): CoroutineDispatcher = dispatcher.limitedParallelism(MAX_TARGET_DATA_LOADING_THREADS)
 
     @Provides
     @IconPlaceholder
