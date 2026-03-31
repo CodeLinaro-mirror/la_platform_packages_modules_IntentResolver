@@ -105,7 +105,7 @@ public final class ChooserActionFactory implements ChooserContentPreviewUi.Actio
     @Nullable private Runnable mCopyButtonRunnable;
     @Nullable private Runnable mEditButtonRunnable;
     private final ImmutableList<ChooserAction> mCustomActions;
-    private final Consumer<Boolean> mExcludeSharedTextAction;
+    private final Consumer<Boolean> mIncludeSharedTextAction;
     @Nullable private final ShareResultSender mShareResultSender;
     private final Consumer</* @Nullable */ Integer> mFinishCallback;
     private final EventLog mLog;
@@ -113,8 +113,8 @@ public final class ChooserActionFactory implements ChooserContentPreviewUi.Actio
     /**
      * @param context
      * @param imageEditor an explicit Activity to launch for editing images
-     * @param onUpdateSharedTextIsExcluded a delegate to be invoked when the "exclude shared text"
-     * setting is updated. The argument is whether the shared text is to be excluded.
+     * @param onUpdateSharedTextIsIncluded a delegate to be invoked when the "exclude shared text"
+     * setting is updated. The argument is whether the shared text is to be included.
      * @param firstVisibleImageQuery a delegate that provides a reference to the first visible image
      * View in the Sharesheet UI, if any, or null.
      * @param activityStarter a delegate to launch activities when actions are selected.
@@ -128,7 +128,7 @@ public final class ChooserActionFactory implements ChooserContentPreviewUi.Actio
             List<ChooserAction> chooserActions,
             Optional<ComponentName> imageEditor,
             EventLog log,
-            Consumer<Boolean> onUpdateSharedTextIsExcluded,
+            Consumer<Boolean> onUpdateSharedTextIsIncluded,
             Callable</* @Nullable */ View> firstVisibleImageQuery,
             ActionActivityStarter activityStarter,
             @Nullable ShareResultSender shareResultSender,
@@ -151,7 +151,7 @@ public final class ChooserActionFactory implements ChooserContentPreviewUi.Actio
                         activityStarter,
                         log),
                 chooserActions,
-                onUpdateSharedTextIsExcluded,
+                onUpdateSharedTextIsIncluded,
                 log,
                 shareResultSender,
                 finishCallback);
@@ -164,7 +164,7 @@ public final class ChooserActionFactory implements ChooserContentPreviewUi.Actio
             @Nullable Runnable copyButtonRunnable,
             @Nullable Runnable editButtonRunnable,
             List<ChooserAction> customActions,
-            Consumer<Boolean> onUpdateSharedTextIsExcluded,
+            Consumer<Boolean> onUpdateSharedTextIsIncluded,
             EventLog log,
             @Nullable ShareResultSender shareResultSender,
             Consumer</* @Nullable */ Integer> finishCallback) {
@@ -172,7 +172,7 @@ public final class ChooserActionFactory implements ChooserContentPreviewUi.Actio
         mCopyButtonRunnable = copyButtonRunnable;
         mEditButtonRunnable = editButtonRunnable;
         mCustomActions = ImmutableList.copyOf(customActions);
-        mExcludeSharedTextAction = onUpdateSharedTextIsExcluded;
+        mIncludeSharedTextAction = onUpdateSharedTextIsIncluded;
         mLog = log;
         mShareResultSender = shareResultSender;
         mFinishCallback = finishCallback;
@@ -226,16 +226,16 @@ public final class ChooserActionFactory implements ChooserContentPreviewUi.Actio
 
     /**
      * <p>
-     * Creates an exclude-text action that can be called when the user changes shared text
+     * Creates an include-text action that can be called when the user changes shared text
      * status in the Media + Text preview.
      * </p>
      * <p>
-     * <code>true</code> argument value indicates that the text should be excluded.
+     * <code>true</code> argument value indicates that the text should be included.
      * </p>
      */
     @Override
-    public Consumer<Boolean> getExcludeSharedTextAction() {
-        return mExcludeSharedTextAction;
+    public Consumer<Boolean> getIncludeSharedTextAction() {
+        return mIncludeSharedTextAction;
     }
 
     @Nullable

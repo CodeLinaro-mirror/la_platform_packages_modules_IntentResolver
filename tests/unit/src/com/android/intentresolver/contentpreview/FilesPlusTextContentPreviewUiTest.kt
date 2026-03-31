@@ -60,7 +60,7 @@ class FilesPlusTextContentPreviewUiTest {
 
             override fun getModifyShareAction(): ActionRow.Action? = null
 
-            override fun getExcludeSharedTextAction(): Consumer<Boolean> = Consumer<Boolean> {}
+            override fun getIncludeSharedTextAction(): Consumer<Boolean> = Consumer<Boolean> {}
         }
     private val imageLoader = mock<ImageLoader>()
     private val headlineGenerator =
@@ -194,6 +194,7 @@ class FilesPlusTextContentPreviewUiTest {
                 headlineGenerator,
                 testMetadataText,
                 /* allowTextToggle=*/ false,
+                /* isTextIncluded=*/ true,
             )
         val layoutInflater = LayoutInflater.from(context)
         val gridLayout =
@@ -237,6 +238,7 @@ class FilesPlusTextContentPreviewUiTest {
                 headlineGenerator,
                 testMetadataText,
                 /* allowTextToggle=*/ false,
+                /* isTextIncluded=*/ true,
             )
         val layoutInflater = LayoutInflater.from(context)
         val gridLayout =
@@ -288,6 +290,7 @@ class FilesPlusTextContentPreviewUiTest {
                 headlineGenerator,
                 testMetadataText,
                 /* allowTextToggle=*/ true,
+                /* isTextIncluded=*/ true,
             )
         val layoutInflater = LayoutInflater.from(context)
         val gridLayout =
@@ -322,6 +325,7 @@ class FilesPlusTextContentPreviewUiTest {
                 headlineGenerator,
                 testMetadataText,
                 /* allowTextToggle=*/ false,
+                /* isTextIncluded=*/ true,
             )
         val layoutInflater = LayoutInflater.from(context)
         val gridLayout =
@@ -338,6 +342,41 @@ class FilesPlusTextContentPreviewUiTest {
 
         val checkbox = headlineRow.requireViewById<CheckBox>(R.id.include_text_action)
         assertThat(checkbox.visibility).isNotEqualTo(View.VISIBLE)
+    }
+
+    @Test
+    fun excludeSharedText_checkBoxNotChecked() {
+        val testSubject =
+            FilesPlusTextContentPreviewUi(
+                testScope,
+                /*isSingleImage=*/ false,
+                /* fileCount=*/ 1,
+                SHARED_TEXT,
+                /*intentMimeType=*/ "*/*",
+                actionFactory,
+                imageLoader,
+                DefaultMimeTypeClassifier,
+                headlineGenerator,
+                testMetadataText,
+                /* allowTextToggle=*/ true,
+                /* isTextIncluded=*/ false,
+            )
+        val layoutInflater = LayoutInflater.from(context)
+        val gridLayout =
+            layoutInflater.inflate(R.layout.chooser_grid_scrollable_preview, null, false)
+                as ViewGroup
+        val headlineRow = gridLayout.requireViewById<View>(R.id.chooser_headline_row_container)
+
+        testSubject.display(
+            context.resources,
+            LayoutInflater.from(context),
+            gridLayout,
+            headlineRow,
+        )
+
+        val checkbox = headlineRow.requireViewById<CheckBox>(R.id.include_text_action)
+        assertThat(checkbox.visibility).isEqualTo(View.VISIBLE)
+        assertThat(checkbox.isChecked).isFalse()
     }
 
     private fun testLoadingHeadline(
@@ -358,6 +397,7 @@ class FilesPlusTextContentPreviewUiTest {
                 headlineGenerator,
                 testMetadataText,
                 /* allowTextToggle=*/ false,
+                /* isTextIncluded=*/ true,
             )
         val layoutInflater = LayoutInflater.from(context)
         val gridLayout =
