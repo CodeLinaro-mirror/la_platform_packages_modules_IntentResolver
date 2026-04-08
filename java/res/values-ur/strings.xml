@@ -46,7 +46,7 @@
     <string name="chooseActivity" msgid="6659724877523973446">"ایک کارروائی منتخب کریں"</string>
     <string name="noApplications" msgid="1139487441772284671">"کوئی ایپس یہ کارروائی نہیں کر سکتی ہیں۔"</string>
     <string name="forward_intent_to_owner" msgid="6454987608971162379">"آپ اس ایپ کا استعمال اپنے دفتری پروفائل کے باہر کر رہے ہیں"</string>
-    <string name="forward_intent_to_work" msgid="2906094223089139419">"آپ اس ایپ کو اپنے دفتری پروفائل میں استعمال کر رہے ہیں"</string>
+    <string name="forward_intent_to_work" msgid="2906094223089139419">"آپ اس ایپ کو اپنی دفتری پروفائل میں استعمال کر رہے ہیں"</string>
     <string name="activity_resolver_use_always" msgid="8674194687637555245">"ہمیشہ"</string>
     <string name="activity_resolver_use_once" msgid="594173435998892989">"بس ایک مرتبہ"</string>
     <string name="activity_resolver_work_profiles_support" msgid="8228711455685203580">"<xliff:g id="APP">%1$s</xliff:g> دفتری پروفائل کا تعاون نہیں کرتی ہے"</string>
