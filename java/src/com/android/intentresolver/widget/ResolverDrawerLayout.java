@@ -21,6 +21,7 @@ import static android.content.res.Resources.ID_NULL;
 import static android.service.chooser.Flags.interactiveChooser;
 
 import static com.android.intentresolver.Flags.desktopUi;
+import static com.android.intentresolver.Flags.fixResolverDrawerLayoutDismiss;
 
 import android.content.Context;
 import android.content.res.TypedArray;
@@ -692,8 +693,11 @@ public class ResolverDrawerLayout extends ViewGroup {
     }
 
     private void dismiss(float velocityY) {
-        smoothScrollTo(mHeightUsed, velocityY, 200);
+        boolean isScrolling = smoothScrollTo(mHeightUsed, velocityY, 200);
         mDismissOnScrollerFinished = true;
+        if (fixResolverDrawerLayoutDismiss() && !isScrolling) {
+            postOnDismissed();
+        }
     }
 
     private void postOnDismissed() {
@@ -813,16 +817,16 @@ public class ResolverDrawerLayout extends ViewGroup {
         }
     }
 
-    private void smoothScrollTo(int yOffset, float velocity) {
-        smoothScrollTo(yOffset, velocity, NOT_SET);
+    private boolean smoothScrollTo(int yOffset, float velocity) {
+        return smoothScrollTo(yOffset, velocity, NOT_SET);
     }
 
-    private void smoothScrollTo(int yOffset, float velocity, int durationMs) {
+    private boolean smoothScrollTo(int yOffset, float velocity, int durationMs) {
         abortAnimation();
         final int sy = (int) mCollapseOffset;
         int dy = yOffset - sy;
         if (dy == 0) {
-            return;
+            return false;
         }
 
         if (durationMs == NOT_SET) {
@@ -831,6 +835,7 @@ public class ResolverDrawerLayout extends ViewGroup {
 
         mScroller.startScroll(0, sy, 0, dy, durationMs);
         postInvalidateOnAnimation();
+        return true;
     }
 
     private int computeScrollDurationMs(int dy, float velocity) {
