@@ -27,7 +27,6 @@ import static androidx.lifecycle.LifecycleKt.getCoroutineScope;
 
 import static com.android.intentresolver.ChooserActionFactory.EDIT_SOURCE;
 import static com.android.intentresolver.Flags.desktopUi;
-import static com.android.intentresolver.Flags.refineSystemActions;
 import static com.android.intentresolver.ext.CreationExtrasExtKt.replaceDefaultArgs;
 import static com.android.intentresolver.profiles.MultiProfilePagerAdapter.PROFILE_PERSONAL;
 import static com.android.intentresolver.profiles.MultiProfilePagerAdapter.PROFILE_WORK;
@@ -317,7 +316,6 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
 
     private final Map<Integer, ProfileRecord> mProfileRecords = new LinkedHashMap<>();
 
-    private boolean mExcludeSharedText = false;
     /**
      * When we intend to finish the activity with a shared element transition, we can't immediately
      * finish() when the transition is invoked, as the receiving end may not be able to start the
@@ -658,7 +656,8 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                 mEnterTransitionAnimationDelegate,
                 new HeadlineGeneratorImpl(this),
                 mRequest.getContentTypeHint(),
-                mRequest.getMetadataText());
+                mRequest.getMetadataText(),
+                mViewModel.isTextIncluded());
         updateStickyContentPreview();
 
         mImageEditorActionFactory.getImageEditorTargetInfoAsync(
@@ -1642,8 +1641,8 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                                     getContentResolver(),
                                     mRequest.getTargetIntent(),
                                     request.getCrossProfilePayloadIntents(),
-                                    launchedAs.getPrimary().getHandle(),
-                                    profile.getPrimary().getHandle())
+                                    getEffectiveProfile(launchedAs).getPrimary().getHandle(),
+                                    getEffectiveProfile(profile).getPrimary().getHandle())
                             : request.getPayloadIntents(),
                     isCrossProfile ? null : initialIntentArray,
                     profile.getPrimary().getHandle()
@@ -1674,6 +1673,15 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                 profileHelper.getCloneHandle(),
                 maxTargetsPerRow,
                 expandDrawerDelegate);
+    }
+
+    private Profile getEffectiveProfile(Profile profile) {
+        // When sharing into or out of Private profile, perform the check using the parent profile
+        // instead. (Hard-coded application of CROSS_PROFILE_CONTENT_SHARING_DELEGATE_FROM_PARENT)
+        // Assumption baked into design: "Personal" profile is the parent of all other profiles.
+        return profile.getType() == Profile.Type.PRIVATE
+                ? mProfiles.getPersonalProfile()
+                : profile;
     }
 
     protected EmptyStateProvider createBlockerEmptyStateProvider() {
@@ -1988,7 +1996,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         // should probably never happen. But why would this method ever be invoked with a
         // null target at all? Even an out-of-bounds index should never be "selected"...
         if ((currentListAdapter.getCount() > 0) && (targetInfo != null)) {
-            boolean includedExtraTextWhenSharingFile = !mExcludeSharedText
+            boolean includedExtraTextWhenSharingFile = mViewModel.isTextIncluded()
                 && mRequest.getCallerAllowsTextToggle()
                 && mChooserContentPreviewUi != null
                 && mChooserContentPreviewUi.hasFilesPlusTextContentPreviewUi();
@@ -2116,7 +2124,7 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
         // "image/png" and provides an alternative intent to share only the link with mime type
         // "text/uri". Should there be a target that accepts only the latter, the alternative intent
         // will be used and we don't want to exclude the link from it.
-        if (mExcludeSharedText && originalTargetIntent.filterEquals(targetIntent)) {
+        if (!mViewModel.isTextIncluded() && originalTargetIntent.filterEquals(targetIntent)) {
             targetIntent.removeExtra(Intent.EXTRA_TEXT);
         }
     }
@@ -2310,10 +2318,6 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
 
     private ChooserContentPreviewUi.ActionFactory decorateActionFactoryWithRefinement(
             ChooserContentPreviewUi.ActionFactory originalFactory) {
-        if (!refineSystemActions()) {
-            return originalFactory;
-        }
-
         return new ChooserContentPreviewUi.ActionFactory() {
             @Override
             @Nullable
@@ -2361,8 +2365,8 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
             }
 
             @Override
-            public Consumer<Boolean> getExcludeSharedTextAction() {
-                return originalFactory.getExcludeSharedTextAction();
+            public Consumer<Boolean> getIncludeSharedTextAction() {
+                return originalFactory.getIncludeSharedTextAction();
             }
         };
     }
@@ -2375,7 +2379,9 @@ public class ChooserActivity extends Hilt_ChooserActivity implements
                 mRequest.getChooserActions(),
                 mImageEditor,
                 getEventLog(),
-                (isExcluded) -> mExcludeSharedText = isExcluded,
+                (isIncluded) -> {
+                    mViewModel.setTextIncluded(isIncluded);
+                },
                 this::getFirstVisibleImgPreviewView,
                 new ChooserActionFactory.ActionActivityStarter() {
                     @Override

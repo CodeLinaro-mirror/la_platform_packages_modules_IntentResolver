@@ -13,10 +13,10 @@ flag {
 }
 
 flag {
-  name: "refine_system_actions"
+  name: "fix_resolver_drawer_layout_dismiss"
   namespace: "intentresolver"
-  description: "This flag enables sending system actions to the caller refinement flow"
-  bug: "331206205"
+  description: "Enable fixed ResolverDrawerLayout dismiss logic."
+  bug: "452963194"
   metadata {
     purpose: PURPOSE_BUGFIX
   }
@@ -37,11 +37,8 @@ flag {
 }
 
 flag {
-  name: "limit_target_data_loading_threads"
+  name: "include_link_sticky_checkbox"
   namespace: "intentresolver"
-  description: "Limit the number of background threads (currently 4) that can be used to load per-target resources"
-  bug: "420992996"
-  metadata {
-    purpose: PURPOSE_BUGFIX
-  }
+  description: "Enable sticky value for include link checkbox in share sheet."
+  bug: "459772076"
 }

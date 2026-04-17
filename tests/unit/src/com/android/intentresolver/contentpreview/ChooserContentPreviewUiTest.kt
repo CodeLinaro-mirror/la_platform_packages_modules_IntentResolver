@@ -57,7 +57,7 @@ class ChooserContentPreviewUiTest {
 
             override fun getModifyShareAction(): ActionRow.Action? = null
 
-            override fun getExcludeSharedTextAction(): Consumer<Boolean> = Consumer<Boolean> {}
+            override fun getIncludeSharedTextAction(): Consumer<Boolean> = Consumer<Boolean> {}
         }
     private val transitionCallback = mock<ImagePreviewView.TransitionElementStatusCallback>()
     @get:Rule val checkFlagsRule: CheckFlagsRule = DeviceFlagsValueProvider.createCheckFlagsRule()
@@ -79,6 +79,7 @@ class ChooserContentPreviewUiTest {
             headlineGenerator,
             ContentTypeHint.NONE,
             testMetadataText,
+            /* isTextIncluded=*/ true,
         )
 
     @Test

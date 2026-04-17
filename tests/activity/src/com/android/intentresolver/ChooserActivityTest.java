@@ -71,6 +71,7 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.SharedPreferences;
 import android.content.pm.ActivityInfo;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
@@ -89,6 +90,7 @@ import android.graphics.drawable.Icon;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.UserHandle;
+import android.platform.test.annotations.DisableFlags;
 import android.platform.test.annotations.EnableFlags;
 import android.platform.test.flag.junit.SetFlagsRule;
 import android.provider.DeviceConfig;
@@ -161,6 +163,8 @@ import dagger.hilt.android.testing.UninstallModules;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 import org.hamcrest.Matchers;
+import org.junit.After;
+import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Rule;
@@ -309,6 +313,9 @@ public class ChooserActivityTest {
     @BindValue
     ThumbnailLoader mThumbnailLoader = new FakeThumbnailLoader();
 
+    private boolean mHasStoredIncludeSharedText;
+    private boolean mIncludeSharedText;
+
     @Before
     public void setUp() {
         // TODO: use the other form of `adoptShellPermissionIdentity()` where we explicitly list the
@@ -328,6 +335,23 @@ public class ChooserActivityTest {
         // values to the dependency graph at activity launch time. This allows replacing
         // arbitrary bindings per-test case if needed.
         mPackageManager = mContext.getPackageManager();
+
+        // Store the current value of include_shared_text and clear it before running tests.
+        SharedPreferences prefs =
+                mContext.getSharedPreferences("chooser_pin_settings", Context.MODE_PRIVATE);
+        mHasStoredIncludeSharedText = prefs.contains("include_shared_text");
+        mIncludeSharedText = prefs.getBoolean("include_shared_text", true);
+        prefs.edit().clear().commit();
+    }
+
+    @After
+    public void tearDown() {
+        if (mHasStoredIncludeSharedText) {
+            mContext.getSharedPreferences("chooser_pin_settings", Context.MODE_PRIVATE)
+                    .edit()
+                    .putBoolean("include_shared_text", mIncludeSharedText)
+                    .commit();
+        }
     }
 
     public ChooserActivityTest(boolean appPredictionAvailable) {
@@ -770,9 +794,10 @@ public class ChooserActivityTest {
     }
 
     @Test
-    @Ignore("b/285309527")
-    public void testFilePlusTextSharing_ExcludeText() {
-        Uri uri = createTestContentProviderUri(null, "image/png");
+    @DisableFlags(Flags.FLAG_INCLUDE_LINK_STICKY_CHECKBOX)
+    public void filePlusTextSharing_toggleIncludeText_includeLinkStickyCheckboxDisabled() {
+        Assume.assumeTrue(mAppPredictionAvailable);
+        Uri uri = createTestContentProviderUri("image/png", null);
         Intent sendIntent = createSendImageIntent(uri);
         mFakeImageLoader.setBitmap(uri, createBitmap());
         sendIntent.putExtra(Intent.EXTRA_TEXT, "https://google.com/search?q=google");
@@ -788,15 +813,16 @@ public class ChooserActivityTest {
 
         setupResolverControllers(resolvedComponentInfos);
 
-        mActivityRule.launchActivity(Intent.createChooser(sendIntent, null));
+        Intent chooserIntent = Intent.createChooser(sendIntent, null);
+        Uri referrer = Uri.parse("android-app://com.android.systemui");
+        chooserIntent.putExtra(Intent.EXTRA_REFERRER, referrer);
+        mActivityRule.launchActivity(chooserIntent);
         waitForIdle();
 
         onView(withId(R.id.include_text_action))
                 .check(matches(isDisplayed()))
                 .perform(click());
         waitForIdle();
-
-        onView(withId(R.id.content_preview_text)).check(matches(withText("File only")));
 
         AtomicReference<Intent> launchedIntentRef = new AtomicReference<>();
         ChooserActivityOverrideData.getInstance().onSafelyStartInternalCallback = targetInfo -> {
@@ -808,6 +834,55 @@ public class ChooserActivityTest {
                 .perform(click());
         waitForIdle();
         assertThat(launchedIntentRef.get().hasExtra(Intent.EXTRA_TEXT)).isFalse();
+    }
+
+
+    @Test
+    @EnableFlags(Flags.FLAG_INCLUDE_LINK_STICKY_CHECKBOX)
+    public void filePlusTextSharing_toggleIncludeText_includeLinkStickyCheckboxEnabled() {
+        Assume.assumeTrue(mAppPredictionAvailable);
+
+        Uri uri = createTestContentProviderUri("image/png", null);
+        Intent sendIntent = createSendImageIntent(uri);
+        mFakeImageLoader.setBitmap(uri, createBitmap());
+        sendIntent.putExtra(Intent.EXTRA_TEXT, "https://google.com/search?q=google");
+
+        List<ResolvedComponentInfo> resolvedComponentInfos = Arrays.asList(
+                ResolverDataProvider.createResolvedComponentInfo(
+                        new ComponentName("org.imageviewer", "ImageTarget"),
+                        sendIntent, PERSONAL_USER_HANDLE),
+                ResolverDataProvider.createResolvedComponentInfo(
+                        new ComponentName("org.textviewer", "UriTarget"),
+                        new Intent("VIEW_TEXT"), PERSONAL_USER_HANDLE)
+        );
+
+        setupResolverControllers(resolvedComponentInfos);
+
+        Intent chooserIntent = Intent.createChooser(sendIntent, null);
+        Uri referrer = Uri.parse("android-app://com.android.systemui");
+        chooserIntent.putExtra(Intent.EXTRA_REFERRER, referrer);
+        ChooserWrapperActivity activity = mActivityRule.launchActivity(chooserIntent);
+        SharedPreferences prefs =
+                activity.getSharedPreferences("chooser_pin_settings", Context.MODE_PRIVATE);
+        Boolean includeSharedText = prefs.getBoolean("include_shared_text", true);
+        waitForIdle();
+
+        onView(withId(R.id.include_text_action))
+                .check(matches(isDisplayed()))
+                .perform(click());
+        waitForIdle();
+
+        AtomicReference<Intent> launchedIntentRef = new AtomicReference<>();
+        ChooserActivityOverrideData.getInstance().onSafelyStartInternalCallback = targetInfo -> {
+            launchedIntentRef.set(targetInfo.getTargetIntent());
+            return true;
+        };
+
+        onView(withText(resolvedComponentInfos.get(0).getResolveInfoAt(0).activityInfo.name))
+                .perform(click());
+        waitForIdle();
+        assertThat(launchedIntentRef.get().hasExtra(Intent.EXTRA_TEXT)).isFalse();
+        assertEquals(prefs.getBoolean("include_shared_text", true), !includeSharedText);
     }
 
     @Test
